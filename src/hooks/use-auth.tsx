@@ -22,6 +22,7 @@ interface AuthContextType {
   signOut: () => Promise<{ error: any }>
   resetPassword: (email: string) => Promise<{ error: any }>
   updatePassword: (password: string) => Promise<{ error: any }>
+  refreshProfile: () => Promise<void>
   loading: boolean
 }
 
@@ -91,6 +92,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false)
   }
 
+  const refreshProfile = async () => {
+    if (session?.user) {
+      await fetchProfile(session.user.id)
+    }
+  }
+
   useEffect(() => {
     const {
       data: { subscription },
@@ -156,6 +163,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         signOut,
         resetPassword,
         updatePassword,
+        refreshProfile,
         loading,
       }}
     >

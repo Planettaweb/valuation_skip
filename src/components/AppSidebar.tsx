@@ -32,14 +32,14 @@ export function AppSidebar() {
   const isAdmin = userProfile?.role === 'Admin'
 
   return (
-    <Sidebar className="border-r-white/5 bg-sidebar/80 backdrop-blur-xl">
+    <Sidebar className="border-r-border bg-sidebar/80 backdrop-blur-xl">
       <SidebarContent>
         <div className="flex items-center gap-3 p-6 mb-2">
           <div className="p-2 bg-primary/20 rounded-xl border border-primary/30">
             <Rocket className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h2 className="text-lg font-bold tracking-tight text-white">Nearbound</h2>
+            <h2 className="text-lg font-bold tracking-tight text-sidebar-foreground">Nearbound</h2>
             <p className="text-[10px] text-primary uppercase tracking-widest font-semibold">
               Platform 2.0
             </p>
@@ -75,7 +75,7 @@ export function AppSidebar() {
           <Collapsible defaultOpen className="group/admin">
             <SidebarGroup>
               <SidebarGroupLabel asChild>
-                <CollapsibleTrigger className="flex items-center w-full hover:bg-white/5 p-2 rounded-md transition-colors cursor-pointer text-white/70 hover:text-white mt-2">
+                <CollapsibleTrigger className="flex items-center w-full hover:bg-sidebar-accent p-2 rounded-md transition-colors cursor-pointer text-sidebar-foreground/70 hover:text-sidebar-foreground mt-2">
                   Administração
                   <ChevronDown className="ml-auto w-4 h-4 transition-transform group-data-[state=open]/admin:rotate-180" />
                 </CollapsibleTrigger>
@@ -134,8 +134,11 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu className="gap-2 px-2">
               <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="#" className="hover:bg-primary/10 hover:text-primary transition-colors">
+                <SidebarMenuButton asChild isActive={location.pathname === '/settings'}>
+                  <Link
+                    to="/settings"
+                    className="hover:bg-primary/10 hover:text-primary transition-colors"
+                  >
                     <Settings className="w-4 h-4" /> <span>Configurações</span>
                   </Link>
                 </SidebarMenuButton>
@@ -145,10 +148,10 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t border-white/5">
+      <SidebarFooter className="p-4 border-t border-border">
         <SidebarMenuButton
           onClick={signOut}
-          className="text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+          className="text-red-500 hover:text-red-600 hover:bg-red-500/10 transition-colors"
         >
           <LogOut className="w-4 h-4" /> <span>Sair da Sessão</span>
         </SidebarMenuButton>

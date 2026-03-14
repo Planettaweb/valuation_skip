@@ -1083,12 +1083,54 @@ export const Constants = {
 //   Policy "documents_update" (UPDATE, PERMISSIVE) roles={authenticated}
 //     USING: ((org_id = get_user_org_id()) AND (get_user_role_name() = ANY (ARRAY['Admin'::text, 'Analyst'::text])))
 // Table: organizations
+//   Policy "admin_orgs_delete" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: (get_user_role_name() = 'Admin'::text)
+//   Policy "admin_orgs_insert" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: (get_user_role_name() = 'Admin'::text)
+//   Policy "admin_orgs_update" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: (get_user_role_name() = 'Admin'::text)
 //   Policy "orgs_select" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: true
+// Table: permissions
+//   Policy "admin_permissions_delete" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: (get_user_role_name() = 'Admin'::text)
+//   Policy "admin_permissions_insert" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: (get_user_role_name() = 'Admin'::text)
+//   Policy "admin_permissions_select" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "admin_permissions_update" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: (get_user_role_name() = 'Admin'::text)
+//   Policy "authenticated_read_permissions" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
+// Table: role_permissions
+//   Policy "admin_role_permissions_delete" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: (get_user_role_name() = 'Admin'::text)
+//   Policy "admin_role_permissions_insert" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: (get_user_role_name() = 'Admin'::text)
+//   Policy "admin_role_permissions_select" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "admin_role_permissions_update" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: (get_user_role_name() = 'Admin'::text)
+//   Policy "authenticated_read_role_permissions" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
 // Table: roles
+//   Policy "admin_roles_delete" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: (get_user_role_name() = 'Admin'::text)
+//   Policy "admin_roles_insert" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: (get_user_role_name() = 'Admin'::text)
+//   Policy "admin_roles_update" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: (get_user_role_name() = 'Admin'::text)
 //   Policy "roles_select" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: true
 // Table: users
+//   Policy "admin_all_users_delete" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: (get_user_role_name() = 'Admin'::text)
+//   Policy "admin_all_users_insert" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: (get_user_role_name() = 'Admin'::text)
+//   Policy "admin_all_users_select" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: (get_user_role_name() = 'Admin'::text)
+//   Policy "admin_all_users_update" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: (get_user_role_name() = 'Admin'::text)
 //   Policy "tenant_isolation_users_select" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: ((id = auth.uid()) OR (org_id = get_user_org_id()))
 //   Policy "tenant_isolation_users_update" (UPDATE, PERMISSIVE) roles={authenticated}
