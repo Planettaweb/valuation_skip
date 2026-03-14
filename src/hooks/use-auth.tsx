@@ -10,6 +10,7 @@ export interface UserProfile {
   is_active: boolean
   role: string
   org_name: string
+  permissions: string[]
 }
 
 interface AuthContextType {
@@ -45,7 +46,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .select(`
           id, email, full_name, org_id, is_active,
           organizations (name),
-          users_roles ( roles (name) )
+          users_roles ( 
+            roles (
+              name,
+              role_permissions (
+                allowed,
+                permissions ( action, resource )
+              )
+            ) 
+          )
         `)
         .eq('id', userId)
         .single()
@@ -55,6 +64,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const orgName = Array.isArray(data.organizations)
           ? data.organizations[0]?.name
           : data.organizations?.name || 'Unknown'
+
+        const perms = new Set<string>()
+        data.users_roles?.forEach((ur: any) => {
+          ur.roles?.role_permissions?.forEach((rp: any) => {
+            if (rp.allowed && rp.permissions) {
+              perms.add(`${rp.permissions.resource}:${rp.permissions.action}`)
+            }
+          })
+        })
+
         setUserProfile({
           id: data.id,
           email: data.email,
@@ -63,6 +82,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           is_active: data.is_active || false,
           role: roleName,
           org_name: orgName,
+          permissions: Array.from(perms),
         })
       }
     } catch (e) {

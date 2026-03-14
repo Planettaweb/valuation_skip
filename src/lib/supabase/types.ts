@@ -1090,7 +1090,7 @@ export const Constants = {
 //     USING: true
 // Table: users
 //   Policy "tenant_isolation_users_select" (SELECT, PERMISSIVE) roles={authenticated}
-//     USING: ((id = auth.uid()) OR (org_id = ( SELECT users_1.org_id    FROM users users_1   WHERE (users_1.id = auth.uid()))))
+//     USING: ((id = auth.uid()) OR (org_id = get_user_org_id()))
 //   Policy "tenant_isolation_users_update" (UPDATE, PERMISSIVE) roles={authenticated}
 //     USING: (org_id = get_user_org_id())
 // Table: users_roles
@@ -1114,8 +1114,11 @@ export const Constants = {
 //    SECURITY DEFINER
 //    SET search_path TO 'public'
 //   AS $function$
+//   DECLARE
+//     v_org_id uuid;
 //   BEGIN
-//     RETURN (SELECT org_id FROM public.users WHERE id = auth.uid() LIMIT 1);
+//     SELECT org_id INTO v_org_id FROM public.users WHERE id = auth.uid() LIMIT 1;
+//     RETURN v_org_id;
 //   END;
 //   $function$
 //

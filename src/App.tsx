@@ -5,6 +5,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { Layout } from './components/Layout'
 import { AuthProvider, useAuth } from './hooks/use-auth'
 import { Loader2 } from 'lucide-react'
+import { AdminRoute } from './components/admin/AdminRoute'
 
 import Index from './pages/Index'
 import Login from './pages/Login'
@@ -13,6 +14,9 @@ import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import Documents from './pages/Documents'
 import Users from './pages/Users'
+import Organizations from './pages/Organizations'
+import Roles from './pages/Roles'
+import Permissions from './pages/Permissions'
 import NotFound from './pages/NotFound'
 
 // Protected Route Wrapper
@@ -96,7 +100,6 @@ const AppRoutes = () => (
         </PublicRoute>
       }
     />
-
     <Route path="/reset-password" element={<ResetPassword />} />
 
     <Route
@@ -108,7 +111,14 @@ const AppRoutes = () => (
     >
       <Route path="/" element={<Index />} />
       <Route path="/documents" element={<Documents />} />
-      <Route path="/users" element={<Users />} />
+
+      {/* Admin Module Routes */}
+      <Route element={<AdminRoute />}>
+        <Route path="/users" element={<Users />} />
+        <Route path="/organizations" element={<Organizations />} />
+        <Route path="/roles" element={<Roles />} />
+        <Route path="/permissions" element={<Permissions />} />
+      </Route>
     </Route>
 
     <Route path="*" element={<NotFound />} />

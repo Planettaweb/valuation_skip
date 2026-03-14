@@ -1,4 +1,15 @@
-import { LayoutDashboard, Folder, Users, Settings, LogOut, Rocket } from 'lucide-react'
+import {
+  LayoutDashboard,
+  Folder,
+  Users,
+  Settings,
+  LogOut,
+  Rocket,
+  ChevronDown,
+  ShieldCheck,
+  Building2,
+  Key,
+} from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   Sidebar,
@@ -9,7 +20,9 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarFooter,
+  SidebarGroupLabel,
 } from '@/components/ui/sidebar'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { useAuth } from '@/hooks/use-auth'
 
 export function AppSidebar() {
@@ -21,7 +34,7 @@ export function AppSidebar() {
   return (
     <Sidebar className="border-r-white/5 bg-sidebar/80 backdrop-blur-xl">
       <SidebarContent>
-        <div className="flex items-center gap-3 p-6 mb-4">
+        <div className="flex items-center gap-3 p-6 mb-2">
           <div className="p-2 bg-primary/20 rounded-xl border border-primary/30">
             <Rocket className="w-5 h-5 text-primary" />
           </div>
@@ -54,20 +67,72 @@ export function AppSidebar() {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-              {isAdmin && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location.pathname === '/users'}>
-                    <Link
-                      to="/users"
-                      className="hover:bg-primary/10 hover:text-primary transition-colors"
-                    >
-                      <Users className="w-4 h-4" /> <span>Usuários</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
+        {isAdmin && (
+          <Collapsible defaultOpen className="group/admin">
+            <SidebarGroup>
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger className="flex items-center w-full hover:bg-white/5 p-2 rounded-md transition-colors cursor-pointer text-white/70 hover:text-white mt-2">
+                  Administração
+                  <ChevronDown className="ml-auto w-4 h-4 transition-transform group-data-[state=open]/admin:rotate-180" />
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu className="gap-2 px-2 mt-2">
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={location.pathname === '/users'}>
+                        <Link
+                          to="/users"
+                          className="hover:bg-primary/10 hover:text-primary transition-colors"
+                        >
+                          <Users className="w-4 h-4" /> <span>Usuários</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={location.pathname === '/organizations'}>
+                        <Link
+                          to="/organizations"
+                          className="hover:bg-primary/10 hover:text-primary transition-colors"
+                        >
+                          <Building2 className="w-4 h-4" /> <span>Organizações</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={location.pathname === '/roles'}>
+                        <Link
+                          to="/roles"
+                          className="hover:bg-primary/10 hover:text-primary transition-colors"
+                        >
+                          <ShieldCheck className="w-4 h-4" /> <span>Perfis (RBAC)</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={location.pathname === '/permissions'}>
+                        <Link
+                          to="/permissions"
+                          className="hover:bg-primary/10 hover:text-primary transition-colors"
+                        >
+                          <Key className="w-4 h-4" /> <span>Permissões</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
+        )}
 
+        <SidebarGroup className="mt-auto">
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-2 px-2">
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                   <Link to="#" className="hover:bg-primary/10 hover:text-primary transition-colors">
