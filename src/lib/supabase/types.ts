@@ -1084,13 +1084,13 @@ export const Constants = {
 //     USING: ((org_id = get_user_org_id()) AND (get_user_role_name() = ANY (ARRAY['Admin'::text, 'Analyst'::text])))
 // Table: organizations
 //   Policy "orgs_select" (SELECT, PERMISSIVE) roles={authenticated}
-//     USING: (id = get_user_org_id())
+//     USING: true
 // Table: roles
 //   Policy "roles_select" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: true
 // Table: users
 //   Policy "tenant_isolation_users_select" (SELECT, PERMISSIVE) roles={authenticated}
-//     USING: ((id = auth.uid()) OR (org_id = get_user_org_id()))
+//     USING: ((id = auth.uid()) OR (org_id = ( SELECT users_1.org_id    FROM users users_1   WHERE (users_1.id = auth.uid()))))
 //   Policy "tenant_isolation_users_update" (UPDATE, PERMISSIVE) roles={authenticated}
 //     USING: (org_id = get_user_org_id())
 // Table: users_roles
@@ -1110,22 +1110,31 @@ export const Constants = {
 // FUNCTION get_user_org_id()
 //   CREATE OR REPLACE FUNCTION public.get_user_org_id()
 //    RETURNS uuid
-//    LANGUAGE sql
+//    LANGUAGE plpgsql
 //    SECURITY DEFINER
+//    SET search_path TO 'public'
 //   AS $function$
-//     SELECT org_id FROM public.users WHERE id = auth.uid() LIMIT 1;
+//   BEGIN
+//     RETURN (SELECT org_id FROM public.users WHERE id = auth.uid() LIMIT 1);
+//   END;
 //   $function$
 //
 // FUNCTION get_user_role_name()
 //   CREATE OR REPLACE FUNCTION public.get_user_role_name()
 //    RETURNS text
-//    LANGUAGE sql
+//    LANGUAGE plpgsql
 //    SECURITY DEFINER
+//    SET search_path TO 'public'
 //   AS $function$
-//     SELECT r.name
+//   DECLARE
+//     v_role_name text;
+//   BEGIN
+//     SELECT r.name INTO v_role_name
 //     FROM public.users_roles ur
 //     JOIN public.roles r ON r.id = ur.role_id
 //     WHERE ur.user_id = auth.uid() LIMIT 1;
+//     RETURN v_role_name;
+//   END;
 //   $function$
 //
 // FUNCTION handle_new_user()
