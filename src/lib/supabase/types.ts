@@ -1090,7 +1090,7 @@ export const Constants = {
 //     USING: true
 // Table: users
 //   Policy "tenant_isolation_users_select" (SELECT, PERMISSIVE) roles={authenticated}
-//     USING: (org_id = get_user_org_id())
+//     USING: ((id = auth.uid()) OR (org_id = get_user_org_id()))
 //   Policy "tenant_isolation_users_update" (UPDATE, PERMISSIVE) roles={authenticated}
 //     USING: (org_id = get_user_org_id())
 // Table: users_roles
