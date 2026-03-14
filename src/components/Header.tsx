@@ -1,6 +1,6 @@
-import { Bell, UserCircle } from 'lucide-react'
+import { Bell } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
-import useAuthStore from '@/stores/useAuthStore'
+import { useAuth } from '@/hooks/use-auth'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 export function Header() {
-  const { user, logout } = useAuthStore()
+  const { userProfile, signOut } = useAuth()
 
   return (
     <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-4 border-b border-white/5 bg-background/60 px-6 backdrop-blur-xl">
@@ -22,7 +22,8 @@ export function Header() {
         <div className="flex items-center gap-2">
           <div className="h-4 w-[1px] bg-white/10 hidden md:block" />
           <h1 className="text-sm font-medium text-muted-foreground hidden md:block">
-            Organização: <span className="text-white ml-1">{user?.orgName || 'Desconhecida'}</span>
+            Organização:{' '}
+            <span className="text-white ml-1">{userProfile?.org_name || 'Desconhecida'}</span>
           </h1>
         </div>
 
@@ -36,14 +37,18 @@ export function Header() {
             <DropdownMenuTrigger className="outline-none">
               <div className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                 <Avatar className="h-8 w-8 border border-white/10">
-                  <AvatarImage src={`https://img.usecurling.com/ppl/thumbnail?seed=${user?.id}`} />
+                  <AvatarImage
+                    src={`https://img.usecurling.com/ppl/thumbnail?seed=${userProfile?.id}`}
+                  />
                   <AvatarFallback className="bg-primary/20 text-primary">
-                    {user?.name.charAt(0)}
+                    {userProfile?.full_name?.charAt(0) || 'U'}
                   </AvatarFallback>
                 </Avatar>
                 <div className="hidden flex-col items-start md:flex">
-                  <span className="text-sm font-medium text-white">{user?.name}</span>
-                  <span className="text-xs text-muted-foreground">{user?.role}</span>
+                  <span className="text-sm font-medium text-white">
+                    {userProfile?.full_name || 'Usuário'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{userProfile?.role}</span>
                 </div>
               </div>
             </DropdownMenuTrigger>
@@ -55,7 +60,7 @@ export function Header() {
               <DropdownMenuSeparator className="bg-white/10" />
               <DropdownMenuItem
                 className="cursor-pointer text-red-400 focus:bg-red-500/10 focus:text-red-300"
-                onClick={logout}
+                onClick={signOut}
               >
                 Sair
               </DropdownMenuItem>

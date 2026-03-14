@@ -1,8 +1,8 @@
 import { Rocket, User, Building } from 'lucide-react'
-import useAuthStore from '@/stores/useAuthStore'
+import { useAuth } from '@/hooks/use-auth'
 
 export function OrbitalEcosystem() {
-  const { user } = useAuthStore()
+  const { userProfile } = useAuth()
 
   return (
     <div className="relative w-full max-w-[800px] aspect-square mx-auto my-8 flex items-center justify-center pointer-events-none select-none">
@@ -28,13 +28,13 @@ export function OrbitalEcosystem() {
         <div className="absolute -top-1.5 left-1/2 w-3 h-3 bg-primary rounded-full shadow-[0_0_15px_rgba(139,92,246,0.8)]" />
       </div>
 
-      {/* Main Nodes (Static to keep text upright) */}
+      {/* Main Nodes */}
 
       {/* Center Node */}
       <div className="absolute w-32 h-32 bg-[#0a0a0f] border-2 border-primary/50 rounded-full flex flex-col items-center justify-center shadow-[0_0_40px_rgba(139,92,246,0.3)] z-10 glass-panel">
         <Rocket className="text-primary w-8 h-8 mb-2" />
         <span className="text-[10px] text-white font-bold tracking-wider text-center px-2">
-          {user?.orgName || 'Your Company'}
+          {userProfile?.org_name || 'Your Company'}
         </span>
       </div>
 
@@ -50,7 +50,7 @@ export function OrbitalEcosystem() {
         />
       </div>
 
-      {/* Bottom Node (The Buyer) */}
+      {/* Bottom Node */}
       <div className="absolute bottom-[-5%] left-1/2 -translate-x-1/2 translate-y-1/2 flex flex-col items-center gap-3">
         <span className="text-sm font-semibold text-primary">The Buyer</span>
         <div className="w-12 h-12 rounded-full border border-primary/50 bg-primary/10 flex items-center justify-center backdrop-blur-md">
@@ -58,7 +58,7 @@ export function OrbitalEcosystem() {
         </div>
       </div>
 
-      {/* Left Node (Google) */}
+      {/* Left Node */}
       <div className="absolute top-[40%] left-[5%] -translate-y-1/2 flex flex-col sm:flex-row items-center gap-3">
         <img
           src="https://img.usecurling.com/ppl/thumbnail?seed=3&gender=male"
@@ -75,7 +75,7 @@ export function OrbitalEcosystem() {
         </div>
       </div>
 
-      {/* Right Node (J.P. Morgan) */}
+      {/* Right Node */}
       <div className="absolute top-[60%] right-[5%] -translate-y-1/2 flex flex-col sm:flex-row-reverse items-center gap-3">
         <img
           src="https://img.usecurling.com/ppl/thumbnail?seed=4&gender=female"

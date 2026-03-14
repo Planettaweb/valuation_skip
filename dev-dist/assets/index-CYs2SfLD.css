@@ -696,10 +696,6 @@ body::selection{
   left: 0.625rem;
 }
 
-.left-3{
-  left: 0.75rem;
-}
-
 .left-\[-10\%\]{
   left: -10%;
 }
@@ -887,6 +883,10 @@ body::selection{
   margin-bottom: 1rem;
 }
 
+.mb-6{
+  margin-bottom: 1.5rem;
+}
+
 .ml-1{
   margin-left: 0.25rem;
 }
@@ -921,10 +921,6 @@ body::selection{
 
 .mt-4{
   margin-top: 1rem;
-}
-
-.mt-6{
-  margin-top: 1.5rem;
 }
 
 .mt-auto{
@@ -1141,10 +1137,6 @@ body::selection{
   width: 0.25rem;
 }
 
-.w-1\.5{
-  width: 0.375rem;
-}
-
 .w-1\/2{
   width: 50%;
 }
@@ -1235,6 +1227,10 @@ body::selection{
 
 .w-\[100px\]{
   width: 100px;
+}
+
+.w-\[140px\]{
+  width: 140px;
 }
 
 .w-\[1px\]{
@@ -1510,6 +1506,17 @@ body::selection{
 
 .animate-pulse-glow{
   animation: pulse-glow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes spin{
+
+  to{
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin{
+  animation: spin 1s linear infinite;
 }
 
 @keyframes spin{
@@ -1938,15 +1945,6 @@ body::selection{
   background-color: hsl(var(--destructive));
 }
 
-.bg-emerald-400{
-  --tw-bg-opacity: 1;
-  background-color: rgb(52 211 153 / var(--tw-bg-opacity, 1));
-}
-
-.bg-emerald-400\/10{
-  background-color: rgb(52 211 153 / 0.1);
-}
-
 .bg-foreground{
   background-color: hsl(var(--foreground));
 }
@@ -2084,10 +2082,6 @@ body::selection{
   padding: 0.25rem;
 }
 
-.p-10{
-  padding: 2.5rem;
-}
-
 .p-2{
   padding: 0.5rem;
 }
@@ -2102,6 +2096,10 @@ body::selection{
 
 .p-6{
   padding: 1.5rem;
+}
+
+.p-8{
+  padding: 2rem;
 }
 
 .p-\[1px\]{
@@ -2191,6 +2189,11 @@ body::selection{
 .py-6{
   padding-top: 1.5rem;
   padding-bottom: 1.5rem;
+}
+
+.py-8{
+  padding-top: 2rem;
+  padding-bottom: 2rem;
 }
 
 .pb-12{
@@ -2482,10 +2485,6 @@ body::selection{
 
 .text-white\/70{
   color: rgb(255 255 255 / 0.7);
-}
-
-.text-white\/90{
-  color: rgb(255 255 255 / 0.9);
 }
 
 .underline{
@@ -2863,10 +2862,6 @@ body::selection{
   background-color: hsl(var(--accent));
 }
 
-.hover\:bg-card\/80:hover{
-  background-color: hsl(var(--card) / 0.8);
-}
-
 .hover\:bg-destructive\/80:hover{
   background-color: hsl(var(--destructive) / 0.8);
 }
@@ -2958,10 +2953,6 @@ body::selection{
 
 .hover\:text-primary:hover{
   color: hsl(var(--primary));
-}
-
-.hover\:text-primary\/80:hover{
-  color: hsl(var(--primary) / 0.8);
 }
 
 .hover\:text-red-300:hover{

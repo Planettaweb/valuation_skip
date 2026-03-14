@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { FileText, Download, Trash2, Upload, Search } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { FileText, Download, Trash2, Upload, Search, Loader2 } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -17,31 +17,77 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import useDataStore from '@/stores/useDataStore'
-import useAuthStore from '@/stores/useAuthStore'
+import { useAuth } from '@/hooks/use-auth'
+import { documentService } from '@/services/documents'
+import { useToast } from '@/hooks/use-toast'
 
 export default function Documents() {
-  const { user } = useAuthStore()
-  const { documents, addDocument, removeDocument } = useDataStore()
+  const { userProfile } = useAuth()
+  const { toast } = useToast()
+  const [documents, setDocuments] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [isUploadOpen, setIsUploadOpen] = useState(false)
+  const [file, setFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [loading, setLoading] = useState(true)
 
-  const orgDocs = documents
-    .filter((d) => d.orgId === user?.orgId)
-    .filter((d) => d.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  const canEdit = userProfile?.role === 'Admin' || userProfile?.role === 'Analyst'
 
-  const canEdit = user?.role === 'Administrador' || user?.role === 'Analista'
+  const fetchDocs = async () => {
+    if (!userProfile) return
+    const { data } = await documentService.getDocuments(userProfile.org_id)
+    if (data) setDocuments(data)
+    setLoading(false)
+  }
 
-  const handleMockUpload = () => {
-    addDocument({
-      id: `doc-${Date.now()}`,
-      name: `Novo_Documento_${Math.floor(Math.random() * 100)}.pdf`,
-      size: '1.5 MB',
-      uploadedBy: user?.name || 'Desconhecido',
-      date: new Date().toISOString().split('T')[0],
-      orgId: user?.orgId || '',
-    })
-    setIsUploadOpen(false)
+  useEffect(() => {
+    fetchDocs()
+  }, [userProfile])
+
+  const filteredDocs = documents.filter((d) =>
+    d.filename.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
+  const handleUpload = async () => {
+    if (!file || !userProfile) return
+    setUploading(true)
+    const { error } = await documentService.uploadDocument(file, userProfile.org_id, userProfile.id)
+    if (error) {
+      toast({ title: 'Erro no Upload', description: error.message, variant: 'destructive' })
+    } else {
+      toast({ title: 'Sucesso', description: 'Documento enviado com sucesso.' })
+      setIsUploadOpen(false)
+      setFile(null)
+      fetchDocs()
+    }
+    setUploading(false)
+  }
+
+  const handleDelete = async (id: string, filePath: string) => {
+    const { error } = await documentService.deleteDocument(id, filePath)
+    if (error) {
+      toast({ title: 'Erro ao deletar', description: error.message, variant: 'destructive' })
+    } else {
+      toast({ title: 'Deletado', description: 'Documento removido.' })
+      fetchDocs()
+    }
+  }
+
+  const handleDownload = async (filePath: string) => {
+    const { data, error } = await documentService.getDownloadUrl(filePath)
+    if (error) {
+      toast({ title: 'Erro no Download', description: error.message, variant: 'destructive' })
+    } else if (data) {
+      window.open(data.signedUrl, '_blank')
+    }
+  }
+
+  const formatBytes = (bytes: number) => {
+    if (!bytes) return '0 Bytes'
+    const k = 1024,
+      sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
   return (
@@ -76,12 +122,20 @@ export default function Documents() {
                 <DialogHeader>
                   <DialogTitle>Fazer Upload de Documento</DialogTitle>
                 </DialogHeader>
-                <div className="mt-4 border-2 border-dashed border-white/10 rounded-xl p-10 flex flex-col items-center justify-center bg-card/50 hover:bg-card/80 transition-colors cursor-pointer">
-                  <Upload className="w-10 h-10 text-muted-foreground mb-4" />
-                  <p className="text-sm font-medium">Arraste e solte seu arquivo aqui</p>
-                  <p className="text-xs text-muted-foreground mt-1">PDF, DOCX até 50MB</p>
-                  <Button onClick={handleMockUpload} variant="secondary" className="mt-6">
-                    Selecionar Arquivo
+                <div className="mt-4 flex flex-col items-center gap-4">
+                  <Input
+                    type="file"
+                    onChange={(e) => setFile(e.target.files?.[0] || null)}
+                    className="bg-card/50 border-white/10"
+                  />
+                  <Button onClick={handleUpload} disabled={!file || uploading} className="w-full">
+                    {uploading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Enviando...
+                      </>
+                    ) : (
+                      'Confirmar Upload'
+                    )}
                   </Button>
                 </div>
               </DialogContent>
@@ -102,25 +156,40 @@ export default function Documents() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {orgDocs.length === 0 ? (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-10">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
+                </TableCell>
+              </TableRow>
+            ) : filteredDocs.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
                   Nenhum documento encontrado.
                 </TableCell>
               </TableRow>
             ) : (
-              orgDocs.map((doc) => (
+              filteredDocs.map((doc) => (
                 <TableRow key={doc.id} className="border-white/5 hover:bg-white/5">
                   <TableCell className="font-medium flex items-center gap-2">
                     <FileText className="w-4 h-4 text-primary" />
-                    {doc.name}
+                    {doc.filename}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{doc.size}</TableCell>
-                  <TableCell>{doc.uploadedBy}</TableCell>
-                  <TableCell className="text-muted-foreground">{doc.date}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatBytes(doc.file_size)}
+                  </TableCell>
+                  <TableCell>{doc.users?.full_name || 'Desconhecido'}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {new Date(doc.created_at).toLocaleDateString()}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 hover:text-primary"
+                        onClick={() => handleDownload(doc.file_path)}
+                      >
                         <Download className="w-4 h-4" />
                       </Button>
                       {canEdit && (
@@ -128,7 +197,7 @@ export default function Documents() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 hover:text-red-400 hover:bg-red-400/10"
-                          onClick={() => removeDocument(doc.id)}
+                          onClick={() => handleDelete(doc.id, doc.file_path)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>

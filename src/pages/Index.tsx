@@ -1,20 +1,64 @@
+import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FileText, Users, Activity } from 'lucide-react'
 import { OrbitalEcosystem } from '@/components/OrbitalEcosystem'
-import useDataStore from '@/stores/useDataStore'
-import useAuthStore from '@/stores/useAuthStore'
+import { useAuth } from '@/hooks/use-auth'
+import { supabase } from '@/lib/supabase/client'
+import { useToast } from '@/hooks/use-toast'
 
 export default function Index() {
-  const { documents, users } = useDataStore()
-  const { user } = useAuthStore()
+  const { userProfile } = useAuth()
+  const { toast } = useToast()
+  const [docCount, setDocCount] = useState(0)
+  const [userCount, setUserCount] = useState(0)
 
-  const orgDocs = documents.filter((d) => d.orgId === user?.orgId)
-  const orgUsers = users.filter((u) => u.orgId === user?.orgId)
+  const fetchData = async () => {
+    if (!userProfile) return
+    const { count: docs } = await supabase
+      .from('documents')
+      .select('*', { count: 'exact', head: true })
+      .eq('org_id', userProfile.org_id)
+    const { count: users } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .eq('org_id', userProfile.org_id)
+    setDocCount(docs || 0)
+    setUserCount(users || 0)
+  }
+
+  useEffect(() => {
+    fetchData()
+  }, [userProfile])
+
+  useEffect(() => {
+    if (!userProfile) return
+    const channel = supabase
+      .channel('realtime_documents')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'documents',
+          filter: `org_id=eq.${userProfile.org_id}`,
+        },
+        (payload) => {
+          toast({
+            title: 'Novo Documento',
+            description: `Um novo documento "${payload.new.filename}" foi adicionado na sua organização.`,
+          })
+          fetchData()
+        },
+      )
+      .subscribe()
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [userProfile, toast])
 
   return (
     <div className="flex flex-col gap-12 max-w-6xl mx-auto w-full animate-fade-in">
-      {/* Header Section */}
       <div className="text-center space-y-4 pt-8">
         <Badge
           variant="outline"
@@ -35,12 +79,10 @@ export default function Index() {
         </p>
       </div>
 
-      {/* Orbital Visualization */}
       <div className="w-full relative">
         <OrbitalEcosystem />
       </div>
 
-      {/* Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pb-12">
         <Card className="glass-panel border-white/5 bg-card/40">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -50,35 +92,35 @@ export default function Index() {
             <FileText className="w-4 h-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{orgDocs.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">+2 nesta semana</p>
+            <div className="text-3xl font-bold">{docCount}</div>
+            <p className="text-xs text-muted-foreground mt-1">Armazenamento seguro</p>
           </CardContent>
         </Card>
 
         <Card className="glass-panel border-white/5 bg-card/40">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Membros Ativos
+              Membros da Organização
             </CardTitle>
             <Users className="w-4 h-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{orgUsers.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">Nível de engajamento alto</p>
+            <div className="text-3xl font-bold">{userCount}</div>
+            <p className="text-xs text-muted-foreground mt-1">Nível de engajamento ativo</p>
           </CardContent>
         </Card>
 
         <Card className="glass-panel border-white/5 bg-card/40">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Última Atividade
+              Status do Sistema
             </CardTitle>
-            <Activity className="w-4 h-4 text-primary" />
+            <Activity className="w-4 h-4 text-emerald-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-xl font-bold mt-1 text-white/90">Há 2 horas</div>
+            <div className="text-xl font-bold mt-1 text-emerald-400">Operacional</div>
             <p className="text-xs text-muted-foreground mt-2 truncate">
-              Upload de: Relatorio_Financeiro...
+              Monitoramento em tempo real ativo
             </p>
           </CardContent>
         </Card>

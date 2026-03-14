@@ -1,33 +1,31 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import useAuthStore from '@/stores/useAuthStore'
+import { useAuth } from '@/hooks/use-auth'
+import { useToast } from '@/hooks/use-toast'
 
 export default function Login() {
   const [email, setEmail] = useState('')
-  const navigate = useNavigate()
-  const { login } = useAuthStore()
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const { signIn } = useAuth()
+  const { toast } = useToast()
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Mock successful login
-    login({
-      id: 'user-1',
-      name: 'Admin Demo',
-      email: email || 'admin@demo.com',
-      role: 'Administrador',
-      orgId: 'org-1',
-      orgName: 'EcoFin Corp',
-    })
-    navigate('/')
+    setLoading(true)
+    const { error } = await signIn(email, password)
+    if (error) {
+      toast({ title: 'Erro de Autenticação', description: error.message, variant: 'destructive' })
+    }
+    setLoading(false)
   }
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-background bg-grid-pattern relative overflow-hidden px-4">
-      {/* Ambient background glows */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/20 rounded-full blur-[120px] pointer-events-none" />
 
       <Card className="w-full max-w-md z-10 glass-panel border-white/10 relative">
@@ -64,17 +62,13 @@ export default function Login() {
                 <Label htmlFor="password" className="text-muted-foreground">
                   Senha
                 </Label>
-                <Link
-                  to="#"
-                  className="text-xs text-primary hover:text-primary/80 transition-colors"
-                >
-                  Esqueceu a senha?
-                </Link>
               </div>
               <Input
                 id="password"
                 type="password"
                 placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="bg-background/50 border-white/10 focus-visible:ring-primary focus-visible:border-primary text-white h-11"
                 required
               />
@@ -82,13 +76,14 @@ export default function Login() {
 
             <Button
               type="submit"
+              disabled={loading}
               className="w-full h-11 bg-primary hover:bg-primary/90 text-white shadow-[0_0_15px_rgba(139,92,246,0.3)] hover:shadow-[0_0_25px_rgba(139,92,246,0.5)] transition-all"
             >
-              Entrar no Sistema
+              {loading ? 'Entrando...' : 'Entrar no Sistema'}
             </Button>
 
             <div className="text-center text-sm text-muted-foreground pt-4">
-              Não possui uma organização?{' '}
+              Não possui uma conta?{' '}
               <Link to="/register" className="text-primary hover:underline font-medium">
                 Criar conta
               </Link>

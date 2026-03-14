@@ -1,42 +1,57 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import useAuthStore from '@/stores/useAuthStore'
+import { useAuth } from '@/hooks/use-auth'
+import { useToast } from '@/hooks/use-toast'
+import { supabase } from '@/lib/supabase/client'
 
 export default function Register() {
   const [orgName, setOrgName] = useState('')
-  const [adminName, setAdminName] = useState('')
+  const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const { signUp } = useAuth()
+  const { toast } = useToast()
   const navigate = useNavigate()
-  const { login } = useAuthStore()
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Mock successful registration and login
-    login({
-      id: `user-${Date.now()}`,
-      name: adminName,
-      email: email,
-      role: 'Administrador',
-      orgId: `org-${Date.now()}`,
-      orgName: orgName,
+    setLoading(true)
+
+    const { error } = await signUp(email, password, {
+      full_name: fullName,
+      org_name: orgName,
     })
-    navigate('/')
+
+    if (error) {
+      toast({ title: 'Erro ao Registrar', description: error.message, variant: 'destructive' })
+    } else {
+      // Trigger Edge Function
+      supabase.functions.invoke('notify-admin', { body: { email, orgName } }).catch(console.error)
+
+      toast({
+        title: 'Conta Criada',
+        description: 'Você foi registrado com sucesso. Aguarde a aprovação do administrador.',
+      })
+      navigate('/login')
+    }
+    setLoading(false)
   }
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-background bg-grid-pattern relative overflow-hidden px-4">
+    <div className="min-h-screen w-full flex items-center justify-center bg-background bg-grid-pattern relative overflow-hidden px-4 py-8">
       <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[150px] pointer-events-none" />
 
       <Card className="w-full max-w-md z-10 glass-panel border-white/10">
         <CardHeader className="space-y-2 text-center pb-6">
           <CardTitle className="text-2xl font-bold tracking-tight text-white">
-            Criar Organização
+            Criar Conta
           </CardTitle>
-          <CardDescription>Registre sua empresa no Nearbound 2.0</CardDescription>
+          <CardDescription>Registre-se e junte-se ao ecossistema</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleRegister} className="space-y-4">
@@ -48,16 +63,18 @@ export default function Register() {
                 value={orgName}
                 onChange={(e) => setOrgName(e.target.value)}
                 className="bg-background/50 border-white/10 text-white"
+                placeholder="Ex: Acme Corp"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="adminName">Nome do Administrador</Label>
+              <Label htmlFor="fullName">Nome Completo</Label>
               <Input
-                id="adminName"
+                id="fullName"
                 required
-                value={adminName}
-                onChange={(e) => setAdminName(e.target.value)}
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
                 className="bg-background/50 border-white/10 text-white"
+                placeholder="Seu nome"
               />
             </div>
             <div className="space-y-2">
@@ -69,6 +86,7 @@ export default function Register() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="bg-background/50 border-white/10 text-white"
+                placeholder="nome@empresa.com"
               />
             </div>
             <div className="space-y-2 pb-2">
@@ -77,12 +95,19 @@ export default function Register() {
                 id="password"
                 type="password"
                 required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="bg-background/50 border-white/10 text-white"
+                placeholder="••••••••"
               />
             </div>
 
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white">
-              Registrar Organização
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-primary hover:bg-primary/90 text-white"
+            >
+              {loading ? 'Registrando...' : 'Registrar Conta'}
             </Button>
 
             <div className="text-center text-sm text-muted-foreground pt-4">

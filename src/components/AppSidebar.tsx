@@ -10,13 +10,13 @@ import {
   SidebarMenuItem,
   SidebarFooter,
 } from '@/components/ui/sidebar'
-import useAuthStore from '@/stores/useAuthStore'
+import { useAuth } from '@/hooks/use-auth'
 
 export function AppSidebar() {
   const location = useLocation()
-  const { user, logout } = useAuthStore()
+  const { userProfile, signOut } = useAuth()
 
-  const isAdmin = user?.role === 'Administrador'
+  const isAdmin = userProfile?.role === 'Admin'
 
   return (
     <Sidebar className="border-r-white/5 bg-sidebar/80 backdrop-blur-xl">
@@ -82,7 +82,7 @@ export function AppSidebar() {
 
       <SidebarFooter className="p-4 border-t border-white/5">
         <SidebarMenuButton
-          onClick={logout}
+          onClick={signOut}
           className="text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
         >
           <LogOut className="w-4 h-4" /> <span>Sair da Sessão</span>
