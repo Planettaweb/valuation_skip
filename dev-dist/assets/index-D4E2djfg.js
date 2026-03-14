@@ -19049,6 +19049,13 @@ var Activity = createLucideIcon("activity", [["path", {
 	d: "M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2",
 	key: "169zse"
 }]]);
+var ArrowLeft = createLucideIcon("arrow-left", [["path", {
+	d: "m12 19-7-7 7-7",
+	key: "1l729n"
+}], ["path", {
+	d: "M19 12H5",
+	key: "x3x0zl"
+}]]);
 var Bell = createLucideIcon("bell", [["path", {
 	d: "M10.268 21a2 2 0 0 0 3.464 0",
 	key: "vwvbt9"
@@ -19122,6 +19129,28 @@ var ChevronUp = createLucideIcon("chevron-up", [["path", {
 	d: "m18 15-6-6-6 6",
 	key: "153udz"
 }]]);
+var CircleAlert = createLucideIcon("circle-alert", [
+	["circle", {
+		cx: "12",
+		cy: "12",
+		r: "10",
+		key: "1mglay"
+	}],
+	["line", {
+		x1: "12",
+		x2: "12",
+		y1: "8",
+		y2: "12",
+		key: "1pkeuh"
+	}],
+	["line", {
+		x1: "12",
+		x2: "12.01",
+		y1: "16",
+		y2: "16",
+		key: "4dfq90"
+	}]
+]);
 var Circle = createLucideIcon("circle", [["circle", {
 	cx: "12",
 	cy: "12",
@@ -19167,6 +19196,16 @@ var FileText = createLucideIcon("file-text", [
 var Folder = createLucideIcon("folder", [["path", {
 	d: "M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z",
 	key: "1kt360"
+}]]);
+var KeyRound = createLucideIcon("key-round", [["path", {
+	d: "M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z",
+	key: "1s6t7t"
+}], ["circle", {
+	cx: "16.5",
+	cy: "7.5",
+	r: ".5",
+	fill: "currentColor",
+	key: "w0ekpg"
 }]]);
 var LayoutDashboard = createLucideIcon("layout-dashboard", [
 	["rect", {
@@ -19220,6 +19259,17 @@ var LogOut = createLucideIcon("log-out", [
 		key: "1uf3rs"
 	}]
 ]);
+var Mail = createLucideIcon("mail", [["path", {
+	d: "m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7",
+	key: "132q7q"
+}], ["rect", {
+	x: "2",
+	y: "4",
+	width: "20",
+	height: "16",
+	rx: "2",
+	key: "izxlao"
+}]]);
 var PanelLeft = createLucideIcon("panel-left", [["rect", {
 	width: "18",
 	height: "18",
@@ -40134,8 +40184,14 @@ var AuthProvider = ({ children }) => {
 		setUserProfile(null);
 		return await supabase.auth.signOut();
 	};
+	const resetPassword = async (email) => {
+		return await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
+	};
+	const updatePassword = async (password) => {
+		return await supabase.auth.updateUser({ password });
+	};
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AuthContext.Provider, {
-		"data-uid": "src/hooks/use-auth.tsx:117:5",
+		"data-uid": "src/hooks/use-auth.tsx:129:5",
 		"data-prohibitions": "[editContent]",
 		value: {
 			user,
@@ -40144,6 +40200,8 @@ var AuthProvider = ({ children }) => {
 			signUp,
 			signIn,
 			signOut,
+			resetPassword,
+			updatePassword,
 			loading
 		},
 		children
@@ -42652,92 +42710,148 @@ var Label$1 = import_react.forwardRef(({ className, ...props }, ref) => /* @__PU
 }));
 Label$1.displayName = Root$1.displayName;
 //#endregion
+//#region src/components/ui/alert.tsx
+var alertVariants = cva("relative w-full rounded-lg border p-4 [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground", {
+	variants: { variant: {
+		default: "bg-background text-foreground",
+		destructive: "border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive"
+	} },
+	defaultVariants: { variant: "default" }
+});
+var Alert = import_react.forwardRef(({ className, variant, ...props }, ref) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+	"data-uid": "src/components/ui/alert.tsx:27:3",
+	"data-prohibitions": "[editContent]",
+	ref,
+	role: "alert",
+	className: cn$1(alertVariants({ variant }), className),
+	...props
+}));
+Alert.displayName = "Alert";
+var AlertTitle = import_react.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h5", {
+	"data-uid": "src/components/ui/alert.tsx:33:5",
+	"data-prohibitions": "[editContent]",
+	ref,
+	className: cn$1("mb-1 font-medium leading-none tracking-tight", className),
+	...props
+}));
+AlertTitle.displayName = "AlertTitle";
+var AlertDescription = import_react.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+	"data-uid": "src/components/ui/alert.tsx:46:3",
+	"data-prohibitions": "[editContent]",
+	ref,
+	className: cn$1("text-sm [&_p]:leading-relaxed", className),
+	...props
+}));
+AlertDescription.displayName = "AlertDescription";
+//#endregion
 //#region src/pages/Login.tsx
 function Login() {
 	const [email, setEmail] = (0, import_react.useState)("");
 	const [password, setPassword] = (0, import_react.useState)("");
 	const [loading, setLoading] = (0, import_react.useState)(false);
+	const [errorMsg, setErrorMsg] = (0, import_react.useState)("");
 	const { signIn } = useAuth();
-	const { toast } = useToast();
 	const handleLogin = async (e) => {
 		e.preventDefault();
 		setLoading(true);
-		const { error } = await signIn(email, password);
-		if (error) toast({
-			title: "Erro de Autenticação",
-			description: error.message,
-			variant: "destructive"
-		});
-		setLoading(false);
+		setErrorMsg("");
+		try {
+			const { error } = await signIn(email, password);
+			if (error) {
+				let msg = error.message;
+				if (msg.toLowerCase().includes("invalid login credentials")) msg = "Email ou senha inválidos.";
+				else if (msg.toLowerCase().includes("fetch") || msg.toLowerCase().includes("network")) msg = "Ocorreu um erro ao conectar ao sistema. Tente novamente mais tarde.";
+				else msg = "Ocorreu um erro na autenticação. Verifique seus dados.";
+				setErrorMsg(msg);
+			}
+		} catch (err) {
+			setErrorMsg("Ocorreu um erro ao conectar ao sistema. Tente novamente mais tarde.");
+		} finally {
+			setLoading(false);
+		}
 	};
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-		"data-uid": "src/pages/Login.tsx:28:5",
+		"data-uid": "src/pages/Login.tsx:44:5",
 		"data-prohibitions": "[editContent]",
 		className: "min-h-screen w-full flex items-center justify-center bg-background bg-grid-pattern relative overflow-hidden px-4",
 		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-			"data-uid": "src/pages/Login.tsx:29:7",
+			"data-uid": "src/pages/Login.tsx:45:7",
 			"data-prohibitions": "[editContent]",
 			className: "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/20 rounded-full blur-[120px] pointer-events-none"
 		}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Card, {
-			"data-uid": "src/pages/Login.tsx:31:7",
+			"data-uid": "src/pages/Login.tsx:47:7",
 			"data-prohibitions": "[editContent]",
 			className: "w-full max-w-md z-10 glass-panel border-white/10 relative",
 			children: [
 				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-					"data-uid": "src/pages/Login.tsx:32:9",
+					"data-uid": "src/pages/Login.tsx:48:9",
 					"data-prohibitions": "[editContent]",
 					className: "absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-[1px] bg-gradient-to-r from-transparent via-primary to-transparent"
 				}),
 				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)(CardHeader, {
-					"data-uid": "src/pages/Login.tsx:34:9",
+					"data-uid": "src/pages/Login.tsx:50:9",
 					"data-prohibitions": "[]",
-					className: "space-y-3 text-center pb-8",
+					className: "space-y-3 text-center pb-6",
 					children: [
 						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-							"data-uid": "src/pages/Login.tsx:35:11",
+							"data-uid": "src/pages/Login.tsx:51:11",
 							"data-prohibitions": "[]",
 							className: "w-12 h-12 bg-primary/20 rounded-2xl mx-auto flex items-center justify-center border border-primary/30 mb-2",
 							children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-								"data-uid": "src/pages/Login.tsx:36:13",
+								"data-uid": "src/pages/Login.tsx:52:13",
 								"data-prohibitions": "[editContent]",
 								className: "w-6 h-6 bg-primary rounded-full animate-pulse-glow"
 							})
 						}),
 						/* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardTitle, {
-							"data-uid": "src/pages/Login.tsx:38:11",
+							"data-uid": "src/pages/Login.tsx:54:11",
 							"data-prohibitions": "[]",
 							className: "text-3xl font-bold tracking-tight text-white",
 							children: "Bem-vindo"
 						}),
 						/* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardDescription, {
-							"data-uid": "src/pages/Login.tsx:39:11",
+							"data-uid": "src/pages/Login.tsx:55:11",
 							"data-prohibitions": "[]",
 							className: "text-muted-foreground text-sm",
 							children: "Acesse o ecossistema financeiro Nearbound"
 						})
 					]
 				}),
-				/* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardContent, {
-					"data-uid": "src/pages/Login.tsx:44:9",
+				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)(CardContent, {
+					"data-uid": "src/pages/Login.tsx:60:9",
 					"data-prohibitions": "[editContent]",
-					children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("form", {
-						"data-uid": "src/pages/Login.tsx:45:11",
+					children: [errorMsg && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Alert, {
+						"data-uid": "src/pages/Login.tsx:62:13",
+						"data-prohibitions": "[editContent]",
+						variant: "destructive",
+						className: "mb-6 bg-destructive/10 border-destructive/20 text-destructive-foreground",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(CircleAlert, {
+							"data-uid": "src/pages/Login.tsx:66:15",
+							"data-prohibitions": "[editContent]",
+							className: "h-4 w-4"
+						}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AlertDescription, {
+							"data-uid": "src/pages/Login.tsx:67:15",
+							"data-prohibitions": "[editContent]",
+							children: errorMsg
+						})]
+					}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("form", {
+						"data-uid": "src/pages/Login.tsx:71:11",
 						"data-prohibitions": "[editContent]",
 						onSubmit: handleLogin,
 						className: "space-y-6",
 						children: [
 							/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-								"data-uid": "src/pages/Login.tsx:46:13",
+								"data-uid": "src/pages/Login.tsx:72:13",
 								"data-prohibitions": "[]",
 								className: "space-y-2",
 								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Label$1, {
-									"data-uid": "src/pages/Login.tsx:47:15",
+									"data-uid": "src/pages/Login.tsx:73:15",
 									"data-prohibitions": "[]",
 									htmlFor: "email",
 									className: "text-muted-foreground",
 									children: "Email Profissional"
 								}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
-									"data-uid": "src/pages/Login.tsx:50:15",
+									"data-uid": "src/pages/Login.tsx:76:15",
 									"data-prohibitions": "[editContent]",
 									id: "email",
 									type: "email",
@@ -42749,22 +42863,28 @@ function Login() {
 								})]
 							}),
 							/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-								"data-uid": "src/pages/Login.tsx:60:13",
+								"data-uid": "src/pages/Login.tsx:86:13",
 								"data-prohibitions": "[]",
 								className: "space-y-2",
-								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-									"data-uid": "src/pages/Login.tsx:61:15",
+								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+									"data-uid": "src/pages/Login.tsx:87:15",
 									"data-prohibitions": "[]",
 									className: "flex items-center justify-between",
-									children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Label$1, {
-										"data-uid": "src/pages/Login.tsx:62:17",
+									children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Label$1, {
+										"data-uid": "src/pages/Login.tsx:88:17",
 										"data-prohibitions": "[]",
 										htmlFor: "password",
 										className: "text-muted-foreground",
 										children: "Senha"
-									})
+									}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Link, {
+										"data-uid": "src/pages/Login.tsx:91:17",
+										"data-prohibitions": "[]",
+										to: "/forgot-password",
+										className: "text-xs text-primary hover:underline font-medium",
+										children: "Esqueci minha senha"
+									})]
 								}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
-									"data-uid": "src/pages/Login.tsx:66:15",
+									"data-uid": "src/pages/Login.tsx:98:15",
 									"data-prohibitions": "[editContent]",
 									id: "password",
 									type: "password",
@@ -42776,22 +42896,26 @@ function Login() {
 								})]
 							}),
 							/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
-								"data-uid": "src/pages/Login.tsx:77:13",
+								"data-uid": "src/pages/Login.tsx:109:13",
 								"data-prohibitions": "[editContent]",
 								type: "submit",
 								disabled: loading,
 								className: "w-full h-11 bg-primary hover:bg-primary/90 text-white shadow-[0_0_15px_rgba(139,92,246,0.3)] hover:shadow-[0_0_25px_rgba(139,92,246,0.5)] transition-all",
-								children: loading ? "Entrando..." : "Entrar no Sistema"
+								children: loading ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoaderCircle, {
+									"data-uid": "src/pages/Login.tsx:116:19",
+									"data-prohibitions": "[editContent]",
+									className: "w-4 h-4 mr-2 animate-spin"
+								}), " Carregando..."] }) : "Entrar no Sistema"
 							}),
 							/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-								"data-uid": "src/pages/Login.tsx:85:13",
+								"data-uid": "src/pages/Login.tsx:123:13",
 								"data-prohibitions": "[]",
 								className: "text-center text-sm text-muted-foreground pt-4",
 								children: [
 									"Não possui uma conta?",
 									" ",
 									/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Link, {
-										"data-uid": "src/pages/Login.tsx:87:15",
+										"data-uid": "src/pages/Login.tsx:125:15",
 										"data-prohibitions": "[]",
 										to: "/register",
 										className: "text-primary hover:underline font-medium",
@@ -42800,7 +42924,7 @@ function Login() {
 								]
 							})
 						]
-					})
+					})]
 				})
 			]
 		})]
@@ -42986,6 +43110,327 @@ function Register() {
 					]
 				})
 			})]
+		})]
+	});
+}
+//#endregion
+//#region src/pages/ForgotPassword.tsx
+function ForgotPassword() {
+	const [email, setEmail] = (0, import_react.useState)("");
+	const [loading, setLoading] = (0, import_react.useState)(false);
+	const { resetPassword } = useAuth();
+	const { toast } = useToast();
+	const handleReset = async (e) => {
+		e.preventDefault();
+		setLoading(true);
+		try {
+			const { error } = await resetPassword(email);
+			if (error) toast({
+				title: "Erro",
+				description: error.message,
+				variant: "destructive"
+			});
+			else {
+				toast({
+					title: "Email enviado",
+					description: "Se este e-mail estiver cadastrado, você receberá um link para redefinir sua senha em instantes."
+				});
+				setEmail("");
+			}
+		} catch (err) {
+			toast({
+				title: "Erro de Conexão",
+				description: "Ocorreu um erro ao conectar ao sistema. Tente novamente mais tarde.",
+				variant: "destructive"
+			});
+		} finally {
+			setLoading(false);
+		}
+	};
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+		"data-uid": "src/pages/ForgotPassword.tsx:45:5",
+		"data-prohibitions": "[editContent]",
+		className: "min-h-screen w-full flex items-center justify-center bg-background bg-grid-pattern relative overflow-hidden px-4",
+		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+			"data-uid": "src/pages/ForgotPassword.tsx:46:7",
+			"data-prohibitions": "[editContent]",
+			className: "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/20 rounded-full blur-[120px] pointer-events-none"
+		}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Card, {
+			"data-uid": "src/pages/ForgotPassword.tsx:48:7",
+			"data-prohibitions": "[editContent]",
+			className: "w-full max-w-md z-10 glass-panel border-white/10 relative",
+			children: [
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+					"data-uid": "src/pages/ForgotPassword.tsx:49:9",
+					"data-prohibitions": "[editContent]",
+					className: "absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-[1px] bg-gradient-to-r from-transparent via-primary to-transparent"
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)(CardHeader, {
+					"data-uid": "src/pages/ForgotPassword.tsx:51:9",
+					"data-prohibitions": "[]",
+					className: "space-y-3 text-center pb-8",
+					children: [
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+							"data-uid": "src/pages/ForgotPassword.tsx:52:11",
+							"data-prohibitions": "[]",
+							className: "w-12 h-12 bg-primary/20 rounded-2xl mx-auto flex items-center justify-center border border-primary/30 mb-2",
+							children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Mail, {
+								"data-uid": "src/pages/ForgotPassword.tsx:53:13",
+								"data-prohibitions": "[editContent]",
+								className: "w-6 h-6 text-primary"
+							})
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardTitle, {
+							"data-uid": "src/pages/ForgotPassword.tsx:55:11",
+							"data-prohibitions": "[]",
+							className: "text-3xl font-bold tracking-tight text-white",
+							children: "Recuperar Senha"
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardDescription, {
+							"data-uid": "src/pages/ForgotPassword.tsx:58:11",
+							"data-prohibitions": "[]",
+							className: "text-muted-foreground text-sm",
+							children: "Insira seu e-mail para receber um link de redefinição"
+						})
+					]
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardContent, {
+					"data-uid": "src/pages/ForgotPassword.tsx:63:9",
+					"data-prohibitions": "[editContent]",
+					children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("form", {
+						"data-uid": "src/pages/ForgotPassword.tsx:64:11",
+						"data-prohibitions": "[editContent]",
+						onSubmit: handleReset,
+						className: "space-y-6",
+						children: [
+							/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+								"data-uid": "src/pages/ForgotPassword.tsx:65:13",
+								"data-prohibitions": "[]",
+								className: "space-y-2",
+								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Label$1, {
+									"data-uid": "src/pages/ForgotPassword.tsx:66:15",
+									"data-prohibitions": "[]",
+									htmlFor: "email",
+									className: "text-muted-foreground",
+									children: "Email Profissional"
+								}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
+									"data-uid": "src/pages/ForgotPassword.tsx:69:15",
+									"data-prohibitions": "[editContent]",
+									id: "email",
+									type: "email",
+									placeholder: "nome@empresa.com",
+									value: email,
+									onChange: (e) => setEmail(e.target.value),
+									className: "bg-background/50 border-white/10 focus-visible:ring-primary focus-visible:border-primary text-white h-11",
+									required: true
+								})]
+							}),
+							/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+								"data-uid": "src/pages/ForgotPassword.tsx:80:13",
+								"data-prohibitions": "[editContent]",
+								type: "submit",
+								disabled: loading || !email,
+								className: "w-full h-11 bg-primary hover:bg-primary/90 text-white shadow-[0_0_15px_rgba(139,92,246,0.3)] hover:shadow-[0_0_25px_rgba(139,92,246,0.5)] transition-all",
+								children: loading ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoaderCircle, {
+									"data-uid": "src/pages/ForgotPassword.tsx:87:19",
+									"data-prohibitions": "[editContent]",
+									className: "w-4 h-4 mr-2 animate-spin"
+								}), " Processando..."] }) : "Enviar link de recuperação"
+							}),
+							/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+								"data-uid": "src/pages/ForgotPassword.tsx:94:13",
+								"data-prohibitions": "[]",
+								className: "text-center pt-4",
+								children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Link, {
+									"data-uid": "src/pages/ForgotPassword.tsx:95:15",
+									"data-prohibitions": "[]",
+									to: "/login",
+									className: "inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors font-medium",
+									children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(ArrowLeft, {
+										"data-uid": "src/pages/ForgotPassword.tsx:99:17",
+										"data-prohibitions": "[editContent]",
+										className: "w-4 h-4 mr-2"
+									}), "Voltar para o login"]
+								})
+							})
+						]
+					})
+				})
+			]
+		})]
+	});
+}
+//#endregion
+//#region src/pages/ResetPassword.tsx
+function ResetPassword() {
+	const [password, setPassword] = (0, import_react.useState)("");
+	const [confirmPassword, setConfirmPassword] = (0, import_react.useState)("");
+	const [loading, setLoading] = (0, import_react.useState)(false);
+	const { updatePassword } = useAuth();
+	const { toast } = useToast();
+	const navigate = useNavigate();
+	const handleUpdate = async (e) => {
+		e.preventDefault();
+		if (password.length < 6) {
+			toast({
+				title: "Senha muito curta",
+				description: "A senha deve ter pelo menos 6 caracteres.",
+				variant: "destructive"
+			});
+			return;
+		}
+		if (password !== confirmPassword) {
+			toast({
+				title: "Senhas não coincidem",
+				description: "Por favor, verifique se as duas senhas são idênticas.",
+				variant: "destructive"
+			});
+			return;
+		}
+		setLoading(true);
+		try {
+			const { error } = await updatePassword(password);
+			if (error) toast({
+				title: "Erro ao redefinir",
+				description: error.message,
+				variant: "destructive"
+			});
+			else {
+				toast({
+					title: "Senha atualizada",
+					description: "Sua senha foi redefinida com sucesso. Redirecionando..."
+				});
+				setTimeout(() => {
+					navigate("/login");
+				}, 2e3);
+			}
+		} catch (err) {
+			toast({
+				title: "Erro",
+				description: "Ocorreu um problema ao conectar com o servidor.",
+				variant: "destructive"
+			});
+		} finally {
+			setLoading(false);
+		}
+	};
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+		"data-uid": "src/pages/ResetPassword.tsx:66:5",
+		"data-prohibitions": "[editContent]",
+		className: "min-h-screen w-full flex items-center justify-center bg-background bg-grid-pattern relative overflow-hidden px-4",
+		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+			"data-uid": "src/pages/ResetPassword.tsx:67:7",
+			"data-prohibitions": "[editContent]",
+			className: "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/20 rounded-full blur-[120px] pointer-events-none"
+		}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Card, {
+			"data-uid": "src/pages/ResetPassword.tsx:69:7",
+			"data-prohibitions": "[editContent]",
+			className: "w-full max-w-md z-10 glass-panel border-white/10 relative",
+			children: [
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+					"data-uid": "src/pages/ResetPassword.tsx:70:9",
+					"data-prohibitions": "[editContent]",
+					className: "absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-[1px] bg-gradient-to-r from-transparent via-primary to-transparent"
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)(CardHeader, {
+					"data-uid": "src/pages/ResetPassword.tsx:72:9",
+					"data-prohibitions": "[]",
+					className: "space-y-3 text-center pb-8",
+					children: [
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+							"data-uid": "src/pages/ResetPassword.tsx:73:11",
+							"data-prohibitions": "[]",
+							className: "w-12 h-12 bg-primary/20 rounded-2xl mx-auto flex items-center justify-center border border-primary/30 mb-2",
+							children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(KeyRound, {
+								"data-uid": "src/pages/ResetPassword.tsx:74:13",
+								"data-prohibitions": "[editContent]",
+								className: "w-6 h-6 text-primary"
+							})
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardTitle, {
+							"data-uid": "src/pages/ResetPassword.tsx:76:11",
+							"data-prohibitions": "[]",
+							className: "text-3xl font-bold tracking-tight text-white",
+							children: "Nova Senha"
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardDescription, {
+							"data-uid": "src/pages/ResetPassword.tsx:77:11",
+							"data-prohibitions": "[]",
+							className: "text-muted-foreground text-sm",
+							children: "Crie uma nova senha segura para sua conta"
+						})
+					]
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)(CardContent, {
+					"data-uid": "src/pages/ResetPassword.tsx:82:9",
+					"data-prohibitions": "[editContent]",
+					children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("form", {
+						"data-uid": "src/pages/ResetPassword.tsx:83:11",
+						"data-prohibitions": "[editContent]",
+						onSubmit: handleUpdate,
+						className: "space-y-6",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+							"data-uid": "src/pages/ResetPassword.tsx:84:13",
+							"data-prohibitions": "[]",
+							className: "space-y-4",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+								"data-uid": "src/pages/ResetPassword.tsx:85:15",
+								"data-prohibitions": "[]",
+								className: "space-y-2",
+								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Label$1, {
+									"data-uid": "src/pages/ResetPassword.tsx:86:17",
+									"data-prohibitions": "[]",
+									htmlFor: "password",
+									className: "text-muted-foreground",
+									children: "Nova Senha"
+								}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
+									"data-uid": "src/pages/ResetPassword.tsx:89:17",
+									"data-prohibitions": "[editContent]",
+									id: "password",
+									type: "password",
+									placeholder: "••••••••",
+									value: password,
+									onChange: (e) => setPassword(e.target.value),
+									className: "bg-background/50 border-white/10 focus-visible:ring-primary focus-visible:border-primary text-white h-11",
+									required: true
+								})]
+							}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+								"data-uid": "src/pages/ResetPassword.tsx:99:15",
+								"data-prohibitions": "[]",
+								className: "space-y-2",
+								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Label$1, {
+									"data-uid": "src/pages/ResetPassword.tsx:100:17",
+									"data-prohibitions": "[]",
+									htmlFor: "confirmPassword",
+									className: "text-muted-foreground",
+									children: "Confirmar Nova Senha"
+								}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Input, {
+									"data-uid": "src/pages/ResetPassword.tsx:103:17",
+									"data-prohibitions": "[editContent]",
+									id: "confirmPassword",
+									type: "password",
+									placeholder: "••••••••",
+									value: confirmPassword,
+									onChange: (e) => setConfirmPassword(e.target.value),
+									className: "bg-background/50 border-white/10 focus-visible:ring-primary focus-visible:border-primary text-white h-11",
+									required: true
+								})]
+							})]
+						}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+							"data-uid": "src/pages/ResetPassword.tsx:115:13",
+							"data-prohibitions": "[editContent]",
+							type: "submit",
+							disabled: loading,
+							className: "w-full h-11 bg-primary hover:bg-primary/90 text-white shadow-[0_0_15px_rgba(139,92,246,0.3)] hover:shadow-[0_0_25px_rgba(139,92,246,0.5)] transition-all",
+							children: loading ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoaderCircle, {
+								"data-uid": "src/pages/ResetPassword.tsx:122:19",
+								"data-prohibitions": "[editContent]",
+								className: "w-4 h-4 mr-2 animate-spin"
+							}), " Atualizando..."] }) : "Redefinir Senha"
+						})]
+					})
+				})
+			]
 		})]
 	});
 }
@@ -45056,58 +45501,56 @@ var NotFound = () => {
 //#endregion
 //#region src/App.tsx
 var ProtectedRoute = ({ children }) => {
-	const { userProfile, loading } = useAuth();
+	const { userProfile, loading, signOut } = useAuth();
 	if (loading) return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-		"data-uid": "src/App.tsx:21:7",
+		"data-uid": "src/App.tsx:24:7",
 		"data-prohibitions": "[]",
 		className: "min-h-screen flex items-center justify-center bg-background text-white",
-		children: "Carregando..."
+		children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoaderCircle, {
+			"data-uid": "src/App.tsx:25:9",
+			"data-prohibitions": "[editContent]",
+			className: "w-8 h-8 animate-spin text-primary"
+		})
 	});
 	if (!userProfile) return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Navigate, {
-		"data-uid": "src/App.tsx:28:12",
+		"data-uid": "src/App.tsx:31:12",
 		"data-prohibitions": "[editContent]",
 		to: "/login",
 		replace: true
 	});
 	if (!userProfile.is_active) return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-		"data-uid": "src/App.tsx:33:7",
-		"data-prohibitions": "[editContent]",
+		"data-uid": "src/App.tsx:36:7",
+		"data-prohibitions": "[]",
 		className: "min-h-screen flex flex-col items-center justify-center bg-background bg-grid-pattern relative p-4",
 		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-			"data-uid": "src/App.tsx:34:9",
+			"data-uid": "src/App.tsx:37:9",
 			"data-prohibitions": "[editContent]",
 			className: "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] pointer-events-none"
 		}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
-			"data-uid": "src/App.tsx:35:9",
-			"data-prohibitions": "[editContent]",
+			"data-uid": "src/App.tsx:38:9",
+			"data-prohibitions": "[]",
 			className: "glass-panel p-8 max-w-md w-full text-center border-white/10 z-10",
 			children: [
 				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", {
-					"data-uid": "src/App.tsx:36:11",
+					"data-uid": "src/App.tsx:39:11",
 					"data-prohibitions": "[]",
 					className: "text-2xl font-bold text-white mb-2",
 					children: "Aprovação Pendente"
 				}),
-				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", {
-					"data-uid": "src/App.tsx:37:11",
-					"data-prohibitions": "[editContent]",
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+					"data-uid": "src/App.tsx:40:11",
+					"data-prohibitions": "[]",
 					className: "text-muted-foreground mb-6",
-					children: [
-						"Sua conta foi criada com sucesso, mas está aguardando a aprovação de um Administrador da organização ",
-						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", {
-							"data-uid": "src/App.tsx:39:25",
-							"data-prohibitions": "[editContent]",
-							children: userProfile.org_name
-						}),
-						"."
-					]
+					children: "Sua conta está aguardando aprovação do administrador."
 				}),
 				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
-					"data-uid": "src/App.tsx:41:11",
+					"data-uid": "src/App.tsx:43:11",
 					"data-prohibitions": "[]",
-					onClick: () => window.location.reload(),
+					onClick: async () => {
+						await signOut();
+					},
 					className: "text-primary hover:underline text-sm font-medium",
-					children: "Atualizar Página"
+					children: "Sair e Voltar ao Login"
 				})
 			]
 		})]
@@ -45117,13 +45560,17 @@ var ProtectedRoute = ({ children }) => {
 var PublicRoute = ({ children }) => {
 	const { userProfile, loading } = useAuth();
 	if (loading) return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
-		"data-uid": "src/App.tsx:60:7",
+		"data-uid": "src/App.tsx:64:7",
 		"data-prohibitions": "[]",
 		className: "min-h-screen flex items-center justify-center bg-background text-white",
-		children: "Carregando..."
+		children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoaderCircle, {
+			"data-uid": "src/App.tsx:65:9",
+			"data-prohibitions": "[editContent]",
+			className: "w-8 h-8 animate-spin text-primary"
+		})
 	});
 	if (userProfile) return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Navigate, {
-		"data-uid": "src/App.tsx:64:27",
+		"data-uid": "src/App.tsx:69:27",
 		"data-prohibitions": "[editContent]",
 		to: "/",
 		replace: true
@@ -45131,111 +45578,133 @@ var PublicRoute = ({ children }) => {
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_jsx_runtime.Fragment, { children });
 };
 var AppRoutes = () => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Routes, {
-	"data-uid": "src/App.tsx:69:3",
+	"data-uid": "src/App.tsx:74:3",
 	"data-prohibitions": "[]",
 	children: [
 		/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Route, {
-			"data-uid": "src/App.tsx:70:5",
+			"data-uid": "src/App.tsx:75:5",
 			"data-prohibitions": "[editContent]",
 			path: "/login",
 			element: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PublicRoute, {
-				"data-uid": "src/App.tsx:73:9",
+				"data-uid": "src/App.tsx:78:9",
 				"data-prohibitions": "[]",
 				children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Login, {
-					"data-uid": "src/App.tsx:74:11",
+					"data-uid": "src/App.tsx:79:11",
 					"data-prohibitions": "[editContent]"
 				})
 			})
 		}),
 		/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Route, {
-			"data-uid": "src/App.tsx:78:5",
+			"data-uid": "src/App.tsx:83:5",
 			"data-prohibitions": "[editContent]",
 			path: "/register",
 			element: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PublicRoute, {
-				"data-uid": "src/App.tsx:81:9",
+				"data-uid": "src/App.tsx:86:9",
 				"data-prohibitions": "[]",
 				children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Register, {
-					"data-uid": "src/App.tsx:82:11",
+					"data-uid": "src/App.tsx:87:11",
 					"data-prohibitions": "[editContent]"
 				})
 			})
 		}),
+		/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Route, {
+			"data-uid": "src/App.tsx:91:5",
+			"data-prohibitions": "[editContent]",
+			path: "/forgot-password",
+			element: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PublicRoute, {
+				"data-uid": "src/App.tsx:94:9",
+				"data-prohibitions": "[]",
+				children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ForgotPassword, {
+					"data-uid": "src/App.tsx:95:11",
+					"data-prohibitions": "[editContent]"
+				})
+			})
+		}),
+		/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Route, {
+			"data-uid": "src/App.tsx:100:5",
+			"data-prohibitions": "[editContent]",
+			path: "/reset-password",
+			element: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ResetPassword, {
+				"data-uid": "src/App.tsx:100:44",
+				"data-prohibitions": "[editContent]"
+			})
+		}),
 		/* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Route, {
-			"data-uid": "src/App.tsx:87:5",
+			"data-uid": "src/App.tsx:102:5",
 			"data-prohibitions": "[]",
 			element: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ProtectedRoute, {
-				"data-uid": "src/App.tsx:89:9",
+				"data-uid": "src/App.tsx:104:9",
 				"data-prohibitions": "[]",
 				children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Layout, {
-					"data-uid": "src/App.tsx:90:11",
+					"data-uid": "src/App.tsx:105:11",
 					"data-prohibitions": "[editContent]"
 				})
 			}),
 			children: [
 				/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Route, {
-					"data-uid": "src/App.tsx:94:7",
+					"data-uid": "src/App.tsx:109:7",
 					"data-prohibitions": "[editContent]",
 					path: "/",
 					element: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Index, {
-						"data-uid": "src/App.tsx:94:32",
+						"data-uid": "src/App.tsx:109:32",
 						"data-prohibitions": "[editContent]"
 					})
 				}),
 				/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Route, {
-					"data-uid": "src/App.tsx:95:7",
+					"data-uid": "src/App.tsx:110:7",
 					"data-prohibitions": "[editContent]",
 					path: "/documents",
 					element: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Documents, {
-						"data-uid": "src/App.tsx:95:41",
+						"data-uid": "src/App.tsx:110:41",
 						"data-prohibitions": "[editContent]"
 					})
 				}),
 				/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Route, {
-					"data-uid": "src/App.tsx:96:7",
+					"data-uid": "src/App.tsx:111:7",
 					"data-prohibitions": "[editContent]",
 					path: "/users",
 					element: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Users, {
-						"data-uid": "src/App.tsx:96:37",
+						"data-uid": "src/App.tsx:111:37",
 						"data-prohibitions": "[editContent]"
 					})
 				})
 			]
 		}),
 		/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Route, {
-			"data-uid": "src/App.tsx:99:5",
+			"data-uid": "src/App.tsx:114:5",
 			"data-prohibitions": "[editContent]",
 			path: "*",
 			element: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(NotFound, {
-				"data-uid": "src/App.tsx:99:30",
+				"data-uid": "src/App.tsx:114:30",
 				"data-prohibitions": "[editContent]"
 			})
 		})
 	]
 });
 var App = () => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(BrowserRouter, {
-	"data-uid": "src/App.tsx:104:3",
+	"data-uid": "src/App.tsx:119:3",
 	"data-prohibitions": "[]",
 	future: {
 		v7_startTransition: false,
 		v7_relativeSplatPath: false
 	},
 	children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AuthProvider, {
-		"data-uid": "src/App.tsx:105:5",
+		"data-uid": "src/App.tsx:120:5",
 		"data-prohibitions": "[]",
 		children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(TooltipProvider, {
-			"data-uid": "src/App.tsx:106:7",
+			"data-uid": "src/App.tsx:121:7",
 			"data-prohibitions": "[]",
 			children: [
 				/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Toaster$2, {
-					"data-uid": "src/App.tsx:107:9",
+					"data-uid": "src/App.tsx:122:9",
 					"data-prohibitions": "[editContent]"
 				}),
 				/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Toaster, {
-					"data-uid": "src/App.tsx:108:9",
+					"data-uid": "src/App.tsx:123:9",
 					"data-prohibitions": "[editContent]"
 				}),
 				/* @__PURE__ */ (0, import_jsx_runtime.jsx)(AppRoutes, {
-					"data-uid": "src/App.tsx:109:9",
+					"data-uid": "src/App.tsx:124:9",
 					"data-prohibitions": "[editContent]"
 				})
 			]
@@ -45250,4 +45719,4 @@ var App = () => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(BrowserRouter, {
 }));
 //#endregion
 
-//# sourceMappingURL=index-C-uUc9Ee.js.map
+//# sourceMappingURL=index-D4E2djfg.js.map

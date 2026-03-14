@@ -4,22 +4,25 @@ import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Layout } from './components/Layout'
 import { AuthProvider, useAuth } from './hooks/use-auth'
+import { Loader2 } from 'lucide-react'
 
 import Index from './pages/Index'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import Documents from './pages/Documents'
 import Users from './pages/Users'
 import NotFound from './pages/NotFound'
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { userProfile, loading } = useAuth()
+  const { userProfile, loading, signOut } = useAuth()
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-white">
-        Carregando...
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     )
   }
@@ -35,14 +38,15 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
         <div className="glass-panel p-8 max-w-md w-full text-center border-white/10 z-10">
           <h1 className="text-2xl font-bold text-white mb-2">Aprovação Pendente</h1>
           <p className="text-muted-foreground mb-6">
-            Sua conta foi criada com sucesso, mas está aguardando a aprovação de um Administrador da
-            organização <strong>{userProfile.org_name}</strong>.
+            Sua conta está aguardando aprovação do administrador.
           </p>
           <button
-            onClick={() => window.location.reload()}
+            onClick={async () => {
+              await signOut()
+            }}
             className="text-primary hover:underline text-sm font-medium"
           >
-            Atualizar Página
+            Sair e Voltar ao Login
           </button>
         </div>
       </div>
@@ -55,12 +59,13 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 // Public Route Wrapper
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { userProfile, loading } = useAuth()
-  if (loading)
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-white">
-        Carregando...
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     )
+  }
   if (userProfile) return <Navigate to="/" replace />
   return <>{children}</>
 }
@@ -83,6 +88,16 @@ const AppRoutes = () => (
         </PublicRoute>
       }
     />
+    <Route
+      path="/forgot-password"
+      element={
+        <PublicRoute>
+          <ForgotPassword />
+        </PublicRoute>
+      }
+    />
+
+    <Route path="/reset-password" element={<ResetPassword />} />
 
     <Route
       element={

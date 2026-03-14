@@ -554,7 +554,7 @@ export type Database = {
           is_verified: boolean | null
           last_login: string | null
           org_id: string
-          password_hash: string
+          password_hash: string | null
           updated_at: string | null
         }
         Insert: {
@@ -566,7 +566,7 @@ export type Database = {
           is_verified?: boolean | null
           last_login?: string | null
           org_id: string
-          password_hash: string
+          password_hash?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -578,7 +578,7 @@ export type Database = {
           is_verified?: boolean | null
           last_login?: string | null
           org_id?: string
-          password_hash?: string
+          password_hash?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -718,6 +718,8 @@ export type Database = {
       }
     }
     Functions: {
+      get_user_org_id: { Args: never; Returns: string }
+      get_user_role_name: { Args: never; Returns: string }
       has_permission: {
         Args: { p_action: string; p_resource: string; p_user_id: string }
         Returns: boolean
@@ -980,8 +982,8 @@ export const Constants = {
 //   org_id: uuid (not null)
 //   email: character varying (not null)
 //   full_name: character varying (nullable)
-//   password_hash: character varying (not null)
-//   is_active: boolean (nullable, default: true)
+//   password_hash: character varying (nullable)
+//   is_active: boolean (nullable, default: false)
 //   is_verified: boolean (nullable, default: false)
 //   last_login: timestamp without time zone (nullable)
 //   created_at: timestamp without time zone (nullable, default: CURRENT_TIMESTAMP)
@@ -1072,16 +1074,109 @@ export const Constants = {
 //   Policy "tenant_isolation_document_rows" (ALL, PERMISSIVE) roles={public}
 //     USING: (org_id = (current_setting('app.org_id'::text))::uuid)
 // Table: documents
-//   Policy "documents_select_own_org" (SELECT, PERMISSIVE) roles={public}
-//     USING: (org_id = (current_setting('app.current_org_id'::text))::uuid)
+//   Policy "documents_delete" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: ((org_id = get_user_org_id()) AND (get_user_role_name() = ANY (ARRAY['Admin'::text, 'Analyst'::text])))
+//   Policy "documents_insert" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: ((org_id = get_user_org_id()) AND (get_user_role_name() = ANY (ARRAY['Admin'::text, 'Analyst'::text])))
+//   Policy "documents_select" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: (org_id = get_user_org_id())
+//   Policy "documents_update" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: ((org_id = get_user_org_id()) AND (get_user_role_name() = ANY (ARRAY['Admin'::text, 'Analyst'::text])))
+// Table: organizations
+//   Policy "orgs_select" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: (id = get_user_org_id())
+// Table: roles
+//   Policy "roles_select" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
 // Table: users
-//   Policy "users_select_own_org" (SELECT, PERMISSIVE) roles={public}
-//     USING: (org_id = (current_setting('app.current_org_id'::text))::uuid)
+//   Policy "tenant_isolation_users_select" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: (org_id = get_user_org_id())
+//   Policy "tenant_isolation_users_update" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: (org_id = get_user_org_id())
+// Table: users_roles
+//   Policy "users_roles_delete" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: (EXISTS ( SELECT 1    FROM users target   WHERE ((target.id = users_roles.user_id) AND (target.org_id = get_user_org_id()))))
+//   Policy "users_roles_insert" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: (EXISTS ( SELECT 1    FROM users target   WHERE ((target.id = users_roles.user_id) AND (target.org_id = get_user_org_id()))))
+//   Policy "users_roles_select" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "users_roles_update" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: (EXISTS ( SELECT 1    FROM users target   WHERE ((target.id = users_roles.user_id) AND (target.org_id = get_user_org_id()))))
 // Table: valuation_projects
 //   Policy "valuation_projects_select_own_org" (SELECT, PERMISSIVE) roles={public}
 //     USING: (org_id = (current_setting('app.current_org_id'::text))::uuid)
 
 // --- DATABASE FUNCTIONS ---
+// FUNCTION get_user_org_id()
+//   CREATE OR REPLACE FUNCTION public.get_user_org_id()
+//    RETURNS uuid
+//    LANGUAGE sql
+//    SECURITY DEFINER
+//   AS $function$
+//     SELECT org_id FROM public.users WHERE id = auth.uid() LIMIT 1;
+//   $function$
+//
+// FUNCTION get_user_role_name()
+//   CREATE OR REPLACE FUNCTION public.get_user_role_name()
+//    RETURNS text
+//    LANGUAGE sql
+//    SECURITY DEFINER
+//   AS $function$
+//     SELECT r.name
+//     FROM public.users_roles ur
+//     JOIN public.roles r ON r.id = ur.role_id
+//     WHERE ur.user_id = auth.uid() LIMIT 1;
+//   $function$
+//
+// FUNCTION handle_new_user()
+//   CREATE OR REPLACE FUNCTION public.handle_new_user()
+//    RETURNS trigger
+//    LANGUAGE plpgsql
+//    SECURITY DEFINER
+//   AS $function$
+//   DECLARE
+//     v_org_id uuid;
+//     v_is_new_org boolean := false;
+//     v_role_id uuid;
+//   BEGIN
+//     -- Try to find an organization by name
+//     SELECT id INTO v_org_id FROM public.organizations WHERE name = NEW.raw_user_meta_data->>'org_name' LIMIT 1;
+//
+//     -- Create new org if none found
+//     IF v_org_id IS NULL THEN
+//       INSERT INTO public.organizations (name, slug)
+//       VALUES (
+//         COALESCE(NEW.raw_user_meta_data->>'org_name', 'Default Org'),
+//         regexp_replace(lower(COALESCE(NEW.raw_user_meta_data->>'org_name', 'default-org')), '[^a-z0-9]+', '-', 'g') || '-' || substr(md5(random()::text), 1, 6)
+//       ) RETURNING id INTO v_org_id;
+//       v_is_new_org := true;
+//     END IF;
+//
+//     -- Insert profile
+//     INSERT INTO public.users (id, org_id, email, full_name, is_active)
+//     VALUES (
+//       NEW.id,
+//       v_org_id,
+//       NEW.email,
+//       NEW.raw_user_meta_data->>'full_name',
+//       v_is_new_org -- First user in new org is active Admin
+//     );
+//
+//     -- Assign Role
+//     IF v_is_new_org THEN
+//       SELECT id INTO v_role_id FROM public.roles WHERE name = 'Admin' LIMIT 1;
+//     ELSE
+//       SELECT id INTO v_role_id FROM public.roles WHERE name = 'Viewer' LIMIT 1;
+//     END IF;
+//
+//     IF v_role_id IS NOT NULL THEN
+//       INSERT INTO public.users_roles (user_id, role_id) VALUES (NEW.id, v_role_id);
+//     END IF;
+//
+//     RETURN NEW;
+//   END;
+//   $function$
+//
 // FUNCTION has_permission(uuid, text, text)
 //   CREATE OR REPLACE FUNCTION public.has_permission(p_user_id uuid, p_resource text, p_action text)
 //    RETURNS boolean
