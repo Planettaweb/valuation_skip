@@ -15,6 +15,7 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination'
 import { cn } from '@/lib/utils'
+import { BalancoPatrimonialView } from './BalancoPatrimonialView'
 
 const PAGE_SIZE = 10
 
@@ -22,10 +23,12 @@ export function ExtractedDataView({
   data,
   type,
   isDynamic,
+  rawMetadata,
 }: {
   data: any[]
   type: string
   isDynamic?: boolean
+  rawMetadata?: any
 }) {
   const [page, setPage] = useState(1)
 
@@ -43,6 +46,10 @@ export function ExtractedDataView({
     if (!data) return []
     return data.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   }, [data, page])
+
+  if (rawMetadata?.balanco_patrimonial) {
+    return <BalancoPatrimonialView bp={rawMetadata.balanco_patrimonial} data={data} />
+  }
 
   if (!data || data.length === 0) {
     return <p className="text-center text-muted-foreground py-8">Nenhum dado extraído.</p>

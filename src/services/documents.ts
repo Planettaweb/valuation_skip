@@ -51,47 +51,115 @@ export const documentService = {
       await new Promise((resolve) => setTimeout(resolve, 1500))
 
       let rowsData: any[] = []
+      let metadataObj: any = null
 
       // Client-side mapping logic based on documentType
       if (documentType === 'Balanço Patrimonial') {
-        rowsData = [
-          {
-            classification_code: '1',
-            description: 'ATIVO',
-            value_year_n: 2850024.56,
-            value_year_n_minus_1: 1692004.23,
+        // Raw string extracted from document simulating parsing PDF content
+        const rawExtracted = {
+          empresa: 'EMPRESA EXEMPLO S.A.',
+          cnpj: '12.345.678/0001-90',
+          inscricao_junta_comercial: '123456789',
+          data_abertura: '01/01/2023',
+          data_encerramento_balanco: '31/12/2023',
+          folha: '1',
+          numero_livro: '5',
+          data_emissao: '15/02/2024',
+          hora_emissao: '14:30',
+          contas: [
+            { cod: '1', class: '1', desc: 'ATIVO', atual: '2.850.024,56', ant: '1.692.004,23' },
+            {
+              cod: '2',
+              class: '1.1',
+              desc: 'ATIVO CIRCULANTE',
+              atual: '2.763.298,76',
+              ant: '1.610.288,47',
+            },
+            {
+              cod: '3',
+              class: '1.1.1',
+              desc: 'DISPONÍVEL',
+              atual: '2.253.806,12',
+              ant: '1.071.129,27',
+            },
+            {
+              cod: '4',
+              class: '1.1.10.2',
+              desc: 'BANCOS CONTA MOVIMENTO',
+              atual: '109.675,07',
+              ant: '221.371,53',
+            },
+            {
+              cod: '5',
+              class: '1.1.10.3',
+              desc: 'APLICAÇÕES FINANCEIRAS LIQUIDEZ IMEDIATA',
+              atual: '2.144.131,05',
+              ant: '849.455,69',
+            },
+            { cod: '6', class: '1.1.2', desc: 'CLIENTES', atual: '503.540,00', ant: '539.159,20' },
+          ],
+          reconhecimento:
+            'Reconhecemos a exatidão do presente Balanço Patrimonial, cujos totais de Ativo e Passivo conferem.',
+          total: '2.850.024,56',
+          local_data: 'São Paulo, SP, 15 de fevereiro de 2024',
+        }
+
+        // Validation and Type Casting functions
+        const parseCurrency = (val: string) => {
+          if (!val) return 0
+          return parseFloat(val.replace(/\./g, '').replace(',', '.'))
+        }
+        const parseIntSafe = (val: string) => parseInt(val, 10) || 0
+
+        metadataObj = {
+          balanco_patrimonial: {
+            cabecalho: {
+              empresa: String(rawExtracted.empresa),
+              cnpj: String(rawExtracted.cnpj),
+              inscricao_junta_comercial: String(rawExtracted.inscricao_junta_comercial),
+              data_abertura: String(rawExtracted.data_abertura),
+              data_encerramento_balanco: String(rawExtracted.data_encerramento_balanco),
+              folha: parseIntSafe(rawExtracted.folha),
+              numero_livro: parseIntSafe(rawExtracted.numero_livro),
+              data_emissao: String(rawExtracted.data_emissao),
+              hora_emissao: String(rawExtracted.hora_emissao),
+            },
+            contas: rawExtracted.contas.map((c) => ({
+              codigo: parseIntSafe(c.cod),
+              classificacao: String(c.class),
+              descricao: String(c.desc),
+              valor_exercicio_atual: parseCurrency(c.atual),
+              valor_exercicio_anterior: parseCurrency(c.ant),
+            })),
+            declaracao_final: {
+              texto_reconhecimento: String(rawExtracted.reconhecimento),
+              valor_total_ativo_passivo: parseCurrency(rawExtracted.total),
+              local_data: String(rawExtracted.local_data),
+              assinaturas: [
+                {
+                  nome: 'João Silva',
+                  cargo: 'Diretor Presidente',
+                  cpf: '123.456.789-00',
+                  registro_conselho: '',
+                },
+                {
+                  nome: 'Maria Souza',
+                  cargo: 'Contadora',
+                  cpf: '987.654.321-11',
+                  registro_conselho: 'CRC-SP 123456/O-7',
+                },
+              ],
+            },
           },
-          {
-            classification_code: '1.1',
-            description: 'ATIVO CIRCULANTE',
-            value_year_n: 2763298.76,
-            value_year_n_minus_1: 1610288.47,
-          },
-          {
-            classification_code: '1.1.1',
-            description: 'DISPONÍVEL',
-            value_year_n: 2253806.12,
-            value_year_n_minus_1: 1071129.27,
-          },
-          {
-            classification_code: '1.1.10.2',
-            description: 'BANCOS CONTA MOVIMENTO',
-            value_year_n: 109675.07,
-            value_year_n_minus_1: 221371.53,
-          },
-          {
-            classification_code: '1.1.10.3',
-            description: 'APLICAÇÕES FINANCEIRAS LIQUIDEZ IMEDIATA',
-            value_year_n: 2144131.05,
-            value_year_n_minus_1: 849455.69,
-          },
-          {
-            classification_code: '1.1.2',
-            description: 'CLIENTES',
-            value_year_n: 503540.0,
-            value_year_n_minus_1: 539159.2,
-          },
-        ]
+        }
+
+        // To maintain retro-compatibility with the fallback inserts
+        rowsData = metadataObj.balanco_patrimonial.contas.map((c: any) => ({
+          classification_code: c.classificacao,
+          description: c.descricao,
+          value_year_n: c.valor_exercicio_atual,
+          value_year_n_minus_1: c.valor_exercicio_anterior,
+        }))
       } else if (documentType === 'DRE') {
         rowsData = [
           {
@@ -157,12 +225,14 @@ export const documentService = {
 
       onProgress?.('Salvando metadados estruturados...')
 
+      const finalMetadata = metadataObj ? metadataObj : rowsData
+
       // Update document to 'Completed' and persist metadata JSON natively
       const { data: updatedDoc, error: updateError } = await supabase
         .from('documents')
         .update({
           status: 'Completed',
-          metadata: rowsData,
+          metadata: finalMetadata,
           updated_at: new Date().toISOString(),
         })
         .eq('id', doc.id)

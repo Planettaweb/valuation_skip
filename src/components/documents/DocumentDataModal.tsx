@@ -15,13 +15,23 @@ export function DocumentDataModal({ doc, onClose }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isDynamic, setIsDynamic] = useState(false)
+  const [rawMetadata, setRawMetadata] = useState<any>(null)
 
   useEffect(() => {
     if (!doc) return
 
     // If metadata exists, use it directly bypassing the network call
     if (doc.metadata) {
-      setData(Array.isArray(doc.metadata) ? doc.metadata : [doc.metadata])
+      setRawMetadata(doc.metadata)
+      let resolvedData = doc.metadata
+      if (!Array.isArray(doc.metadata)) {
+        if (doc.metadata.balanco_patrimonial?.contas) {
+          resolvedData = doc.metadata.balanco_patrimonial.contas
+        } else {
+          resolvedData = [doc.metadata]
+        }
+      }
+      setData(resolvedData)
       setIsDynamic(true)
       return
     }
@@ -38,6 +48,7 @@ export function DocumentDataModal({ doc, onClose }: Props) {
         if (fetchError) throw fetchError
         setData(extracted || [])
         setIsDynamic(!!fetchIsDynamic)
+        setRawMetadata(null)
       } catch (err: any) {
         setError(err.message || 'Erro ao carregar dados do documento.')
       } finally {
@@ -81,14 +92,14 @@ export function DocumentDataModal({ doc, onClose }: Props) {
                 className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary"
               >
                 <Table2 className="w-4 h-4 mr-2" />
-                Tabela
+                Estruturado
               </TabsTrigger>
               <TabsTrigger
                 value="json"
                 className="data-[state=active]:bg-primary/20 data-[state=active]:text-primary"
               >
                 <FileJson className="w-4 h-4 mr-2" />
-                JSON (Metadata)
+                Raw JSON
               </TabsTrigger>
             </TabsList>
 
@@ -96,7 +107,12 @@ export function DocumentDataModal({ doc, onClose }: Props) {
               value="table"
               className="flex-1 overflow-y-auto rounded-xl border border-white/10 bg-card/30 p-2 sm:p-4 mt-0"
             >
-              <ExtractedDataView data={data} type={doc.document_type} isDynamic={isDynamic} />
+              <ExtractedDataView
+                data={data}
+                type={doc.document_type}
+                isDynamic={isDynamic}
+                rawMetadata={rawMetadata}
+              />
             </TabsContent>
 
             <TabsContent
@@ -104,7 +120,7 @@ export function DocumentDataModal({ doc, onClose }: Props) {
               className="flex-1 overflow-y-auto rounded-xl border border-white/10 bg-black/50 p-4 mt-0"
             >
               <pre className="text-xs text-emerald-400/90 font-mono whitespace-pre-wrap break-words">
-                {JSON.stringify(data, null, 2)}
+                {JSON.stringify(rawMetadata || data, null, 2)}
               </pre>
             </TabsContent>
           </Tabs>
