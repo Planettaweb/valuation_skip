@@ -16,7 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Progress } from '@/components/ui/progress'
 import { useToast } from '@/hooks/use-toast'
 import { documentService } from '@/services/documents'
 import { UserProfile } from '@/hooks/use-auth'
@@ -34,6 +33,7 @@ export function DocumentUploadModal({ userProfile, onSuccess }: Props) {
   const [file, setFile] = useState<File | null>(null)
   const [docType, setDocType] = useState('Balanço Patrimonial')
   const [uploading, setUploading] = useState(false)
+  const [statusMessage, setStatusMessage] = useState('')
 
   const validateAndSetFile = (f?: File) => {
     if (!f) return
@@ -87,24 +87,29 @@ export function DocumentUploadModal({ userProfile, onSuccess }: Props) {
   const handleUpload = async () => {
     if (!file) return
     setUploading(true)
+    setStatusMessage('Iniciando processamento...')
+
     const { error } = await documentService.uploadDocument(
       file,
       userProfile.org_id,
       userProfile.id,
       docType,
+      (msg) => setStatusMessage(msg),
     )
+
     if (error) {
-      toast({ title: 'Erro no Upload', description: error.message, variant: 'destructive' })
+      toast({ title: 'Erro de Processamento', description: error.message, variant: 'destructive' })
     } else {
       toast({
-        title: 'Upload Iniciado',
-        description: 'O documento efêmero está sendo processado diretamente.',
+        title: 'Extração Concluída',
+        description: 'Os dados estruturados foram extraídos e salvos com sucesso.',
       })
       setIsOpen(false)
       setFile(null)
       onSuccess()
     }
     setUploading(false)
+    setStatusMessage('')
   }
 
   return (
@@ -181,22 +186,16 @@ export function DocumentUploadModal({ userProfile, onSuccess }: Props) {
           </div>
 
           {uploading && (
-            <div className="w-full space-y-2 mt-2 animate-fade-in">
-              <Progress value={undefined} className="h-2 bg-primary/20" />
-              <p className="text-xs text-center text-primary animate-pulse">
-                Processando conteúdo diretamente na memória...
-              </p>
+            <div className="w-full mt-2 animate-fade-in p-3 bg-white/5 rounded-lg border border-white/10">
+              <div className="flex items-center gap-3 text-sm text-primary">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="animate-pulse">{statusMessage}</span>
+              </div>
             </div>
           )}
 
           <Button onClick={handleUpload} disabled={!file || uploading} className="w-full mt-2">
-            {uploading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Processando...
-              </>
-            ) : (
-              'Extrair Dados (Sem Armazenar)'
-            )}
+            {uploading ? 'Processando no Navegador...' : 'Processar no Navegador'}
           </Button>
         </div>
       </DialogContent>

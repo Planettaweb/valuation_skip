@@ -50,27 +50,8 @@ export default function Documents() {
           table: 'documents',
           filter: `org_id=eq.${userProfile.org_id}`,
         },
-        (payload: any) => {
+        () => {
           fetchDocs()
-
-          // Trigger toasts for background extraction completion or errors
-          if (payload.eventType === 'UPDATE') {
-            const oldStatus = payload.old?.status
-            const newStatus = payload.new?.status
-
-            if (newStatus === 'Error' && oldStatus !== 'Error') {
-              toast({
-                title: 'Erro de Processamento',
-                description: `O documento "${payload.new.filename || 'Desconhecido'}" falhou ao ser extraído.`,
-                variant: 'destructive',
-              })
-            } else if (newStatus === 'Completed' && oldStatus !== 'Completed') {
-              toast({
-                title: 'Extração Concluída',
-                description: `Os dados de "${payload.new.filename || 'Desconhecido'}" foram estruturados e salvos no metadata.`,
-              })
-            }
-          }
         },
       )
       .subscribe()
@@ -109,7 +90,7 @@ export default function Documents() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Repositório Financeiro</h2>
           <p className="text-muted-foreground text-sm">
-            Gerencie uploads e acesse rapidamente dados estruturados extraídos automaticamente.
+            Gerencie uploads e processe dados financeiros diretamente no navegador.
           </p>
         </div>
 

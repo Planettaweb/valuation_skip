@@ -116,6 +116,7 @@ export type Database = {
           filename: string
           id: string
           is_archived: boolean | null
+          metadata: Json | null
           mime_type: string | null
           org_id: string
           source: string | null
@@ -135,6 +136,7 @@ export type Database = {
           filename: string
           id?: string
           is_archived?: boolean | null
+          metadata?: Json | null
           mime_type?: string | null
           org_id: string
           source?: string | null
@@ -154,6 +156,7 @@ export type Database = {
           filename?: string
           id?: string
           is_archived?: boolean | null
+          metadata?: Json | null
           mime_type?: string | null
           org_id?: string
           source?: string | null
@@ -1099,6 +1102,7 @@ export const Constants = {
 //   status: character varying (not null, default: 'Uploaded'::character varying)
 //   valuation_project_id: uuid (nullable)
 //   document_type: character varying (nullable)
+//   metadata: jsonb (nullable)
 // Table: financial_balancete
 //   id: uuid (not null, default: gen_random_uuid())
 //   org_id: uuid (not null)
