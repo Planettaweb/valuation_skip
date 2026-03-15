@@ -34,6 +34,10 @@ export function BalancoPatrimonialView({ bp, data }: { bp: any; data: any[] }) {
     return data.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   }, [data, page])
 
+  const yearN = currentData[0]?.year_n || bp?.cabecalho?.year_n || 'Exercício Atual'
+  const yearN1 =
+    currentData[0]?.year_n_minus_1 || bp?.cabecalho?.year_n_minus_1 || 'Exercício Anterior'
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border border-white/10 rounded-lg bg-card/30">
@@ -82,8 +86,10 @@ export function BalancoPatrimonialView({ bp, data }: { bp: any; data: any[] }) {
               <TableHead>Código</TableHead>
               <TableHead>Classificação</TableHead>
               <TableHead>Descrição</TableHead>
-              <TableHead className="text-right">Exercício Atual</TableHead>
-              <TableHead className="text-right">Exercício Anterior</TableHead>
+              <TableHead className="text-right">{yearN}</TableHead>
+              <TableHead className="text-center w-[50px]">Nat.</TableHead>
+              <TableHead className="text-right">{yearN1}</TableHead>
+              <TableHead className="text-center w-[50px]">Nat.</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -97,10 +103,16 @@ export function BalancoPatrimonialView({ bp, data }: { bp: any; data: any[] }) {
                 </TableCell>
                 <TableCell className="font-medium">{r.descricao || r.description}</TableCell>
                 <TableCell className="text-right">
-                  {formatCurrency(r.valor_exercicio_atual || r.value_year_n)}
+                  {formatCurrency(r.valor_exercicio_atual ?? r.value_year_n)}
+                </TableCell>
+                <TableCell className="text-center font-mono text-xs text-muted-foreground">
+                  {r.natureza_exercicio_atual ?? r.nature_year_n ?? '-'}
                 </TableCell>
                 <TableCell className="text-right">
-                  {formatCurrency(r.valor_exercicio_anterior || r.value_year_n_minus_1)}
+                  {formatCurrency(r.valor_exercicio_anterior ?? r.value_year_n_minus_1)}
+                </TableCell>
+                <TableCell className="text-center font-mono text-xs text-muted-foreground">
+                  {r.natureza_exercicio_anterior ?? r.nature_year_n_minus_1 ?? '-'}
                 </TableCell>
               </TableRow>
             ))}

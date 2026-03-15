@@ -1255,7 +1255,7 @@ export const Constants = {
 //   PRIMARY KEY audit_logs_pkey: PRIMARY KEY (id)
 //   FOREIGN KEY audit_logs_user_id_fkey: FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 // Table: document_rows
-//   FOREIGN KEY document_rows_document_id_fkey: FOREIGN KEY (document_id) REFERENCES documents(id)
+//   FOREIGN KEY document_rows_document_id_fkey: FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
 //   FOREIGN KEY document_rows_org_id_fkey: FOREIGN KEY (org_id) REFERENCES organizations(id)
 //   PRIMARY KEY document_rows_pkey: PRIMARY KEY (id)
 // Table: documents

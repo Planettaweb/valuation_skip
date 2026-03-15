@@ -29,7 +29,7 @@ export const documentService = {
         filename: file.name,
         file_size: file.size,
         mime_type: file.type,
-        file_path: null, // Null for ephemeral extraction
+        file_path: null,
         document_type: documentType,
         status: 'Processing',
       })
@@ -68,7 +68,11 @@ export const documentService = {
           classification_code: c.classificacao,
           description: c.descricao,
           value_year_n: c.valor_exercicio_atual,
+          nature_year_n: c.natureza_exercicio_atual,
           value_year_n_minus_1: c.valor_exercicio_anterior,
+          nature_year_n_minus_1: c.natureza_exercicio_anterior,
+          year_n: metadataObj.balanco_patrimonial.cabecalho.year_n,
+          year_n_minus_1: metadataObj.balanco_patrimonial.cabecalho.year_n_minus_1,
         }))
       } else if (documentType === 'DRE') {
         onProgress?.('Simulando extração de DRE...')

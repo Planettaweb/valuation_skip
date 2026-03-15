@@ -6,6 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -122,6 +123,10 @@ export function DocumentUploadModal({ userProfile, onSuccess }: Props) {
       <DialogContent className="glass-panel border-white/10 sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Processar Documento Financeiro</DialogTitle>
+          <DialogDescription>
+            Faça o upload do seu balanço, DRE ou fluxo de caixa para extração inteligente e
+            identificação de períodos.
+          </DialogDescription>
         </DialogHeader>
         <div className="mt-4 flex flex-col gap-4">
           <div className="space-y-2">
@@ -186,16 +191,20 @@ export function DocumentUploadModal({ userProfile, onSuccess }: Props) {
           </div>
 
           {uploading && (
-            <div className="w-full mt-2 animate-fade-in p-3 bg-white/5 rounded-lg border border-white/10">
+            <div className="w-full mt-2 animate-fade-in p-4 bg-primary/10 rounded-lg border border-primary/20 flex flex-col gap-3">
               <div className="flex items-center gap-3 text-sm text-primary">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="animate-pulse">{statusMessage}</span>
+                <span className="font-medium">Processando Documento...</span>
               </div>
+              <div className="w-full bg-background rounded-full h-1.5 overflow-hidden">
+                <div className="bg-primary h-full animate-[pulse_2s_ease-in-out_infinite] w-full" />
+              </div>
+              <p className="text-xs text-primary/70 animate-pulse">{statusMessage}</p>
             </div>
           )}
 
           <Button onClick={handleUpload} disabled={!file || uploading} className="w-full mt-2">
-            {uploading ? 'Processando no Navegador...' : 'Processar no Navegador'}
+            {uploading ? 'Aguarde...' : 'Processar no Navegador'}
           </Button>
         </div>
       </DialogContent>

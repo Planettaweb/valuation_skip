@@ -10,6 +10,9 @@ async function getPdfJs() {
       script.onload = () => {
         const lib = (window as any).pdfjsLib
         if (lib) {
+          if (!lib.GlobalWorkerOptions) {
+            lib.GlobalWorkerOptions = {}
+          }
           lib.GlobalWorkerOptions.workerSrc =
             'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
           resolve(lib)
@@ -37,7 +40,6 @@ export async function extractTextFromPDF(file: File): Promise<string> {
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
     let fullText = ''
 
-    // Read every page to ensure no data is missed
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i)
       const textContent = await page.getTextContent()
@@ -54,15 +56,28 @@ export async function extractTextFromPDF(file: File): Promise<string> {
   }
 }
 
-const parseCurrency = (val: string) => {
-  if (!val) return 0
-  return parseFloat(val.replace(/\./g, '').replace(',', '.'))
+const parseValueAndNature = (val: string) => {
+  if (!val) return { value: 0, nature: null }
+  const str = val.trim()
+  const match = str.match(/([\d.,-]+)\s*([DCdc])?/)
+  if (!match) return { value: 0, nature: null }
+
+  const numStr = match[1].replace(/\./g, '').replace(',', '.')
+  const value = parseFloat(numStr) || 0
+  const nature = match[2] ? match[2].toUpperCase() : null
+
+  return { value, nature }
 }
 
 const parseIntSafe = (val: string) => parseInt(val, 10) || 0
 
 export function parseBalancoPatrimonialText(text: string) {
-  // Extract header information using flexible regex heuristics
+  // Extract years from the document text
+  const yearMatches = [...text.matchAll(/\b(201\d|202\d)\b/g)].map((m) => parseIntSafe(m[1]))
+  const uniqueYears = [...new Set(yearMatches)].sort((a, b) => b - a)
+  const year_n = uniqueYears[0] || new Date().getFullYear()
+  const year_n_minus_1 = uniqueYears[1] || year_n - 1
+
   const cabecalho = {
     empresa:
       text.match(/(?:Empresa|Razão Social)[:\s]*([A-Z0-9\s.\-&]+)(?:\n|$)/i)?.[1]?.trim() || '',
@@ -75,33 +90,41 @@ export function parseBalancoPatrimonialText(text: string) {
     numero_livro: parseIntSafe(text.match(/(?:Livro)[:\s]*(\d+)/i)?.[1] || '0'),
     data_emissao: text.match(/(?:Emissão)[:\s]*([\d]{2}\/[\d]{2}\/[\d]{4})/i)?.[1] || '',
     hora_emissao: text.match(/(?:Hora)[:\s]*([\d]{2}:[\d]{2})/i)?.[1] || '',
+    year_n,
+    year_n_minus_1,
   }
 
   const contas: any[] = []
-  // Look for lines that resemble account entries: 1  1.1  ATIVO  1.000,00  2.000,00
+
+  // Look for lines that resemble account entries and ignore generic headers
+  // E.g. "1  1.1  ATIVO  1.000,00 D  2.000,00 C"
   const contasRegex =
-    /(?:^|\n|\s)(\d{1,5})\s+([\d.]+)\s+([A-ZÀ-Úa-zà-ú\s\-/()]+?)\s+([\d.,-]{4,})\s+([\d.,-]{4,})(?=\n|$)/g
+    /(?:^|\n|\s)(\d{1,5})\s+([\d.]+)\s+([A-ZÀ-Úa-zà-ú\s\-/()]+?)\s+([\d.,-]+\s*[DCdc]?)\s+([\d.,-]+\s*[DCdc]?)(?=\n|$)/g
 
   let match
   let sanityLimit = 2000
   while ((match = contasRegex.exec(text)) !== null && sanityLimit-- > 0) {
     const desc = match[3].trim()
-    if (desc.length > 2) {
+    if (desc.length > 2 && !/^(?:ano|exercício)$/i.test(desc)) {
+      const vn = parseValueAndNature(match[4])
+      const vn1 = parseValueAndNature(match[5])
+
       contas.push({
         codigo: parseIntSafe(match[1]),
         classificacao: match[2],
         descricao: desc,
-        valor_exercicio_atual: parseCurrency(match[4]),
-        valor_exercicio_anterior: parseCurrency(match[5]),
+        valor_exercicio_atual: vn.value,
+        natureza_exercicio_atual: vn.nature,
+        valor_exercicio_anterior: vn1.value,
+        natureza_exercicio_anterior: vn1.nature,
       })
     }
   }
 
-  // Fallback extraction if regex missed due to spacing or formatting issues typical in PDFs
   if (contas.length === 0) {
     const lines = text.split('\n')
     for (const line of lines) {
-      const parts = line.trim().split(/\s{2,}|\t/) // Split by larger gaps
+      const parts = line.trim().split(/\s{2,}|\t/)
       if (parts.length >= 5) {
         const cod = parts[0]
         const cls = parts[1]
@@ -109,13 +132,18 @@ export function parseBalancoPatrimonialText(text: string) {
         const valN = parts[parts.length - 2]
         const valN1 = parts[parts.length - 1]
 
-        if (/^\d+$/.test(cod) && /^[\d.]+$/.test(cls)) {
+        if (/^\d+$/.test(cod) && /^[\d.]+$/.test(cls) && !/ano|exercício/i.test(desc)) {
+          const vn = parseValueAndNature(valN)
+          const vn1 = parseValueAndNature(valN1)
+
           contas.push({
             codigo: parseIntSafe(cod),
             classificacao: cls,
             descricao: desc,
-            valor_exercicio_atual: parseCurrency(valN),
-            valor_exercicio_anterior: parseCurrency(valN1),
+            valor_exercicio_atual: vn.value,
+            natureza_exercicio_atual: vn.nature,
+            valor_exercicio_anterior: vn1.value,
+            natureza_exercicio_anterior: vn1.nature,
           })
         }
       }
@@ -124,14 +152,13 @@ export function parseBalancoPatrimonialText(text: string) {
 
   const declaracao_final = {
     texto_reconhecimento: text.match(/(Reconhecemos a exatidão.*?)(?:\n|$)/i)?.[1] || '',
-    valor_total_ativo_passivo: parseCurrency(
+    valor_total_ativo_passivo: parseValueAndNature(
       text.match(/Total Ativo e Passivo.*?([\d.,]+)/i)?.[1] || '0',
-    ),
+    ).value,
     local_data: text.match(/(?:São Paulo|Rio de Janeiro|Local).*?(\d{2}.*?\d{4})/i)?.[0] || '',
     assinaturas: [] as any[],
   }
 
-  // Extract signatures
   const sigRegex =
     /(?:Nome|Assinatura)[:\s]*([A-Za-zÀ-Úà-ú\s]+)(?:Cargo)[:\s]*([A-Za-z\s]+)(?:CPF)[:\s]*([\d.-]+)/gi
   let sigMatch
