@@ -109,6 +109,7 @@ export type Database = {
         Row: {
           created_at: string | null
           description: string | null
+          document_type: string | null
           file_path: string | null
           file_size: number | null
           file_type: string | null
@@ -127,6 +128,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           description?: string | null
+          document_type?: string | null
           file_path?: string | null
           file_size?: number | null
           file_type?: string | null
@@ -145,6 +147,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           description?: string | null
+          document_type?: string | null
           file_path?: string | null
           file_size?: number | null
           file_type?: string | null
@@ -180,6 +183,201 @@ export type Database = {
             columns: ['valuation_project_id']
             isOneToOne: false
             referencedRelation: 'valuation_projects'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      financial_balancete: {
+        Row: {
+          account_description: string | null
+          classification_code: string | null
+          created_at: string | null
+          credit: number | null
+          current_balance: number | null
+          debit: number | null
+          document_id: string
+          id: string
+          org_id: string
+          previous_balance: number | null
+        }
+        Insert: {
+          account_description?: string | null
+          classification_code?: string | null
+          created_at?: string | null
+          credit?: number | null
+          current_balance?: number | null
+          debit?: number | null
+          document_id: string
+          id?: string
+          org_id: string
+          previous_balance?: number | null
+        }
+        Update: {
+          account_description?: string | null
+          classification_code?: string | null
+          created_at?: string | null
+          credit?: number | null
+          current_balance?: number | null
+          debit?: number | null
+          document_id?: string
+          id?: string
+          org_id?: string
+          previous_balance?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'financial_balancete_document_id_fkey'
+            columns: ['document_id']
+            isOneToOne: false
+            referencedRelation: 'documents'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'financial_balancete_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      financial_balanco_patrimonial: {
+        Row: {
+          classification_code: string | null
+          created_at: string | null
+          description: string | null
+          document_id: string
+          id: string
+          org_id: string
+          value_year_n: number | null
+          value_year_n_minus_1: number | null
+        }
+        Insert: {
+          classification_code?: string | null
+          created_at?: string | null
+          description?: string | null
+          document_id: string
+          id?: string
+          org_id: string
+          value_year_n?: number | null
+          value_year_n_minus_1?: number | null
+        }
+        Update: {
+          classification_code?: string | null
+          created_at?: string | null
+          description?: string | null
+          document_id?: string
+          id?: string
+          org_id?: string
+          value_year_n?: number | null
+          value_year_n_minus_1?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'financial_balanco_patrimonial_document_id_fkey'
+            columns: ['document_id']
+            isOneToOne: false
+            referencedRelation: 'documents'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'financial_balanco_patrimonial_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      financial_dre: {
+        Row: {
+          balance: number | null
+          created_at: string | null
+          description: string | null
+          document_id: string
+          id: string
+          org_id: string
+          sum: number | null
+          total: number | null
+        }
+        Insert: {
+          balance?: number | null
+          created_at?: string | null
+          description?: string | null
+          document_id: string
+          id?: string
+          org_id: string
+          sum?: number | null
+          total?: number | null
+        }
+        Update: {
+          balance?: number | null
+          created_at?: string | null
+          description?: string | null
+          document_id?: string
+          id?: string
+          org_id?: string
+          sum?: number | null
+          total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'financial_dre_document_id_fkey'
+            columns: ['document_id']
+            isOneToOne: false
+            referencedRelation: 'documents'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'financial_dre_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      financial_fluxo_caixa: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          document_id: string
+          id: string
+          org_id: string
+          period: string | null
+          value: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          document_id: string
+          id?: string
+          org_id: string
+          period?: string | null
+          value?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          document_id?: string
+          id?: string
+          org_id?: string
+          period?: string | null
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'financial_fluxo_caixa_document_id_fkey'
+            columns: ['document_id']
+            isOneToOne: false
+            referencedRelation: 'documents'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'financial_fluxo_caixa_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
             referencedColumns: ['id']
           },
         ]
@@ -898,8 +1096,46 @@ export const Constants = {
 //   updated_at: timestamp without time zone (nullable, default: CURRENT_TIMESTAMP)
 //   filename: character varying (not null)
 //   file_type: character varying (nullable)
-//   status: character varying (not null, default: 'processed'::character varying)
+//   status: character varying (not null, default: 'Uploaded'::character varying)
 //   valuation_project_id: uuid (nullable)
+//   document_type: character varying (nullable)
+// Table: financial_balancete
+//   id: uuid (not null, default: gen_random_uuid())
+//   org_id: uuid (not null)
+//   document_id: uuid (not null)
+//   classification_code: character varying (nullable)
+//   account_description: text (nullable)
+//   previous_balance: numeric (nullable)
+//   debit: numeric (nullable)
+//   credit: numeric (nullable)
+//   current_balance: numeric (nullable)
+//   created_at: timestamp with time zone (nullable, default: now())
+// Table: financial_balanco_patrimonial
+//   id: uuid (not null, default: gen_random_uuid())
+//   org_id: uuid (not null)
+//   document_id: uuid (not null)
+//   classification_code: character varying (nullable)
+//   description: text (nullable)
+//   value_year_n: numeric (nullable)
+//   value_year_n_minus_1: numeric (nullable)
+//   created_at: timestamp with time zone (nullable, default: now())
+// Table: financial_dre
+//   id: uuid (not null, default: gen_random_uuid())
+//   org_id: uuid (not null)
+//   document_id: uuid (not null)
+//   description: text (nullable)
+//   balance: numeric (nullable)
+//   sum: numeric (nullable)
+//   total: numeric (nullable)
+//   created_at: timestamp with time zone (nullable, default: now())
+// Table: financial_fluxo_caixa
+//   id: uuid (not null, default: gen_random_uuid())
+//   org_id: uuid (not null)
+//   document_id: uuid (not null)
+//   description: text (nullable)
+//   value: numeric (nullable)
+//   period: character varying (nullable)
+//   created_at: timestamp with time zone (nullable, default: now())
 // Table: kb_documents
 //   id: uuid (not null, default: gen_random_uuid())
 //   kb_id: uuid (not null)
@@ -1023,6 +1259,22 @@ export const Constants = {
 //   FOREIGN KEY documents_org_id_fkey: FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE
 //   PRIMARY KEY documents_pkey: PRIMARY KEY (id)
 //   FOREIGN KEY fk_documents_valuation_project_id: FOREIGN KEY (valuation_project_id) REFERENCES valuation_projects(id) ON DELETE SET NULL
+// Table: financial_balancete
+//   FOREIGN KEY financial_balancete_document_id_fkey: FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+//   FOREIGN KEY financial_balancete_org_id_fkey: FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE
+//   PRIMARY KEY financial_balancete_pkey: PRIMARY KEY (id)
+// Table: financial_balanco_patrimonial
+//   FOREIGN KEY financial_balanco_patrimonial_document_id_fkey: FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+//   FOREIGN KEY financial_balanco_patrimonial_org_id_fkey: FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE
+//   PRIMARY KEY financial_balanco_patrimonial_pkey: PRIMARY KEY (id)
+// Table: financial_dre
+//   FOREIGN KEY financial_dre_document_id_fkey: FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+//   FOREIGN KEY financial_dre_org_id_fkey: FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE
+//   PRIMARY KEY financial_dre_pkey: PRIMARY KEY (id)
+// Table: financial_fluxo_caixa
+//   FOREIGN KEY financial_fluxo_caixa_document_id_fkey: FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+//   FOREIGN KEY financial_fluxo_caixa_org_id_fkey: FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE
+//   PRIMARY KEY financial_fluxo_caixa_pkey: PRIMARY KEY (id)
 // Table: kb_documents
 //   FOREIGN KEY kb_documents_document_id_fkey: FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE SET NULL
 //   FOREIGN KEY kb_documents_kb_id_fkey: FOREIGN KEY (kb_id) REFERENCES knowledge_bases(id) ON DELETE CASCADE
@@ -1082,6 +1334,18 @@ export const Constants = {
 //     USING: (org_id = get_user_org_id())
 //   Policy "documents_update" (UPDATE, PERMISSIVE) roles={authenticated}
 //     USING: ((org_id = get_user_org_id()) AND (get_user_role_name() = ANY (ARRAY['Admin'::text, 'Analyst'::text])))
+// Table: financial_balancete
+//   Policy "tenant_isolation_balancete" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: (org_id = get_user_org_id())
+// Table: financial_balanco_patrimonial
+//   Policy "tenant_isolation_bp" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: (org_id = get_user_org_id())
+// Table: financial_dre
+//   Policy "tenant_isolation_dre" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: (org_id = get_user_org_id())
+// Table: financial_fluxo_caixa
+//   Policy "tenant_isolation_fc" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: (org_id = get_user_org_id())
 // Table: organizations
 //   Policy "admin_orgs_delete" (DELETE, PERMISSIVE) roles={authenticated}
 //     USING: (get_user_role_name() = 'Admin'::text)

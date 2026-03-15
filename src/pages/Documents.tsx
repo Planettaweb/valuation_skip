@@ -190,7 +190,8 @@ export default function Documents() {
   const [extractedData, setExtractedData] = useState<any[]>([])
   const [loadingData, setLoadingData] = useState(false)
 
-  const canEdit = userProfile?.role === 'Admin' || userProfile?.role === 'Analyst'
+  const canUpload = true // Any authenticated user can upload
+  const canDelete = userProfile?.role === 'Admin' || userProfile?.role === 'Analyst'
 
   const fetchDocs = async () => {
     if (!userProfile) return
@@ -354,7 +355,7 @@ export default function Documents() {
             />
           </div>
 
-          {canEdit && (
+          {canUpload && (
             <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-primary hover:bg-primary/90 shadow-[0_0_15px_rgba(139,92,246,0.2)]">
@@ -536,7 +537,7 @@ export default function Documents() {
                       >
                         <Download className="w-4 h-4" />
                       </Button>
-                      {canEdit && (
+                      {canDelete && (
                         <Button
                           variant="ghost"
                           size="icon"
