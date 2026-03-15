@@ -87,10 +87,10 @@ export default function Index() {
           </span>
         </h1>
         <p className="text-muted-foreground max-w-2xl mx-auto text-sm md:text-base leading-relaxed">
-          Inteligência Analítica para Decisões de Capital.
-          "Bem-vindo ao Nexus M&A 2.0. Transformamos dados complexos em avaliações precisas e insights 
-          estratégicos para impulsionar fusões, aquisições e a gestão do valor corporativo. 
-          Sua central de comando para transações de alto impacto."
+          Inteligência Analítica para Decisões de Capital. "Bem-vindo ao Nexus M&A 2.0.
+          Transformamos dados complexos em avaliações precisas e insights estratégicos para
+          impulsionar fusões, aquisições e a gestão do valor corporativo. Sua central de comando
+          para transações de alto impacto."
         </p>
       </div>
 
