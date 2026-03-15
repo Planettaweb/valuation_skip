@@ -97,4 +97,22 @@ export const clientService = {
       .delete()
       .eq('id', id)
   },
+
+  async getFinancialData(clientId: string) {
+    const { data, error } = await supabase
+      .from('financial_data' as any)
+      .select(`
+        *,
+        financial_documents!inner (
+          document_type,
+          valuation_id,
+          valuations!inner (
+            client_id
+          )
+        )
+      `)
+      .eq('financial_documents.valuations.client_id', clientId)
+      .order('created_at', { ascending: false })
+    return { data, error }
+  },
 }

@@ -1,5 +1,6 @@
 {
   "_versions": {
-    "notify-admin": 8
+    "notify-admin": 8,
+    "sharepoint-api": 1
   }
 }

@@ -32,7 +32,51 @@ export const documentService = {
     documentType: string,
     onProgress?: (msg: string) => void,
   ) {
-    onProgress?.('Criando registro do documento...')
+    let sharepointPath: string | null = null
+
+    try {
+      onProgress?.('Acessando Microsoft Graph API...')
+      const { data: valData } = await supabase
+        .from('valuations' as any)
+        .select('valuation_name')
+        .eq('id', valuationId)
+        .single()
+      const valuationName = valData?.valuation_name || 'Projeto_Desconhecido'
+
+      const subfolderMap: Record<string, string> = {
+        Balanço: 'Balanço',
+        Balancete: 'Balancete',
+        DRE: 'DRE',
+        'Fluxo de Caixa': 'Fluxo_Caixa',
+      }
+      const folderType = subfolderMap[documentType] || 'Outros'
+      const folderPath = `${valuationName.replace(/[^a-zA-Z0-9_\- ]/g, '_')}/${folderType}`
+
+      onProgress?.('Fazendo upload para o SharePoint...')
+
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('folderPath', folderPath)
+      formData.append('fileName', file.name.replace(/[^a-zA-Z0-9_\-.]/g, '_'))
+
+      const { data: spData, error: spError } = await supabase.functions.invoke(
+        'sharepoint-api?action=upload',
+        {
+          body: formData,
+        },
+      )
+
+      if (spError || !spData?.success) {
+        throw new Error(spData?.error || spError?.message || 'Erro ao integrar com SharePoint.')
+      }
+
+      sharepointPath = spData.path
+    } catch (err: any) {
+      console.error(err)
+      return { data: null, error: new Error(`Falha no SharePoint: ${err.message}`) }
+    }
+
+    onProgress?.('Criando registro do documento no banco...')
 
     const { data: doc, error: insertError } = await supabase
       .from('financial_documents' as any)
@@ -43,6 +87,7 @@ export const documentService = {
         file_size: file.size,
         document_type: documentType,
         status: 'Processing',
+        sharepoint_path: sharepointPath,
       })
       .select()
       .single()
@@ -174,20 +219,50 @@ export const documentService = {
     }
   },
 
-  async deleteDocument(id: string, filePath: string | null) {
-    if (filePath) {
-      await supabase.storage.from('documents').remove([filePath])
-    }
+  async deleteDocument(id: string, _legacyFilePath?: string | null) {
+    let spErrorMsg = null
+
+    // Fetch document details first
+    const { data: doc } = await supabase
+      .from('financial_documents' as any)
+      .select('file_path, sharepoint_path')
+      .eq('id', id)
+      .single()
+
+    // 1. Delete from DB to prioritize DB integrity (Cascades financial_data)
     const { error } = await supabase
       .from('financial_documents' as any)
       .delete()
       .eq('id', id)
-    return { error }
+
+    if (error) return { error, spErrorMsg }
+
+    // 2. Perform DELETE request to Microsoft Graph API
+    if (doc?.sharepoint_path) {
+      const { data, error: spError } = await supabase.functions.invoke(
+        'sharepoint-api?action=delete',
+        {
+          body: { path: doc.sharepoint_path },
+        },
+      )
+      if (spError || !data?.success) {
+        console.error('SharePoint Delete Error:', spError || data?.error)
+        spErrorMsg =
+          'Aviso: Falha ao remover arquivo do SharePoint. O registro no banco foi excluído mantendo a integridade.'
+      }
+    } else if (doc?.file_path) {
+      await supabase.storage.from('documents').remove([doc.file_path])
+    }
+
+    return { error: null, spErrorMsg }
   },
 
   async getDownloadUrl(filePath: string) {
     if (!filePath)
-      return { data: null, error: new Error('Documento efêmero. Arquivo não armazenado.') }
+      return {
+        data: null,
+        error: new Error('Documento efêmero. Arquivo não armazenado localmente.'),
+      }
     const { data, error } = await supabase.storage.from('documents').createSignedUrl(filePath, 60)
     return { data, error }
   },
