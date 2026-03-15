@@ -1,6 +1,7 @@
 {
   "_versions": {
     "notify-admin": 8,
-    "sharepoint-api": 1
+    "sharepoint-api": 1,
+    "functions": 1
   }
 }
