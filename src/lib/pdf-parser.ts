@@ -62,8 +62,15 @@ const parseValueAndNature = (val: string) => {
   const match = str.match(/([\d.,-]+)\s*([DCdc])?/)
   if (!match) return { value: 0, nature: null }
 
-  const numStr = match[1].replace(/\./g, '').replace(',', '.')
-  const value = parseFloat(numStr) || 0
+  let rawNum = match[1]
+  // Fallback for US format vs PT-BR format
+  if (rawNum.includes(',') && rawNum.includes('.') && rawNum.indexOf(',') < rawNum.indexOf('.')) {
+    rawNum = rawNum.replace(/,/g, '')
+  } else {
+    rawNum = rawNum.replace(/\./g, '').replace(',', '.')
+  }
+
+  const value = parseFloat(rawNum) || 0
   const nature = match[2] ? match[2].toUpperCase() : null
 
   return { value, nature }
@@ -72,7 +79,7 @@ const parseValueAndNature = (val: string) => {
 const parseIntSafe = (val: string) => parseInt(val, 10) || 0
 
 export function parseBalancoPatrimonialText(text: string) {
-  // Extract years from the document text
+  // Extract specific years dynamically from headers or text
   const yearMatches = [...text.matchAll(/\b(201\d|202\d)\b/g)].map((m) => parseIntSafe(m[1]))
   const uniqueYears = [...new Set(yearMatches)].sort((a, b) => b - a)
   const year_n = uniqueYears[0] || new Date().getFullYear()
@@ -95,57 +102,100 @@ export function parseBalancoPatrimonialText(text: string) {
   }
 
   const contas: any[] = []
+  const lines = text.split('\n')
 
-  // Look for lines that resemble account entries and ignore generic headers
-  // E.g. "1  1.1  ATIVO  1.000,00 D  2.000,00 C"
-  const contasRegex =
-    /(?:^|\n|\s)(\d{1,5})\s+([\d.]+)\s+([A-ZÀ-Úa-zà-ú\s\-/()]+?)\s+([\d.,-]+\s*[DCdc]?)\s+([\d.,-]+\s*[DCdc]?)(?=\n|$)/g
+  for (const line of lines) {
+    const cleanLine = line.trim()
+    if (!cleanLine) continue
 
-  let match
-  let sanityLimit = 2000
-  while ((match = contasRegex.exec(text)) !== null && sanityLimit-- > 0) {
-    const desc = match[3].trim()
-    if (desc.length > 2 && !/^(?:ano|exercício)$/i.test(desc)) {
-      const vn = parseValueAndNature(match[4])
-      const vn1 = parseValueAndNature(match[5])
+    // Attempt 1: Standard match (Code Classification Description Value_N Nature Value_N-1 Nature)
+    const standardMatch = cleanLine.match(
+      /^(\d{1,6})\s+([\d.]+)\s+(.*?)\s+([\d.,-]+\s*[DCdc]?)\s+([\d.,-]+\s*[DCdc]?)$/,
+    )
 
-      contas.push({
-        codigo: parseIntSafe(match[1]),
-        classificacao: match[2],
-        descricao: desc,
-        valor_exercicio_atual: vn.value,
-        natureza_exercicio_atual: vn.nature,
-        valor_exercicio_anterior: vn1.value,
-        natureza_exercicio_anterior: vn1.nature,
-      })
+    if (standardMatch) {
+      const desc = standardMatch[3].trim()
+      if (desc.length > 2 && !/^(?:ano|exercício|saldo|valor|histórico)/i.test(desc)) {
+        const vn = parseValueAndNature(standardMatch[4])
+        const vn1 = parseValueAndNature(standardMatch[5])
+
+        contas.push({
+          codigo: parseIntSafe(standardMatch[1]),
+          classificacao: standardMatch[2],
+          descricao: desc,
+          valor_exercicio_atual: vn.value,
+          natureza_exercicio_atual: vn.nature,
+          valor_exercicio_anterior: vn1.value,
+          natureza_exercicio_anterior: vn1.nature,
+        })
+        continue
+      }
     }
-  }
 
-  if (contas.length === 0) {
-    const lines = text.split('\n')
-    for (const line of lines) {
-      const parts = line.trim().split(/\s{2,}|\t/)
-      if (parts.length >= 5) {
-        const cod = parts[0]
-        const cls = parts[1]
-        const desc = parts.slice(2, parts.length - 2).join(' ')
-        const valN = parts[parts.length - 2]
-        const valN1 = parts[parts.length - 1]
+    // Attempt 2: Flexible fallback for weird spacing and missing codes
+    const fallbackMatch = cleanLine.match(
+      /^(\d{1,6})?\s*([\d.]+)\s+(.*?)((?:[\d.,-]+\s*[DCdc]?\s*){2})$/,
+    )
+    if (fallbackMatch && !standardMatch) {
+      const codStr = fallbackMatch[1] || '0'
+      const clsStr = fallbackMatch[2]
+      const desc = fallbackMatch[3].trim()
 
-        if (/^\d+$/.test(cod) && /^[\d.]+$/.test(cls) && !/ano|exercício/i.test(desc)) {
-          const vn = parseValueAndNature(valN)
-          const vn1 = parseValueAndNature(valN1)
+      if (desc.length > 2 && !/^(?:ano|exercício|saldo|valor|histórico)/i.test(desc)) {
+        const valueChunk = fallbackMatch[4]
+        const valMatches = [...valueChunk.matchAll(/([\d.,-]+)\s*([DCdc]?)/g)]
+
+        const validMatches = valMatches.filter(
+          (m) =>
+            /[1-9]/.test(m[1]) ||
+            m[1] === '0' ||
+            m[1] === '0,00' ||
+            m[1] === '0.00' ||
+            /^[\d.,-]+$/.test(m[1]),
+        )
+
+        if (validMatches.length >= 2) {
+          const mN = validMatches[validMatches.length - 2]
+          const mN1 = validMatches[validMatches.length - 1]
+
+          const vn = parseValueAndNature(mN[0])
+          const vn1 = parseValueAndNature(mN1[0])
 
           contas.push({
-            codigo: parseIntSafe(cod),
-            classificacao: cls,
+            codigo: parseIntSafe(codStr),
+            classificacao: clsStr,
             descricao: desc,
             valor_exercicio_atual: vn.value,
             natureza_exercicio_atual: vn.nature,
             valor_exercicio_anterior: vn1.value,
             natureza_exercicio_anterior: vn1.nature,
           })
+          continue
         }
+      }
+    }
+
+    // Attempt 3: No code, only classification and special characters in description
+    const noCodeMatch = cleanLine.match(
+      /^([\d.]+)\s+([A-Za-zÀ-Úà-ú\s\-/()&]+?)\s+([\d.,-]+\s*[DCdc]?)\s+([\d.,-]+\s*[DCdc]?)$/,
+    )
+    if (noCodeMatch && !standardMatch && !fallbackMatch) {
+      const clsStr = noCodeMatch[1]
+      const desc = noCodeMatch[2].trim()
+      if (desc.length > 2 && !/^(?:ano|exercício|saldo|valor|histórico)/i.test(desc)) {
+        const vn = parseValueAndNature(noCodeMatch[3])
+        const vn1 = parseValueAndNature(noCodeMatch[4])
+
+        contas.push({
+          codigo: 0,
+          classificacao: clsStr,
+          descricao: desc,
+          valor_exercicio_atual: vn.value,
+          natureza_exercicio_atual: vn.nature,
+          valor_exercicio_anterior: vn1.value,
+          natureza_exercicio_anterior: vn1.nature,
+        })
+        continue
       }
     }
   }

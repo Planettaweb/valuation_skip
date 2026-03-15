@@ -13,7 +13,9 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination'
+import { Badge } from '@/components/ui/badge'
 import { useState, useMemo } from 'react'
+import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 10
 
@@ -34,9 +36,8 @@ export function BalancoPatrimonialView({ bp, data }: { bp: any; data: any[] }) {
     return data.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   }, [data, page])
 
-  const yearN = currentData[0]?.year_n || bp?.cabecalho?.year_n || 'Exercício Atual'
-  const yearN1 =
-    currentData[0]?.year_n_minus_1 || bp?.cabecalho?.year_n_minus_1 || 'Exercício Anterior'
+  const yearN = currentData[0]?.year_n || bp?.cabecalho?.year_n || 'Atual'
+  const yearN1 = currentData[0]?.year_n_minus_1 || bp?.cabecalho?.year_n_minus_1 || 'Anterior'
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -86,10 +87,8 @@ export function BalancoPatrimonialView({ bp, data }: { bp: any; data: any[] }) {
               <TableHead>Código</TableHead>
               <TableHead>Classificação</TableHead>
               <TableHead>Descrição</TableHead>
-              <TableHead className="text-right">{yearN}</TableHead>
-              <TableHead className="text-center w-[50px]">Nat.</TableHead>
-              <TableHead className="text-right">{yearN1}</TableHead>
-              <TableHead className="text-center w-[50px]">Nat.</TableHead>
+              <TableHead className="text-right">Saldo {yearN}</TableHead>
+              <TableHead className="text-right">Saldo {yearN1}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -103,16 +102,46 @@ export function BalancoPatrimonialView({ bp, data }: { bp: any; data: any[] }) {
                 </TableCell>
                 <TableCell className="font-medium">{r.descricao || r.description}</TableCell>
                 <TableCell className="text-right">
-                  {formatCurrency(r.valor_exercicio_atual ?? r.value_year_n)}
-                </TableCell>
-                <TableCell className="text-center font-mono text-xs text-muted-foreground">
-                  {r.natureza_exercicio_atual ?? r.nature_year_n ?? '-'}
+                  <div className="flex items-center justify-end gap-2">
+                    <span>{formatCurrency(r.valor_exercicio_atual ?? r.value_year_n)}</span>
+                    {(r.natureza_exercicio_atual || r.nature_year_n) && (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'px-1.5 min-w-6 justify-center',
+                          (r.natureza_exercicio_atual ?? r.nature_year_n) === 'D'
+                            ? 'text-rose-400 border-rose-400/30 bg-rose-400/10'
+                            : (r.natureza_exercicio_atual ?? r.nature_year_n) === 'C'
+                              ? 'text-emerald-400 border-emerald-400/30 bg-emerald-400/10'
+                              : 'text-muted-foreground',
+                        )}
+                      >
+                        {r.natureza_exercicio_atual ?? r.nature_year_n}
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="text-right">
-                  {formatCurrency(r.valor_exercicio_anterior ?? r.value_year_n_minus_1)}
-                </TableCell>
-                <TableCell className="text-center font-mono text-xs text-muted-foreground">
-                  {r.natureza_exercicio_anterior ?? r.nature_year_n_minus_1 ?? '-'}
+                  <div className="flex items-center justify-end gap-2">
+                    <span>
+                      {formatCurrency(r.valor_exercicio_anterior ?? r.value_year_n_minus_1)}
+                    </span>
+                    {(r.natureza_exercicio_anterior || r.nature_year_n_minus_1) && (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'px-1.5 min-w-6 justify-center',
+                          (r.natureza_exercicio_anterior ?? r.nature_year_n_minus_1) === 'D'
+                            ? 'text-rose-400 border-rose-400/30 bg-rose-400/10'
+                            : (r.natureza_exercicio_anterior ?? r.nature_year_n_minus_1) === 'C'
+                              ? 'text-emerald-400 border-emerald-400/30 bg-emerald-400/10'
+                              : 'text-muted-foreground',
+                        )}
+                      >
+                        {r.natureza_exercicio_anterior ?? r.nature_year_n_minus_1}
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

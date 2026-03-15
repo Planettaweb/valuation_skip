@@ -251,9 +251,13 @@ export type Database = {
           description: string | null
           document_id: string
           id: string
+          nature_year_n: string | null
+          nature_year_n_minus_1: string | null
           org_id: string
           value_year_n: number | null
           value_year_n_minus_1: number | null
+          year_n: number | null
+          year_n_minus_1: number | null
         }
         Insert: {
           classification_code?: string | null
@@ -261,9 +265,13 @@ export type Database = {
           description?: string | null
           document_id: string
           id?: string
+          nature_year_n?: string | null
+          nature_year_n_minus_1?: string | null
           org_id: string
           value_year_n?: number | null
           value_year_n_minus_1?: number | null
+          year_n?: number | null
+          year_n_minus_1?: number | null
         }
         Update: {
           classification_code?: string | null
@@ -271,9 +279,13 @@ export type Database = {
           description?: string | null
           document_id?: string
           id?: string
+          nature_year_n?: string | null
+          nature_year_n_minus_1?: string | null
           org_id?: string
           value_year_n?: number | null
           value_year_n_minus_1?: number | null
+          year_n?: number | null
+          year_n_minus_1?: number | null
         }
         Relationships: [
           {
@@ -1123,6 +1135,10 @@ export const Constants = {
 //   value_year_n: numeric (nullable)
 //   value_year_n_minus_1: numeric (nullable)
 //   created_at: timestamp with time zone (nullable, default: now())
+//   nature_year_n: text (nullable)
+//   nature_year_n_minus_1: text (nullable)
+//   year_n: integer (nullable)
+//   year_n_minus_1: integer (nullable)
 // Table: financial_dre
 //   id: uuid (not null, default: gen_random_uuid())
 //   org_id: uuid (not null)
