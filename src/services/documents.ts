@@ -47,6 +47,7 @@ export const documentService = {
             document_id: data.id,
             document_type: documentType,
             org_id: orgId,
+            user_id: userId,
             file_content: fileContent,
           },
         })

@@ -23,7 +23,7 @@ Deno.serve(async (req: Request) => {
     })
   }
 
-  const { document_id, document_type, org_id, file_content } = payload
+  const { document_id, document_type, org_id, user_id, file_content } = payload
 
   try {
     const supabaseClient = createClient(
@@ -167,6 +167,18 @@ Deno.serve(async (req: Request) => {
     // Mark as Completed
     await supabaseClient.from('documents').update({ status: 'Completed' }).eq('id', document_id)
 
+    // Audit Logging
+    if (org_id) {
+      await supabaseClient.from('audit_logs').insert({
+        org_id,
+        user_id: user_id || null,
+        action: 'process_document',
+        resource_type: 'document',
+        resource_id: document_id,
+        details: 'Document processed successfully and data extracted',
+      })
+    }
+
     return new Response(JSON.stringify({ success: true, message: 'Data extracted successfully' }), {
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     })
@@ -178,6 +190,18 @@ Deno.serve(async (req: Request) => {
           Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
         )
         await fallbackClient.from('documents').update({ status: 'Error' }).eq('id', document_id)
+
+        // Audit Logging for Error
+        if (org_id) {
+          await fallbackClient.from('audit_logs').insert({
+            org_id,
+            user_id: user_id || null,
+            action: 'process_document',
+            resource_type: 'document',
+            resource_id: document_id,
+            details: `Processing failed: ${error.message}`,
+          })
+        }
       } catch (_) {}
     }
 
