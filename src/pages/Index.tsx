@@ -81,15 +81,16 @@ export default function Index() {
           <RocketIcon className="w-3 h-3 mr-2 inline" /> Sell to a global ecosystem
         </Badge>
         <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight">
-          Introducing <br className="md:hidden" />
+          Sistema <br className="md:hidden" />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-300 ml-2">
-            Nearbound 2.0
+            Nexus M&A 2.0
           </span>
         </h1>
         <p className="text-muted-foreground max-w-2xl mx-auto text-sm md:text-base leading-relaxed">
-          Welcome to Nearbound 2.0, where businesses can connect, and sell to a global ecosystem. We
-          bring together the efficiency of digital automation with the impact of face-to-face
-          interactions.
+          Inteligência Analítica para Decisões de Capital.
+          "Bem-vindo ao Nexus M&A 2.0. Transformamos dados complexos em avaliações precisas e insights 
+          estratégicos para impulsionar fusões, aquisições e a gestão do valor corporativo. 
+          Sua central de comando para transações de alto impacto."
         </p>
       </div>
 
