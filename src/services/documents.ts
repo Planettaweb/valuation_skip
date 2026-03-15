@@ -2,14 +2,14 @@ import { supabase } from '@/lib/supabase/client'
 import { extractTextFromPDF, parseBalancoPatrimonialText } from '@/lib/pdf-parser'
 
 export const documentService = {
-  async getDocuments(orgId: string, valuationId?: string | null) {
+  async getDocuments(orgId: string, filters?: { clientId?: string }) {
     let query = supabase
       .from('financial_documents' as any)
-      .select('*, valuations!inner(valuation_name, clients!inner(client_name))')
+      .select('*, valuations!inner(client_id, valuation_name, clients!inner(client_name))')
       .eq('org_id', orgId)
 
-    if (valuationId) {
-      query = query.eq('valuation_id', valuationId)
+    if (filters?.clientId) {
+      query = query.eq('valuations.client_id', filters.clientId)
     }
 
     const { data, error } = await query.order('created_at', { ascending: false })
@@ -19,6 +19,7 @@ export const documentService = {
       filename: d.file_name,
       client_name: d.valuations?.clients?.client_name,
       valuation_name: d.valuations?.valuation_name,
+      client_id: d.valuations?.client_id,
     }))
 
     return { data: mapped, error }
@@ -28,20 +29,46 @@ export const documentService = {
     file: File,
     orgId: string,
     userId: string,
-    valuationId: string,
+    clientId: string,
     documentType: string,
     onProgress?: (msg: string) => void,
   ) {
     let sharepointPath: string | null = null
+    let valuationId: string | null = null
 
     try {
       onProgress?.('Acessando Microsoft Graph API...')
-      const { data: valData } = await supabase
-        .from('valuations' as any)
-        .select('valuation_name')
-        .eq('id', valuationId)
+
+      const { data: clientData } = await supabase
+        .from('clients' as any)
+        .select('client_name')
+        .eq('id', clientId)
         .single()
-      const valuationName = valData?.valuation_name || 'Projeto_Desconhecido'
+
+      const clientName = clientData?.client_name || 'Cliente_Desconhecido'
+
+      let { data: valData } = await supabase
+        .from('valuations' as any)
+        .select('id')
+        .eq('client_id', clientId)
+        .limit(1)
+        .single()
+
+      if (!valData) {
+        const res = await supabase
+          .from('valuations' as any)
+          .insert({
+            org_id: orgId,
+            client_id: clientId,
+            valuation_type: 'Valuation',
+            valuation_name: 'Projeto Padrão',
+            status: 'Em Andamento',
+          })
+          .select('id')
+          .single()
+        valData = res.data
+      }
+      valuationId = valData!.id
 
       const subfolderMap: Record<string, string> = {
         Balanço: 'Balanço',
@@ -50,7 +77,7 @@ export const documentService = {
         'Fluxo de Caixa': 'Fluxo_Caixa',
       }
       const folderType = subfolderMap[documentType] || 'Outros'
-      const folderPath = `${valuationName.replace(/[^a-zA-Z0-9_\- ]/g, '_')}/${folderType}`
+      const folderPath = `${clientName.replace(/[^a-zA-Z0-9_\- ]/g, '_')}/${folderType}`
 
       onProgress?.('Fazendo upload para o SharePoint...')
 
@@ -222,7 +249,6 @@ export const documentService = {
   async deleteDocument(id: string, _legacyFilePath?: string | null) {
     let spErrorMsg = null
 
-    // Fetch document details first
     const { data: doc } = await supabase
       .from('financial_documents' as any)
       .select('file_path, sharepoint_path')

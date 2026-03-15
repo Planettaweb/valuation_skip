@@ -15,7 +15,7 @@ export default function Documents() {
   const { userProfile } = useAuth()
   const { toast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
-  const valuationId = searchParams.get('valuationId')
+  const clientId = searchParams.get('clientId')
 
   const [documents, setDocuments] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -28,7 +28,9 @@ export default function Documents() {
   const fetchDocs = async () => {
     if (!userProfile) return
     setLoading(true)
-    const { data, error } = await documentService.getDocuments(userProfile.org_id, valuationId)
+    const { data, error } = await documentService.getDocuments(userProfile.org_id, {
+      clientId: clientId || undefined,
+    })
     if (error) {
       toast({
         title: 'Erro ao carregar documentos',
@@ -64,7 +66,7 @@ export default function Documents() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [userProfile, toast, valuationId])
+  }, [userProfile, toast, clientId])
 
   const filteredDocs = documents.filter((d) =>
     d.filename.toLowerCase().includes(searchTerm.toLowerCase()),
@@ -95,19 +97,19 @@ export default function Documents() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Repositório Financeiro</h2>
           <p className="text-muted-foreground text-sm">
-            {valuationId
-              ? 'Visualizando documentos filtrados por projeto.'
+            {clientId
+              ? 'Visualizando documentos filtrados por cliente.'
               : 'Gerencie uploads e processe dados financeiros de seus clientes.'}
           </p>
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto">
-          {valuationId && (
+          {clientId && (
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
-                searchParams.delete('valuationId')
+                searchParams.delete('clientId')
                 setSearchParams(searchParams)
               }}
               className="border-white/10"
@@ -127,7 +129,11 @@ export default function Documents() {
           </div>
 
           {canUpload && userProfile && (
-            <DocumentUploadModal userProfile={userProfile} onSuccess={fetchDocs} />
+            <DocumentUploadModal
+              userProfile={userProfile}
+              defaultClientId={clientId || undefined}
+              onSuccess={fetchDocs}
+            />
           )}
         </div>
       </div>

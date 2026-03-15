@@ -124,7 +124,7 @@ export function DocumentListTable({
                   Arquivo <SortIcon field="filename" />
                 </div>
               </TableHead>
-              <TableHead>Projeto / Cliente</TableHead>
+              <TableHead>Cliente</TableHead>
               <TableHead>Modelo</TableHead>
               <TableHead>Tamanho</TableHead>
               <TableHead>Status</TableHead>
@@ -174,7 +174,7 @@ export function DocumentListTable({
                       <Inbox className="w-8 h-8 opacity-50" />
                     </div>
                     <p className="text-base font-medium">Nenhum documento encontrado.</p>
-                    <p className="text-sm opacity-70">Os documentos enviados aparecerão aqui.</p>
+                    <p className="text-sm opacity-70">Os documentos processados aparecerão aqui.</p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -199,15 +199,9 @@ export function DocumentListTable({
                     <div className="flex flex-col max-w-[180px]">
                       <span
                         className="text-sm font-medium text-white truncate"
-                        title={doc.valuation_name}
-                      >
-                        {doc.valuation_name || 'Desconhecido'}
-                      </span>
-                      <span
-                        className="text-xs text-muted-foreground truncate"
                         title={doc.client_name}
                       >
-                        {doc.client_name || '—'}
+                        {doc.client_name || 'Desconhecido'}
                       </span>
                     </div>
                   </TableCell>

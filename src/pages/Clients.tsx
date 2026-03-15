@@ -1,15 +1,6 @@
 import { useState, useEffect } from 'react'
-import {
-  Plus,
-  Search,
-  Trash2,
-  Edit2,
-  Users,
-  Building2,
-  ChevronRight,
-  Briefcase,
-} from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Plus, Search, Trash2, Edit2, Building2, ChevronRight } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import { clientService } from '@/services/clients'
 import { useToast } from '@/hooks/use-toast'
@@ -91,7 +82,7 @@ export default function Clients() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Clientes</h2>
           <p className="text-muted-foreground text-sm">
-            Gerencie seu portfólio de clientes e projetos associados.
+            Gerencie seu portfólio de clientes e seus documentos financeiros.
           </p>
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -123,20 +114,19 @@ export default function Clients() {
               <TableHead>Nome do Cliente</TableHead>
               <TableHead>CNPJ</TableHead>
               <TableHead>Setor</TableHead>
-              <TableHead>Projetos</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-10">
+                <TableCell colSpan={4} className="text-center py-10">
                   <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full mx-auto" />
                 </TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                <TableCell colSpan={4} className="text-center py-10 text-muted-foreground">
                   Nenhum cliente encontrado.
                 </TableCell>
               </TableRow>
@@ -153,12 +143,6 @@ export default function Clients() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{c.cnpj || '—'}</TableCell>
                   <TableCell className="text-muted-foreground">{c.industry || '—'}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center text-muted-foreground">
-                      <Briefcase className="w-4 h-4 mr-2" />
-                      {c.valuations?.[0]?.count || c.valuations?.length || 0} Projetos
-                    </div>
-                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end items-center gap-2">
                       <Button
@@ -167,7 +151,7 @@ export default function Clients() {
                         className="h-8 text-primary hover:text-primary hover:bg-primary/10"
                         onClick={() => navigate(`/clients/${c.id}`)}
                       >
-                        Ver Projetos <ChevronRight className="w-4 h-4 ml-1" />
+                        Ver Detalhes <ChevronRight className="w-4 h-4 ml-1" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -212,7 +196,7 @@ export default function Clients() {
         onOpenChange={setConfirmOpen}
         onConfirm={handleDelete}
         title="Excluir Cliente"
-        description="Tem certeza que deseja excluir este cliente? Todos os projetos e documentos vinculados serão perdidos permanentemente."
+        description="Tem certeza que deseja excluir este cliente? Todos os documentos vinculados serão perdidos permanentemente."
       />
     </div>
   )

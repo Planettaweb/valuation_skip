@@ -26,10 +26,11 @@ import { cn } from '@/lib/utils'
 
 interface Props {
   userProfile: UserProfile
+  defaultClientId?: string
   onSuccess: () => void
 }
 
-export function DocumentUploadModal({ userProfile, onSuccess }: Props) {
+export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }: Props) {
   const { toast } = useToast()
   const [isOpen, setIsOpen] = useState(false)
   const [dragActive, setDragActive] = useState(false)
@@ -37,9 +38,7 @@ export function DocumentUploadModal({ userProfile, onSuccess }: Props) {
 
   const [docType, setDocType] = useState('Balanço')
   const [clients, setClients] = useState<any[]>([])
-  const [valuations, setValuations] = useState<any[]>([])
-  const [selectedClient, setSelectedClient] = useState('')
-  const [selectedValuation, setSelectedValuation] = useState('')
+  const [selectedClient, setSelectedClient] = useState(defaultClientId || '')
 
   const [uploading, setUploading] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
@@ -47,22 +46,15 @@ export function DocumentUploadModal({ userProfile, onSuccess }: Props) {
   useEffect(() => {
     if (isOpen) {
       clientService.getClients(userProfile.org_id).then((res) => {
-        if (res.data) setClients(res.data)
+        if (res.data) {
+          setClients(res.data)
+          if (defaultClientId && res.data.some((c) => c.id === defaultClientId)) {
+            setSelectedClient(defaultClientId)
+          }
+        }
       })
     }
-  }, [isOpen, userProfile.org_id])
-
-  useEffect(() => {
-    if (selectedClient) {
-      clientService.getValuations(selectedClient).then((res) => {
-        if (res.data) setValuations(res.data)
-        setSelectedValuation('')
-      })
-    } else {
-      setValuations([])
-      setSelectedValuation('')
-    }
-  }, [selectedClient])
+  }, [isOpen, userProfile.org_id, defaultClientId])
 
   const validateAndSetFile = (f?: File) => {
     if (!f) return
@@ -114,7 +106,7 @@ export function DocumentUploadModal({ userProfile, onSuccess }: Props) {
   }
 
   const handleUpload = async () => {
-    if (!file || !selectedValuation) return
+    if (!file || !selectedClient) return
     setUploading(true)
     setStatusMessage('Iniciando processamento...')
 
@@ -122,7 +114,7 @@ export function DocumentUploadModal({ userProfile, onSuccess }: Props) {
       file,
       userProfile.org_id,
       userProfile.id,
-      selectedValuation,
+      selectedClient,
       docType,
       (msg) => setStatusMessage(msg),
     )
@@ -153,7 +145,7 @@ export function DocumentUploadModal({ userProfile, onSuccess }: Props) {
         <DialogHeader>
           <DialogTitle>Processar Documento Financeiro</DialogTitle>
           <DialogDescription>
-            Faça o upload e associe o documento a um projeto para extração estruturada.
+            Faça o upload e selecione o cliente e o modelo de extração.
           </DialogDescription>
         </DialogHeader>
 
@@ -163,7 +155,7 @@ export function DocumentUploadModal({ userProfile, onSuccess }: Props) {
               <AlertCircle className="w-6 h-6 text-yellow-500" />
             </div>
             <p className="text-sm text-muted-foreground px-4">
-              Você precisa cadastrar um cliente e um projeto antes de fazer o upload de documentos.
+              Você precisa cadastrar um cliente antes de fazer o upload de documentos.
             </p>
             <Button asChild variant="outline" className="mt-2">
               <Link to="/clients" onClick={() => setIsOpen(false)}>
@@ -173,10 +165,14 @@ export function DocumentUploadModal({ userProfile, onSuccess }: Props) {
           </div>
         ) : (
           <div className="mt-4 flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-muted-foreground">Cliente</Label>
-                <Select value={selectedClient} onValueChange={setSelectedClient}>
+                <Select
+                  value={selectedClient}
+                  onValueChange={setSelectedClient}
+                  disabled={!!defaultClientId}
+                >
                   <SelectTrigger className="bg-card/50 border-white/10">
                     <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>
@@ -191,43 +187,19 @@ export function DocumentUploadModal({ userProfile, onSuccess }: Props) {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-muted-foreground">Projeto</Label>
-                <Select
-                  value={selectedValuation}
-                  onValueChange={setSelectedValuation}
-                  disabled={!selectedClient || valuations.length === 0}
-                >
+                <Label className="text-muted-foreground">Modelo de Extração</Label>
+                <Select value={docType} onValueChange={setDocType}>
                   <SelectTrigger className="bg-card/50 border-white/10">
-                    <SelectValue
-                      placeholder={
-                        valuations.length === 0 && selectedClient ? 'Sem projetos' : 'Selecione...'
-                      }
-                    />
+                    <SelectValue placeholder="Selecione o modelo" />
                   </SelectTrigger>
                   <SelectContent>
-                    {valuations.map((v) => (
-                      <SelectItem key={v.id} value={v.id}>
-                        {v.valuation_name}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="Balanço">Balanço</SelectItem>
+                    <SelectItem value="DRE">DRE</SelectItem>
+                    <SelectItem value="Balancete">Balancete</SelectItem>
+                    <SelectItem value="Fluxo de Caixa">Fluxo de Caixa</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-muted-foreground">Modelo de Extração</Label>
-              <Select value={docType} onValueChange={setDocType}>
-                <SelectTrigger className="bg-card/50 border-white/10">
-                  <SelectValue placeholder="Selecione o modelo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Balanço">Balanço</SelectItem>
-                  <SelectItem value="DRE">DRE</SelectItem>
-                  <SelectItem value="Balancete">Balancete</SelectItem>
-                  <SelectItem value="Fluxo de Caixa">Fluxo de Caixa</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
             <div
@@ -288,7 +260,7 @@ export function DocumentUploadModal({ userProfile, onSuccess }: Props) {
 
             <Button
               onClick={handleUpload}
-              disabled={!file || !selectedValuation || uploading}
+              disabled={!file || !selectedClient || uploading}
               className="w-full mt-2"
             >
               {uploading ? 'Aguarde...' : 'Processar no Navegador'}

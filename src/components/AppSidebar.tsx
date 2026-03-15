@@ -63,7 +63,7 @@ export function AppSidebar() {
                     to="/clients"
                     className="hover:bg-primary/10 hover:text-primary transition-colors"
                   >
-                    <Users className="w-4 h-4" /> <span>Clientes e Projetos</span>
+                    <Users className="w-4 h-4" /> <span>Clientes</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

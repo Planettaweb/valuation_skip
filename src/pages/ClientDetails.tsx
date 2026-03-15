@@ -1,18 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import {
-  ArrowLeft,
-  Plus,
-  Edit2,
-  Trash2,
-  Folder,
-  ExternalLink,
-  Download,
-  Filter,
-} from 'lucide-react'
+import { ArrowLeft, Download, Filter } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import { clientService } from '@/services/clients'
+import { documentService } from '@/services/documents'
 import { useToast } from '@/hooks/use-toast'
+import { supabase } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -32,8 +25,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { ValuationDialog } from '@/components/valuations/ValuationDialog'
-import { ConfirmDialog } from '@/components/admin/ConfirmDialog'
+import { DocumentUploadModal } from '@/components/documents/DocumentUploadModal'
+import { DocumentListTable } from '@/components/documents/DocumentListTable'
+import { DocumentDataModal } from '@/components/documents/DocumentDataModal'
 
 const FIN_PAGE_SIZE = 50
 
@@ -43,15 +37,12 @@ export default function ClientDetails() {
   const { toast } = useToast()
 
   const [client, setClient] = useState<any>(null)
-  const [valuations, setValuations] = useState<any[]>([])
   const [financialData, setFinancialData] = useState<any[]>([])
+  const [documents, setDocuments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [viewDoc, setViewDoc] = useState<any>(null)
 
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingVal, setEditingVal] = useState<any>(null)
-
-  const [confirmOpen, setConfirmOpen] = useState(false)
-  const [toDelete, setToDelete] = useState<any>(null)
+  const canDelete = userProfile?.role === 'Admin' || userProfile?.role === 'Analyst'
 
   // Filters and pagination for financial data
   const [finDocTypeFilter, setFinDocTypeFilter] = useState('all')
@@ -59,15 +50,14 @@ export default function ClientDetails() {
   const [finPage, setFinPage] = useState(1)
 
   const fetchData = async () => {
-    if (!clientId) return
+    if (!clientId || !userProfile) return
     setLoading(true)
-    const [clientRes, valRes, finRes] = await Promise.all([
+    const [clientRes, finRes, docsRes] = await Promise.all([
       clientService.getClient(clientId),
-      clientService.getValuations(clientId),
       clientService.getFinancialData(clientId),
+      documentService.getDocuments(userProfile.org_id, { clientId }),
     ])
     if (clientRes.data) setClient(clientRes.data)
-    if (valRes.data) setValuations(valRes.data)
     if (finRes.data) {
       setFinancialData(
         finRes.data.map((d: any) => ({
@@ -77,33 +67,52 @@ export default function ClientDetails() {
         })),
       )
     }
+    if (docsRes.data) setDocuments(docsRes.data)
     setLoading(false)
   }
 
   useEffect(() => {
     fetchData()
-  }, [clientId])
 
-  const handleSave = async (data: any) => {
     if (!userProfile || !clientId) return
-    if (editingVal) {
-      const { error } = await clientService.updateValuation(editingVal.id, data)
-      if (error) toast({ title: 'Erro', description: error.message, variant: 'destructive' })
-      else toast({ title: 'Sucesso', description: 'Projeto atualizado.' })
-    } else {
-      const { error } = await clientService.createValuation(userProfile.org_id, clientId, data)
-      if (error) toast({ title: 'Erro', description: error.message, variant: 'destructive' })
-      else toast({ title: 'Sucesso', description: 'Projeto criado com sucesso.' })
+    const channel = supabase
+      .channel(`realtime_client_docs_${clientId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'financial_documents',
+          filter: `org_id=eq.${userProfile.org_id}`,
+        },
+        () => {
+          fetchData()
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
     }
-    fetchData()
+  }, [clientId, userProfile])
+
+  const handleDeleteDoc = async (id: string, filePath: string | null) => {
+    const { error } = await documentService.deleteDocument(id, filePath)
+    if (error) {
+      toast({ title: 'Erro ao deletar', description: error.message, variant: 'destructive' })
+    } else {
+      toast({ title: 'Deletado', description: 'Documento e dados vinculados removidos.' })
+      fetchData()
+    }
   }
 
-  const handleDelete = async () => {
-    if (!toDelete) return
-    const { error } = await clientService.deleteValuation(toDelete.id)
-    if (error) toast({ title: 'Erro', description: error.message, variant: 'destructive' })
-    else toast({ title: 'Sucesso', description: 'Projeto removido.' })
-    fetchData()
+  const handleDownloadDoc = async (filePath: string) => {
+    const { data, error } = await documentService.getDownloadUrl(filePath)
+    if (error) {
+      toast({ title: 'Erro no Download', description: error.message, variant: 'destructive' })
+    } else if (data && data.signedUrl) {
+      window.open(data.signedUrl, '_blank')
+    }
   }
 
   const filteredFinData = useMemo(() => {
@@ -181,7 +190,7 @@ export default function ClientDetails() {
     link.click()
   }
 
-  if (loading) {
+  if (loading && !client) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full" />
@@ -217,118 +226,32 @@ export default function ClientDetails() {
             {client.industry && <span>Setor: {client.industry}</span>}
           </div>
         </div>
-        <Button
-          onClick={() => {
-            setEditingVal(null)
-            setDialogOpen(true)
-          }}
-          className="bg-primary hover:bg-primary/90 shadow-[0_0_15px_rgba(139,92,246,0.2)]"
-        >
-          <Plus className="w-4 h-4 mr-2" /> Novo Projeto
-        </Button>
       </div>
 
-      <Tabs defaultValue="projects" className="w-full">
+      <Tabs defaultValue="documents" className="w-full">
         <TabsList className="mb-4 bg-card/50 border border-white/5">
-          <TabsTrigger value="projects">Projetos de Valuation</TabsTrigger>
+          <TabsTrigger value="documents">Documentos</TabsTrigger>
           <TabsTrigger value="data">Dados Financeiros Extraídos</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="projects" className="space-y-4">
-          <div className="rounded-xl border border-white/5 bg-card/30 backdrop-blur-md overflow-hidden">
-            <Table>
-              <TableHeader className="bg-white/5">
-                <TableRow className="border-white/5 hover:bg-transparent">
-                  <TableHead>Nome do Projeto</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>SharePoint</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {valuations.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
-                      Nenhum projeto encontrado para este cliente.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  valuations.map((v) => (
-                    <TableRow key={v.id} className="border-white/5 hover:bg-white/5">
-                      <TableCell className="font-medium text-white">{v.valuation_name}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="bg-white/5">
-                          {v.valuation_type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={
-                            v.status === 'Concluído'
-                              ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'
-                              : 'border-blue-500/30 text-blue-400 bg-blue-500/10'
-                          }
-                        >
-                          {v.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {v.sharepoint_folder_path ? (
-                          <a
-                            href={v.sharepoint_folder_path}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center text-xs text-primary hover:underline"
-                          >
-                            <ExternalLink className="w-3 h-3 mr-1" /> Acessar Pasta
-                          </a>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Não configurado</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end items-center gap-2">
-                          <Link to={`/documents?valuationId=${v.id}`}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 text-primary hover:text-primary hover:bg-primary/10"
-                            >
-                              <Folder className="w-4 h-4 mr-2" /> Documentos
-                            </Button>
-                          </Link>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 hover:text-primary"
-                            onClick={() => {
-                              setEditingVal(v)
-                              setDialogOpen(true)
-                            }}
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 hover:text-red-400 hover:bg-red-400/10"
-                            onClick={() => {
-                              setToDelete(v)
-                              setConfirmOpen(true)
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+        <TabsContent value="documents" className="space-y-4">
+          <div className="flex justify-end items-center mb-4">
+            {userProfile && (
+              <DocumentUploadModal
+                userProfile={userProfile}
+                defaultClientId={clientId}
+                onSuccess={fetchData}
+              />
+            )}
           </div>
+          <DocumentListTable
+            documents={documents}
+            loading={loading}
+            canDelete={canDelete}
+            onDownload={handleDownloadDoc}
+            onDelete={handleDeleteDoc}
+            onViewDetails={setViewDoc}
+          />
         </TabsContent>
 
         <TabsContent value="data" className="space-y-4 animate-fade-in-up">
@@ -449,20 +372,7 @@ export default function ClientDetails() {
         </TabsContent>
       </Tabs>
 
-      <ValuationDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        initialData={editingVal}
-        onSave={handleSave}
-      />
-
-      <ConfirmDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        onConfirm={handleDelete}
-        title="Excluir Projeto"
-        description="Tem certeza que deseja excluir este projeto? Todos os documentos financeiros vinculados serão perdidos."
-      />
+      <DocumentDataModal doc={viewDoc} onClose={() => setViewDoc(null)} />
     </div>
   )
 }
