@@ -213,7 +213,7 @@ export function DocumentListTable({
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={doc.status !== 'Completed'}
+                        disabled={doc.status !== 'Completed' && doc.status !== 'Processed'}
                         className="h-8 text-xs border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10 disabled:opacity-30 disabled:hover:bg-transparent"
                         onClick={() => onViewDetails(doc)}
                       >

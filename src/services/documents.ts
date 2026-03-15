@@ -102,7 +102,7 @@ export const documentService = {
       const { data: updatedDoc, error: updateError } = await supabase
         .from('documents')
         .update({
-          status: 'Completed',
+          status: 'Processed',
           metadata: finalMetadata,
           updated_at: new Date().toISOString(),
         })

@@ -1,11 +1,38 @@
+let pdfjsLoadPromise: Promise<any> | null = null
+
+async function getPdfJs() {
+  if ((window as any).pdfjsLib) return (window as any).pdfjsLib
+
+  if (!pdfjsLoadPromise) {
+    pdfjsLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+      script.onload = () => {
+        const lib = (window as any).pdfjsLib
+        if (lib) {
+          lib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+          resolve(lib)
+        } else {
+          reject(new Error('Ocorreu um erro interno ao carregar o motor de PDF.'))
+        }
+      }
+      script.onerror = () =>
+        reject(
+          new Error(
+            'Falha ao carregar as dependências de PDF. Verifique sua conexão com a internet.',
+          ),
+        )
+      document.head.appendChild(script)
+    })
+  }
+
+  return pdfjsLoadPromise
+}
+
 export async function extractTextFromPDF(file: File): Promise<string> {
   try {
-    // Dynamically importing pdfjs to parse the file on the client side
-    // Using esm.sh to load the ES Module version of the library directly in the browser
-    const pdfjsLib = await import('https://esm.sh/pdfjs-dist@3.11.174')
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://esm.sh/pdfjs-dist@3.11.174/build/pdf.worker.min.js'
-
+    const pdfjsLib = await getPdfJs()
     const arrayBuffer = await file.arrayBuffer()
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
     let fullText = ''
