@@ -43,6 +43,7 @@ export default function ClientDetails() {
   const [viewDoc, setViewDoc] = useState<any>(null)
 
   const canDelete = userProfile?.role === 'Admin' || userProfile?.role === 'Analyst'
+  const canReprocess = userProfile?.role === 'Admin'
 
   // Filters and pagination for financial data
   const [finDocTypeFilter, setFinDocTypeFilter] = useState('all')
@@ -112,6 +113,22 @@ export default function ClientDetails() {
       toast({ title: 'Erro no Download', description: error.message, variant: 'destructive' })
     } else if (data && data.signedUrl) {
       window.open(data.signedUrl, '_blank')
+    }
+  }
+
+  const handleReprocessDoc = async (doc: any) => {
+    if (!userProfile) return
+    toast({ title: 'Iniciando', description: 'Reprocessando documento no servidor...' })
+    const { error } = await documentService.reprocessDocument(
+      doc.id,
+      userProfile.org_id,
+      userProfile.id,
+    )
+    if (error) {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' })
+    } else {
+      toast({ title: 'Sucesso', description: 'Documento reprocessado com sucesso.' })
+      fetchData()
     }
   }
 
@@ -251,6 +268,7 @@ export default function ClientDetails() {
             onDownload={handleDownloadDoc}
             onDelete={handleDeleteDoc}
             onViewDetails={setViewDoc}
+            onReprocess={canReprocess ? handleReprocessDoc : undefined}
           />
         </TabsContent>
 
