@@ -1329,7 +1329,7 @@ export const Constants = {
 //   Policy "documents_delete" (DELETE, PERMISSIVE) roles={authenticated}
 //     USING: ((org_id = get_user_org_id()) AND (get_user_role_name() = ANY (ARRAY['Admin'::text, 'Analyst'::text])))
 //   Policy "documents_insert" (INSERT, PERMISSIVE) roles={authenticated}
-//     WITH CHECK: ((org_id = get_user_org_id()) AND (get_user_role_name() = ANY (ARRAY['Admin'::text, 'Analyst'::text])))
+//     WITH CHECK: (org_id = get_user_org_id())
 //   Policy "documents_select" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: (org_id = get_user_org_id())
 //   Policy "documents_update" (UPDATE, PERMISSIVE) roles={authenticated}

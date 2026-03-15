@@ -11,10 +11,17 @@ export const documentService = {
   },
 
   async uploadDocument(file: File, orgId: string, userId: string, documentType: string) {
-    const filePath = `${orgId}/${crypto.randomUUID()}_${file.name}`
-    const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, file)
-
-    if (uploadError) return { error: uploadError }
+    // Read file as Base64 to bypass Storage API and send directly for processing
+    const fileContent = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = reader.result as string
+        const base64String = result.split(',')[1]
+        resolve(base64String)
+      }
+      reader.onerror = (error) => reject(error)
+      reader.readAsDataURL(file)
+    })
 
     const { data, error } = await supabase
       .from('documents')
@@ -25,7 +32,7 @@ export const documentService = {
         filename: file.name,
         file_size: file.size,
         mime_type: file.type,
-        file_path: filePath,
+        file_path: null, // Null to bypass storage limitation
         document_type: documentType,
         status: 'Uploaded',
       })
@@ -33,10 +40,15 @@ export const documentService = {
       .single()
 
     if (data) {
-      // Trigger the extraction edge function asynchronously
+      // Trigger the extraction edge function asynchronously with the file content
       supabase.functions
         .invoke('process-document', {
-          body: { document_id: data.id, document_type: documentType, org_id: orgId },
+          body: {
+            document_id: data.id,
+            document_type: documentType,
+            org_id: orgId,
+            file_content: fileContent,
+          },
         })
         .catch(console.error)
     }
@@ -53,18 +65,32 @@ export const documentService = {
   },
 
   async getDownloadUrl(filePath: string) {
+    if (!filePath)
+      return { data: null, error: new Error('Documento efêmero. Arquivo não armazenado.') }
     const { data, error } = await supabase.storage.from('documents').createSignedUrl(filePath, 60)
     return { data, error }
   },
 
   async getExtractedData(documentId: string, documentType: string) {
+    // 1. Try to fetch dynamic data from document_rows first
+    const { data: rowsData, error: rowsError } = await supabase
+      .from('document_rows')
+      .select('*')
+      .eq('document_id', documentId)
+      .order('row_index', { ascending: true })
+
+    if (rowsData && rowsData.length > 0) {
+      return { data: rowsData.map((r) => r.data), isDynamic: true, error: null }
+    }
+
+    // 2. Fallback to specific financial tables for legacy documents
     let tableName = ''
     if (documentType === 'Balanço Patrimonial') tableName = 'financial_balanco_patrimonial'
     else if (documentType === 'DRE') tableName = 'financial_dre'
     else if (documentType === 'Balancete') tableName = 'financial_balancete'
     else if (documentType === 'Fluxo de Caixa') tableName = 'financial_fluxo_caixa'
 
-    if (!tableName) return { data: [], error: null }
+    if (!tableName) return { data: [], isDynamic: false, error: null }
 
     const { data, error } = await supabase
       .from(tableName)
@@ -72,6 +98,6 @@ export const documentService = {
       .eq('document_id', documentId)
       .order('created_at', { ascending: true })
 
-    return { data, error }
+    return { data, isDynamic: false, error }
   },
 }

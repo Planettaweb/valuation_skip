@@ -52,15 +52,63 @@ const StatusBadge = ({ status }: { status: string }) => {
   }
 }
 
-const ExtractedDataView = ({ data, type }: { data: any[]; type: string }) => {
+const ExtractedDataView = ({
+  data,
+  type,
+  isDynamic,
+}: {
+  data: any[]
+  type: string
+  isDynamic?: boolean
+}) => {
   if (!data || data.length === 0)
     return <p className="text-center text-muted-foreground py-8">Nenhum dado extraído.</p>
 
   const formatCurrency = (val: any) => {
     if (val === null || val === undefined) return '-'
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
+    if (typeof val === 'number') {
+      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
+    }
+    return val
   }
 
+  // Dynamic table generation based on JSON keys (from document_rows)
+  if (isDynamic) {
+    const allKeys = Array.from(new Set(data.flatMap((row) => Object.keys(row))))
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow className="border-white/10 hover:bg-transparent">
+            {allKeys.map((key) => (
+              <TableHead
+                key={key}
+                className="capitalize font-medium text-muted-foreground whitespace-nowrap"
+              >
+                {key.replace(/_/g, ' ')}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {data.map((row, idx) => (
+            <TableRow key={idx} className="border-white/5 hover:bg-white/5">
+              {allKeys.map((key) => {
+                const val = row[key]
+                const isNum = typeof val === 'number'
+                return (
+                  <TableCell key={key} className={isNum ? 'text-right font-mono' : ''}>
+                    {isNum ? formatCurrency(val) : String(val ?? '-')}
+                  </TableCell>
+                )
+              })}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    )
+  }
+
+  // Fallback views for older documents strictly linked to financial tables
   if (type === 'Balanço Patrimonial') {
     return (
       <Table>
@@ -188,6 +236,7 @@ export default function Documents() {
 
   const [viewDoc, setViewDoc] = useState<any>(null)
   const [extractedData, setExtractedData] = useState<any[]>([])
+  const [isDynamicData, setIsDynamicData] = useState(false)
   const [loadingData, setLoadingData] = useState(false)
 
   const canUpload = true // Any authenticated user can upload
@@ -290,7 +339,7 @@ export default function Documents() {
     } else {
       toast({
         title: 'Upload Iniciado',
-        description: 'O documento está sendo processado em background.',
+        description: 'O documento efêmero está sendo processado diretamente.',
       })
       setIsUploadOpen(false)
       setFile(null)
@@ -299,7 +348,7 @@ export default function Documents() {
     setUploading(false)
   }
 
-  const handleDelete = async (id: string, filePath: string) => {
+  const handleDelete = async (id: string, filePath: string | null) => {
     const { error } = await documentService.deleteDocument(id, filePath)
     if (error) {
       toast({ title: 'Erro ao deletar', description: error.message, variant: 'destructive' })
@@ -313,7 +362,7 @@ export default function Documents() {
     const { data, error } = await documentService.getDownloadUrl(filePath)
     if (error) {
       toast({ title: 'Erro no Download', description: error.message, variant: 'destructive' })
-    } else if (data) {
+    } else if (data && data.signedUrl) {
       window.open(data.signedUrl, '_blank')
     }
   }
@@ -321,8 +370,9 @@ export default function Documents() {
   const handleViewDetails = async (doc: any) => {
     setViewDoc(doc)
     setLoadingData(true)
-    const { data } = await documentService.getExtractedData(doc.id, doc.document_type)
+    const { data, isDynamic } = await documentService.getExtractedData(doc.id, doc.document_type)
     setExtractedData(data || [])
+    setIsDynamicData(!!isDynamic)
     setLoadingData(false)
   }
 
@@ -340,7 +390,7 @@ export default function Documents() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Repositório Financeiro</h2>
           <p className="text-muted-foreground text-sm">
-            Faça upload e gerencie a extração automática de dados contábeis.
+            Faça upload e gerencie a extração automática de dados contábeis (processamento efêmero).
           </p>
         </div>
 
@@ -434,7 +484,7 @@ export default function Documents() {
                     <div className="w-full space-y-2 mt-2">
                       <Progress value={undefined} className="h-2 bg-primary/20" />
                       <p className="text-xs text-center text-primary animate-pulse">
-                        Iniciando pipeline de extração...
+                        Processando conteúdo diretamente...
                       </p>
                     </div>
                   )}
@@ -449,7 +499,7 @@ export default function Documents() {
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Carregando...
                       </>
                     ) : (
-                      'Confirmar Upload e Extrair'
+                      'Extrair Dados (Sem Armazenar)'
                     )}
                   </Button>
                 </div>
@@ -496,6 +546,7 @@ export default function Documents() {
                         </span>
                         <span className="text-xs text-muted-foreground font-mono">
                           {formatBytes(doc.file_size)}
+                          {!doc.file_path && ' (Efêmero)'}
                         </span>
                       </div>
                     </div>
@@ -518,31 +569,36 @@ export default function Documents() {
                     <StatusBadge status={doc.status} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
+                    <div className="flex justify-end items-center gap-1">
                       {doc.status === 'Completed' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/10 mr-2"
+                          onClick={() => handleViewDetails(doc)}
+                        >
+                          <Eye className="w-3 h-3 mr-1" />
+                          Visualizar Dados
+                        </Button>
+                      )}
+                      {doc.file_path && (
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-emerald-400"
-                          onClick={() => handleViewDetails(doc)}
+                          className="h-8 w-8 text-muted-foreground hover:text-primary"
+                          onClick={() => handleDownload(doc.file_path)}
+                          title="Download Arquivo Físico"
                         >
-                          <Eye className="w-4 h-4" />
+                          <Download className="w-4 h-4" />
                         </Button>
                       )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-primary"
-                        onClick={() => handleDownload(doc.file_path)}
-                      >
-                        <Download className="w-4 h-4" />
-                      </Button>
                       {canDelete && (
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-muted-foreground hover:text-red-400 hover:bg-red-400/10"
                           onClick={() => handleDelete(doc.id, doc.file_path)}
+                          title="Excluir"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -557,7 +613,7 @@ export default function Documents() {
       </div>
 
       <Dialog open={!!viewDoc} onOpenChange={(open) => !open && setViewDoc(null)}>
-        <DialogContent className="glass-panel border-white/10 sm:max-w-4xl max-h-[85vh] flex flex-col">
+        <DialogContent className="glass-panel border-white/10 sm:max-w-5xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-xl flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -574,7 +630,11 @@ export default function Documents() {
                 </p>
               </div>
             ) : (
-              <ExtractedDataView data={extractedData} type={viewDoc?.document_type} />
+              <ExtractedDataView
+                data={extractedData}
+                type={viewDoc?.document_type}
+                isDynamic={isDynamicData}
+              />
             )}
           </div>
         </DialogContent>
