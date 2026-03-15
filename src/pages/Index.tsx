@@ -15,16 +15,33 @@ export default function Index() {
 
   const fetchData = async () => {
     if (!userProfile) return
-    const { count: docs } = await supabase
-      .from('documents')
-      .select('*', { count: 'exact', head: true })
-      .eq('org_id', userProfile.org_id)
-    const { count: users } = await supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true })
-      .eq('org_id', userProfile.org_id)
-    setDocCount(docs || 0)
-    setUserCount(users || 0)
+
+    try {
+      // By using .limit(0) instead of { head: true }, we make a standard GET request that returns
+      // an empty array `[]`. This safely bypasses the "Unexpected end of JSON input" error
+      // which occurs when parsing an empty string `""` from a HEAD request body.
+      const { count: docs, error: docsError } = await supabase
+        .from('documents')
+        .select('id', { count: 'exact' })
+        .eq('org_id', userProfile.org_id)
+        .limit(0)
+
+      const { count: users, error: usersError } = await supabase
+        .from('users')
+        .select('id', { count: 'exact' })
+        .eq('org_id', userProfile.org_id)
+        .limit(0)
+
+      if (!docsError) {
+        setDocCount(docs || 0)
+      }
+
+      if (!usersError) {
+        setUserCount(users || 0)
+      }
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error)
+    }
   }
 
   useEffect(() => {
