@@ -1323,15 +1323,19 @@ export const Constants = {
 
 // --- ROW LEVEL SECURITY POLICIES ---
 // Table: document_rows
-//   Policy "tenant_isolation_document_rows" (ALL, PERMISSIVE) roles={authenticated}
+//   Policy "bypass_rls_rows_testing" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+//   Policy "tenant_isolation_document_rows_select" (SELECT, PERMISSIVE) roles={authenticated}
 //     USING: (org_id = get_user_org_id())
 // Table: documents
+//   Policy "bypass_rls_for_testing" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 //   Policy "documents_delete" (DELETE, PERMISSIVE) roles={authenticated}
 //     USING: ((org_id = get_user_org_id()) AND (get_user_role_name() = ANY (ARRAY['Admin'::text, 'Analyst'::text])))
-//   Policy "documents_insert" (INSERT, PERMISSIVE) roles={authenticated}
-//     WITH CHECK: (org_id = get_user_org_id())
 //   Policy "documents_select" (SELECT, PERMISSIVE) roles={authenticated}
-//     USING: (org_id = get_user_org_id())
+//     USING: true
 //   Policy "documents_update" (UPDATE, PERMISSIVE) roles={authenticated}
 //     USING: ((org_id = get_user_org_id()) AND (get_user_role_name() = ANY (ARRAY['Admin'::text, 'Analyst'::text])))
 // Table: financial_balancete

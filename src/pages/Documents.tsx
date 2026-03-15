@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react'
-import { Search, Loader2 } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useAuth } from '@/hooks/use-auth'
 import { documentService } from '@/services/documents'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase/client'
 import { DocumentUploadModal } from '@/components/documents/DocumentUploadModal'
 import { DocumentListTable } from '@/components/documents/DocumentListTable'
-import { ExtractedDataView } from '@/components/documents/ExtractedDataView'
+import { DocumentDataModal } from '@/components/documents/DocumentDataModal'
 
 export default function Documents() {
   const { userProfile } = useAuth()
@@ -16,19 +15,24 @@ export default function Documents() {
   const [documents, setDocuments] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
-
   const [viewDoc, setViewDoc] = useState<any>(null)
-  const [extractedData, setExtractedData] = useState<any[]>([])
-  const [isDynamicData, setIsDynamicData] = useState(false)
-  const [loadingData, setLoadingData] = useState(false)
 
   const canUpload = true // Any authenticated user can upload
   const canDelete = userProfile?.role === 'Admin' || userProfile?.role === 'Analyst'
 
   const fetchDocs = async () => {
     if (!userProfile) return
-    const { data } = await documentService.getDocuments(userProfile.org_id)
-    if (data) setDocuments(data)
+    setLoading(true)
+    const { data, error } = await documentService.getDocuments(userProfile.org_id)
+    if (error) {
+      toast({
+        title: 'Erro ao carregar documentos',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } else if (data) {
+      setDocuments(data)
+    }
     setLoading(false)
   }
 
@@ -78,22 +82,13 @@ export default function Documents() {
     }
   }
 
-  const handleViewDetails = async (doc: any) => {
-    setViewDoc(doc)
-    setLoadingData(true)
-    const { data, isDynamic } = await documentService.getExtractedData(doc.id, doc.document_type)
-    setExtractedData(data || [])
-    setIsDynamicData(!!isDynamic)
-    setLoadingData(false)
-  }
-
   return (
     <div className="w-full max-w-6xl mx-auto space-y-6 animate-fade-in-up">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Repositório Financeiro</h2>
           <p className="text-muted-foreground text-sm">
-            Faça upload e gerencie a extração automática de dados contábeis (processamento efêmero).
+            Gerencie uploads e acesse rapidamente dados estruturados extraídos automaticamente.
           </p>
         </div>
 
@@ -101,7 +96,7 @@ export default function Documents() {
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar documento..."
+              placeholder="Filtrar por nome..."
               className="pl-9 bg-card/50 border-white/10"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -120,36 +115,10 @@ export default function Documents() {
         canDelete={canDelete}
         onDownload={handleDownload}
         onDelete={handleDelete}
-        onViewDetails={handleViewDetails}
+        onViewDetails={setViewDoc}
       />
 
-      <Dialog open={!!viewDoc} onOpenChange={(open) => !open && setViewDoc(null)}>
-        <DialogContent className="glass-panel border-white/10 sm:max-w-5xl max-h-[85vh] flex flex-col p-4 sm:p-6">
-          <DialogHeader className="mb-2">
-            <DialogTitle className="text-xl flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-400" />
-              Extrato Estruturado - {viewDoc?.document_type}
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground truncate">{viewDoc?.filename}</p>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto rounded-xl border border-white/10 bg-card/30 p-2 sm:p-4">
-            {loadingData ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-4">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                <p className="text-sm text-muted-foreground animate-pulse">
-                  Carregando dados estruturados...
-                </p>
-              </div>
-            ) : (
-              <ExtractedDataView
-                data={extractedData}
-                type={viewDoc?.document_type}
-                isDynamic={isDynamicData}
-              />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <DocumentDataModal doc={viewDoc} onClose={() => setViewDoc(null)} />
     </div>
   )
 }
