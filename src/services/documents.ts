@@ -34,10 +34,14 @@ export const documentService = {
         mime_type: file.type,
         file_path: null, // Null to bypass storage limitation
         document_type: documentType,
-        status: 'Uploaded',
+        status: 'Processing', // Insert as Processing initially
       })
       .select()
       .single()
+
+    if (error) {
+      return { data: null, error }
+    }
 
     if (data) {
       // Trigger the extraction edge function asynchronously with the file content
@@ -51,7 +55,16 @@ export const documentService = {
             file_content: fileContent,
           },
         })
-        .catch(console.error)
+        .then(async ({ error: funcError }) => {
+          if (funcError) {
+            console.error('Edge function error:', funcError)
+            await supabase.from('documents').update({ status: 'Error' }).eq('id', data.id)
+          }
+        })
+        .catch(async (err) => {
+          console.error('Edge function invocation failed:', err)
+          await supabase.from('documents').update({ status: 'Error' }).eq('id', data.id)
+        })
     }
 
     return { data, error }

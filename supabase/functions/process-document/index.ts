@@ -31,7 +31,7 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     )
 
-    // Mark as Processing
+    // Ensure status is Processing (redundant but safe)
     await supabaseClient.from('documents').update({ status: 'Processing' }).eq('id', document_id)
 
     // Simulate extraction latency (Parsing engine logic goes here using file_content)
@@ -164,8 +164,14 @@ Deno.serve(async (req: Request) => {
       await supabaseClient.from('document_rows').insert(documentRowsInsert)
     }
 
-    // Mark as Completed
-    await supabaseClient.from('documents').update({ status: 'Completed' }).eq('id', document_id)
+    // Mark as Completed and save structural JSON directly to metadata
+    await supabaseClient
+      .from('documents')
+      .update({
+        status: 'Completed',
+        metadata: rowsData,
+      })
+      .eq('id', document_id)
 
     // Audit Logging
     if (org_id) {

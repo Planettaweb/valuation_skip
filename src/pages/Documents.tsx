@@ -50,14 +50,35 @@ export default function Documents() {
           table: 'documents',
           filter: `org_id=eq.${userProfile.org_id}`,
         },
-        () => fetchDocs(),
+        (payload: any) => {
+          fetchDocs()
+
+          // Trigger toasts for background extraction completion or errors
+          if (payload.eventType === 'UPDATE') {
+            const oldStatus = payload.old?.status
+            const newStatus = payload.new?.status
+
+            if (newStatus === 'Error' && oldStatus !== 'Error') {
+              toast({
+                title: 'Erro de Processamento',
+                description: `O documento "${payload.new.filename || 'Desconhecido'}" falhou ao ser extraído.`,
+                variant: 'destructive',
+              })
+            } else if (newStatus === 'Completed' && oldStatus !== 'Completed') {
+              toast({
+                title: 'Extração Concluída',
+                description: `Os dados de "${payload.new.filename || 'Desconhecido'}" foram estruturados e salvos no metadata.`,
+              })
+            }
+          }
+        },
       )
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [userProfile])
+  }, [userProfile, toast])
 
   const filteredDocs = documents.filter((d) =>
     d.filename.toLowerCase().includes(searchTerm.toLowerCase()),

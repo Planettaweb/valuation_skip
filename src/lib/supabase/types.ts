@@ -1330,6 +1330,8 @@ export const Constants = {
 //   Policy "bypass_rls_for_testing" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
+//   Policy "documents_select_policy" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: (org_id = get_user_org_id())
 // Table: financial_balancete
 //   Policy "tenant_isolation_balancete" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: (org_id = get_user_org_id())
