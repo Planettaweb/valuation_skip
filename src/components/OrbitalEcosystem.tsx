@@ -41,7 +41,7 @@ export function OrbitalEcosystem() {
       {/* Top Node */}
       <div className="absolute top-[10%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-3">
         <div className="bg-card/80 border border-white/10 px-4 py-2 rounded-xl backdrop-blur-md text-xs font-medium text-muted-foreground whitespace-nowrap">
-          VP of Commercial Business
+          VP de Negócios
         </div>
         <img
           src="https://img.usecurling.com/ppl/thumbnail?seed=2&gender=male"
@@ -52,7 +52,7 @@ export function OrbitalEcosystem() {
 
       {/* Bottom Node */}
       <div className="absolute bottom-[-5%] left-1/2 -translate-x-1/2 translate-y-1/2 flex flex-col items-center gap-3">
-        <span className="text-sm font-semibold text-primary">The Buyer</span>
+        <span className="text-sm font-semibold text-primary">Comprador</span>
         <div className="w-12 h-12 rounded-full border border-primary/50 bg-primary/10 flex items-center justify-center backdrop-blur-md">
           <User className="text-primary w-5 h-5" />
         </div>
@@ -71,7 +71,7 @@ export function OrbitalEcosystem() {
             className="w-5 h-5"
             alt="Google"
           />
-          <span className="text-sm font-bold tracking-wide">Google</span>
+          <span className="text-sm font-bold tracking-wide">Átiman</span>
         </div>
       </div>
 
@@ -84,13 +84,13 @@ export function OrbitalEcosystem() {
         />
         <div className="bg-card/80 border border-white/10 px-5 py-3 rounded-2xl backdrop-blur-md flex items-center gap-2 shadow-lg">
           <Building className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm font-bold tracking-wide">J.P.Morgan</span>
+          <span className="text-sm font-bold tracking-wide">Planettaweb</span>
         </div>
       </div>
 
       {/* Floating Badges */}
       <div className="absolute top-[60%] left-[20%] border border-primary/40 bg-primary/10 px-3 py-1.5 rounded-lg backdrop-blur-md animate-pulse-glow">
-        <span className="text-[10px] font-bold text-primary tracking-widest">NEARBOUND 2.0</span>
+        <span className="text-[10px] font-bold text-primary tracking-widest">NEXUS M&A 2.0</span>
       </div>
     </div>
   )

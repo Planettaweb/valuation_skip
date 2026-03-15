@@ -53,7 +53,7 @@ export default function Login() {
           </div>
           <CardTitle className="text-3xl font-bold tracking-tight text-white">Bem-vindo</CardTitle>
           <CardDescription className="text-muted-foreground text-sm">
-            Acesse o ecossistema financeiro Nearbound
+            Acesse o ecossistema financeiro Nexus M&A
           </CardDescription>
         </CardHeader>
 
