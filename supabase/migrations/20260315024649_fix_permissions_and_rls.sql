@@ -14,6 +14,11 @@ DROP POLICY IF EXISTS "documents_update" ON public.documents;
 DROP POLICY IF EXISTS "documents_delete" ON public.documents;
 DROP POLICY IF EXISTS "tenant_isolation_document_rows_select" ON public.document_rows;
 
+-- Drop bypass policies if they already exist to prevent 42710 error
+DROP POLICY IF EXISTS "bypass_rls_for_testing" ON public.documents;
+DROP POLICY IF EXISTS "bypass_rls_rows_testing" ON public.document_rows;
+
 -- Create bypass RLS policies for testing as per acceptance criteria
 CREATE POLICY "bypass_rls_for_testing" ON public.documents FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "bypass_rls_rows_testing" ON public.document_rows FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
