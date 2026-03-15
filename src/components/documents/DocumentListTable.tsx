@@ -8,6 +8,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  RefreshCw,
 } from 'lucide-react'
 import {
   Table,
@@ -36,6 +37,7 @@ interface Props {
   onDownload: (path: string) => void
   onDelete: (id: string, path: string | null) => void
   onViewDetails: (doc: any) => void
+  onReprocess?: (doc: any) => void
 }
 
 const PAGE_SIZE = 10
@@ -47,6 +49,7 @@ export function DocumentListTable({
   onDownload,
   onDelete,
   onViewDetails,
+  onReprocess,
 }: Props) {
   const [page, setPage] = useState(1)
   const [sortField, setSortField] = useState<'filename' | 'created_at'>('created_at')
@@ -224,6 +227,18 @@ export function DocumentListTable({
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end items-center gap-2">
+                      {onReprocess && doc.sharepoint_path && doc.document_type === 'Balanço' && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-blue-400 hover:bg-blue-400/10"
+                          onClick={() => onReprocess(doc)}
+                          title="Reprocessar Extração"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                        </Button>
+                      )}
+
                       <Button
                         variant="outline"
                         size="sm"

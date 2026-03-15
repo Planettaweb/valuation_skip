@@ -246,6 +246,155 @@ export const documentService = {
     }
   },
 
+  async reprocessDocument(
+    docId: string,
+    orgId: string,
+    userId: string,
+    onProgress?: (msg: string) => void,
+  ) {
+    try {
+      onProgress?.('Buscando informações do documento...')
+      const { data: doc, error: docError } = await supabase
+        .from('financial_documents' as any)
+        .select('*')
+        .eq('id', docId)
+        .single()
+
+      if (docError || !doc) throw new Error('Documento não encontrado.')
+      if (!doc.sharepoint_path)
+        throw new Error('O documento não possui um caminho no SharePoint para ser baixado.')
+
+      onProgress?.('Acessando Microsoft Graph API para baixar o arquivo...')
+      const { data: sessionData } = await supabase.auth.getSession()
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sharepoint-api?action=download`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${sessionData.session?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ path: doc.sharepoint_path }),
+        },
+      )
+
+      if (!res.ok) {
+        const errText = await res.text()
+        throw new Error(`Falha ao baixar arquivo: ${errText}`)
+      }
+
+      const blob = await res.blob()
+      const file = new File([blob], doc.file_name, { type: blob.type || 'application/pdf' })
+
+      // Clean existing data to avoid duplicates
+      onProgress?.('Removendo extração antiga...')
+      await supabase
+        .from('financial_data' as any)
+        .delete()
+        .eq('document_id', docId)
+
+      let rowsData: any[] = []
+      let metadataObj: any = null
+
+      if (doc.document_type === 'Balanço') {
+        if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
+          throw new Error('A extração de Balanço requer um arquivo PDF.')
+        }
+
+        onProgress?.('Lendo arquivo PDF localmente (todas as páginas)...')
+        const extractedText = await extractTextFromPDF(file)
+
+        onProgress?.('Analisando texto estruturado (Engine de NLP/Regex melhorada)...')
+        metadataObj = parseBalancoPatrimonialText(extractedText)
+
+        if (
+          !metadataObj.balanco_patrimonial.contas ||
+          metadataObj.balanco_patrimonial.contas.length === 0
+        ) {
+          throw new Error(
+            'Falha na extração: Nenhuma conta contábil encontrada. Verifique se o PDF está legível e contém dados de Balanço.',
+          )
+        }
+
+        rowsData = metadataObj.balanco_patrimonial.contas
+          .filter((c: any) => c.descricao && c.descricao.trim().length > 0)
+          .map((c: any) => ({
+            classification_code: c.classificacao || null,
+            description: c.descricao.trim(),
+            value_year_n:
+              typeof c.valor_exercicio_atual === 'number' ? c.valor_exercicio_atual : null,
+            nature_year_n: c.natureza_exercicio_atual || null,
+            value_year_n_minus_1:
+              typeof c.valor_exercicio_anterior === 'number' ? c.valor_exercicio_anterior : null,
+            nature_year_n_minus_1: c.natureza_exercicio_anterior || null,
+            year_n: metadataObj.balanco_patrimonial.cabecalho.year_n || null,
+            year_n_minus_1: metadataObj.balanco_patrimonial.cabecalho.year_n_minus_1 || null,
+          }))
+
+        if (rowsData.length === 0) {
+          throw new Error(
+            'Falha na extração: As linhas de conta contábil identificadas são inválidas ou vazias.',
+          )
+        }
+      } else {
+        throw new Error(`Reprocessamento automatizado não suportado para: ${doc.document_type}`)
+      }
+
+      onProgress?.('Salvando metadados estruturados e atualizando status...')
+      const finalMetadata = metadataObj ? metadataObj : rowsData
+
+      const { data: updatedDoc, error: updateError } = await supabase
+        .from('financial_documents' as any)
+        .update({
+          status: 'Processed',
+          metadata: finalMetadata,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', doc.id)
+        .select()
+        .single()
+
+      if (updateError) throw updateError
+
+      if (rowsData.length > 0) {
+        onProgress?.('Persistindo nas tabelas analíticas para os dashboards...')
+        const { error: insertErr } = await supabase.from('financial_data' as any).insert(
+          rowsData.map((d, index) => ({
+            org_id: orgId,
+            document_id: doc.id,
+            row_number: index + 1,
+            account_name: d.description || d.account_description || 'Unknown',
+            value:
+              d.value_year_n || d.value || d.total || d.current_balance || d.previous_balance || 0,
+            period: d.year_n?.toString() || d.period || null,
+          })),
+        )
+        if (insertErr) throw insertErr
+      }
+
+      await supabase.from('audit_logs').insert({
+        org_id: orgId,
+        user_id: userId,
+        action: 'reprocess_document',
+        resource_type: 'document',
+        resource_id: doc.id,
+        details: 'Document reprocessed successfully from SharePoint',
+      })
+
+      onProgress?.('Reprocessamento concluído com sucesso!')
+      return { data: updatedDoc, error: null }
+    } catch (error: any) {
+      console.error('Reprocessing failed:', error)
+      await supabase
+        .from('financial_documents' as any)
+        .update({ status: 'Error', updated_at: new Date().toISOString() })
+        .eq('id', docId)
+
+      return { data: null, error: new Error(error.message || 'Erro durante o reprocessamento.') }
+    }
+  },
+
   async deleteDocument(id: string, _legacyFilePath?: string | null) {
     let spErrorMsg = null
 

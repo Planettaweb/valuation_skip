@@ -60,7 +60,10 @@ const parseIntSafe = (val: string) => parseInt(val, 10) || 0
 
 const parseValueAndNatureStr = (valStr: string, nature: string | null) => {
   if (!valStr || valStr === '-') return { value: 0, nature: nature || null }
-  let rawNum = valStr
+
+  let rawNum = valStr.replace(/[()]/g, '') // remove parentheses for parsing
+  let isNegative = valStr.includes('(') || valStr.startsWith('-')
+
   // Fallback for US format vs PT-BR format
   if (rawNum.includes(',') && rawNum.includes('.') && rawNum.indexOf(',') < rawNum.indexOf('.')) {
     rawNum = rawNum.replace(/,/g, '')
@@ -68,7 +71,9 @@ const parseValueAndNatureStr = (valStr: string, nature: string | null) => {
     rawNum = rawNum.replace(/\./g, '').replace(',', '.')
   }
 
-  const value = parseFloat(rawNum) || 0
+  let value = parseFloat(rawNum) || 0
+  if (isNegative && value > 0) value = -Math.abs(value)
+
   return { value, nature: nature ? nature.toUpperCase() : null }
 }
 
@@ -105,8 +110,9 @@ export function parseBalancoPatrimonialText(text: string) {
     const tokens = cleanLine.split(/\s+/)
     if (tokens.length < 3) continue
 
-    const isVal = (t: string) => /^[-]?\d[\d.,]*$/.test(t) || t === '-'
-    const isValWithNat = (t: string) => /^[-]?\d[\d.,]*[DCdc]$/i.test(t)
+    const isVal = (t: string) => /^[-]?\d[\d.,]*$/.test(t) || t === '-' || /^\([\d.,]+\)$/.test(t)
+    const isValWithNat = (t: string) =>
+      /^[-]?\d[\d.,]*[DCdc]$/i.test(t) || /^\([\d.,]+\)[DCdc]$/i.test(t)
 
     const parsedValues = []
     let i = tokens.length - 1
@@ -124,7 +130,7 @@ export function parseBalancoPatrimonialText(text: string) {
         token = tokens[i]
       }
 
-      // Check if attached nature indicator (e.g. "1.000,00D")
+      // Check if attached nature indicator (e.g. "1.000,00D" or "(1.000,00)C")
       if (isValWithNat(token)) {
         nature = token.slice(-1).toUpperCase()
         valueStr = token.slice(0, -1)
@@ -161,9 +167,11 @@ export function parseBalancoPatrimonialText(text: string) {
       } else if (clsMatch && clsMatch[2]) {
         classificacao = clsMatch[1]
         descricao = clsMatch[2]
+      } else if (parsedValues.length >= 1 && descString.trim().length > 3) {
+        // Broaden the rule: accept any description if there are valid numerical values parsed
+        descricao = descString
       } else {
-        // No clear classification found. Be strict to avoid false positives.
-        if (parsedValues.length < 2) continue
+        continue
       }
 
       descricao = descricao.trim()

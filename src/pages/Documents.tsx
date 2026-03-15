@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, FilterX } from 'lucide-react'
+import { Search, FilterX, Loader2 } from 'lucide-react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,13 @@ import { supabase } from '@/lib/supabase/client'
 import { DocumentUploadModal } from '@/components/documents/DocumentUploadModal'
 import { DocumentListTable } from '@/components/documents/DocumentListTable'
 import { DocumentDataModal } from '@/components/documents/DocumentDataModal'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 
 export default function Documents() {
   const { userProfile } = useAuth()
@@ -21,6 +28,9 @@ export default function Documents() {
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
   const [viewDoc, setViewDoc] = useState<any>(null)
+
+  const [reprocessingDocId, setReprocessingDocId] = useState<string | null>(null)
+  const [reprocessMsg, setReprocessMsg] = useState('')
 
   const canUpload = true
   const canDelete = userProfile?.role === 'Admin' || userProfile?.role === 'Analyst'
@@ -91,6 +101,32 @@ export default function Documents() {
     }
   }
 
+  const handleReprocess = async (doc: any) => {
+    if (!userProfile) return
+    setReprocessingDocId(doc.id)
+    setReprocessMsg('Iniciando reprocessamento...')
+    const { error } = await documentService.reprocessDocument(
+      doc.id,
+      userProfile.org_id,
+      userProfile.id,
+      (msg) => setReprocessMsg(msg),
+    )
+    if (error) {
+      toast({
+        title: 'Falha no Reprocessamento',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } else {
+      toast({
+        title: 'Sucesso',
+        description: 'Documento reprocessado e dados extraídos com precisão.',
+      })
+      fetchDocs()
+    }
+    setReprocessingDocId(null)
+  }
+
   return (
     <div className="w-full max-w-6xl mx-auto space-y-6 animate-fade-in-up">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -145,9 +181,33 @@ export default function Documents() {
         onDownload={handleDownload}
         onDelete={handleDelete}
         onViewDetails={setViewDoc}
+        onReprocess={handleReprocess}
       />
 
       <DocumentDataModal doc={viewDoc} onClose={() => setViewDoc(null)} />
+
+      {reprocessingDocId && (
+        <Dialog open={!!reprocessingDocId} onOpenChange={() => {}}>
+          <DialogContent className="sm:max-w-md border-white/10 glass-panel [&>button]:hidden">
+            <DialogHeader>
+              <DialogTitle>Reprocessando Documento</DialogTitle>
+              <DialogDescription>
+                Aguarde enquanto os dados são extraídos novamente com as regras atualizadas.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="w-full p-4 bg-primary/10 rounded-lg border border-primary/20 flex flex-col gap-3">
+              <div className="flex items-center gap-3 text-sm text-primary">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="font-medium">Processando...</span>
+              </div>
+              <div className="w-full bg-background rounded-full h-1.5 overflow-hidden">
+                <div className="bg-primary h-full animate-[pulse_2s_ease-in-out_infinite] w-full" />
+              </div>
+              <p className="text-xs text-primary/70 animate-pulse">{reprocessMsg}</p>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }
