@@ -14,6 +14,8 @@ import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import Documents from './pages/Documents'
+import Clients from './pages/Clients'
+import ClientDetails from './pages/ClientDetails'
 import Users from './pages/Users'
 import Organizations from './pages/Organizations'
 import Roles from './pages/Roles'
@@ -113,6 +115,8 @@ const AppRoutes = () => (
       }
     >
       <Route path="/" element={<Index />} />
+      <Route path="/clients" element={<Clients />} />
+      <Route path="/clients/:clientId" element={<ClientDetails />} />
       <Route path="/documents" element={<Documents />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/settings" element={<Settings />} />

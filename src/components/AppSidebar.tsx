@@ -58,12 +58,23 @@ export function AppSidebar() {
               </SidebarMenuItem>
 
               <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location.pathname.startsWith('/clients')}>
+                  <Link
+                    to="/clients"
+                    className="hover:bg-primary/10 hover:text-primary transition-colors"
+                  >
+                    <Users className="w-4 h-4" /> <span>Clientes e Projetos</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
                 <SidebarMenuButton asChild isActive={location.pathname === '/documents'}>
                   <Link
                     to="/documents"
                     className="hover:bg-primary/10 hover:text-primary transition-colors"
                   >
-                    <Folder className="w-4 h-4" /> <span>Documentos</span>
+                    <Folder className="w-4 h-4" /> <span>Repositório de Arquivos</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

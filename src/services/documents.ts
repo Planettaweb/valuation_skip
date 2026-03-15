@@ -2,34 +2,45 @@ import { supabase } from '@/lib/supabase/client'
 import { extractTextFromPDF, parseBalancoPatrimonialText } from '@/lib/pdf-parser'
 
 export const documentService = {
-  async getDocuments(orgId: string) {
-    const { data, error } = await supabase
-      .from('documents')
-      .select('*, users(full_name)')
+  async getDocuments(orgId: string, valuationId?: string | null) {
+    let query = supabase
+      .from('financial_documents' as any)
+      .select('*, valuations!inner(valuation_name, clients!inner(client_name))')
       .eq('org_id', orgId)
-      .order('created_at', { ascending: false })
-    return { data, error }
+
+    if (valuationId) {
+      query = query.eq('valuation_id', valuationId)
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false })
+
+    const mapped = data?.map((d: any) => ({
+      ...d,
+      filename: d.file_name,
+      client_name: d.valuations?.clients?.client_name,
+      valuation_name: d.valuations?.valuation_name,
+    }))
+
+    return { data: mapped, error }
   },
 
   async uploadDocument(
     file: File,
     orgId: string,
     userId: string,
+    valuationId: string,
     documentType: string,
     onProgress?: (msg: string) => void,
   ) {
     onProgress?.('Criando registro do documento...')
 
     const { data: doc, error: insertError } = await supabase
-      .from('documents')
+      .from('financial_documents' as any)
       .insert({
         org_id: orgId,
-        user_id: userId,
-        title: file.name,
-        filename: file.name,
+        valuation_id: valuationId,
+        file_name: file.name,
         file_size: file.size,
-        mime_type: file.type,
-        file_path: null,
         document_type: documentType,
         status: 'Processing',
       })
@@ -44,9 +55,9 @@ export const documentService = {
       let rowsData: any[] = []
       let metadataObj: any = null
 
-      if (documentType === 'Balanço Patrimonial') {
+      if (documentType === 'Balanço') {
         if (file.type !== 'application/pdf') {
-          throw new Error('A extração de Balanço Patrimonial requer um arquivo PDF.')
+          throw new Error('A extração de Balanço requer um arquivo PDF.')
         }
 
         onProgress?.('Lendo arquivo PDF localmente (todas as páginas)...')
@@ -64,7 +75,6 @@ export const documentService = {
           )
         }
 
-        // Resilient Data Mapping: validate and clean extracted rows
         rowsData = metadataObj.balanco_patrimonial.contas
           .filter((c: any) => c.descricao && c.descricao.trim().length > 0)
           .map((c: any) => ({
@@ -115,7 +125,7 @@ export const documentService = {
       const finalMetadata = metadataObj ? metadataObj : rowsData
 
       const { data: updatedDoc, error: updateError } = await supabase
-        .from('documents')
+        .from('financial_documents' as any)
         .update({
           status: 'Processed',
           metadata: finalMetadata,
@@ -129,32 +139,17 @@ export const documentService = {
 
       if (rowsData.length > 0) {
         onProgress?.('Persistindo em tabelas analíticas secundárias...')
-        await supabase.from('document_rows').insert(
+        await supabase.from('financial_data' as any).insert(
           rowsData.map((d, index) => ({
             org_id: orgId,
             document_id: doc.id,
-            row_index: index,
-            data: d,
+            row_number: index + 1,
+            account_name: d.description || d.account_description || 'Unknown',
+            value:
+              d.value_year_n || d.value || d.total || d.current_balance || d.previous_balance || 0,
+            period: d.year_n?.toString() || d.period || null,
           })),
         )
-
-        if (documentType === 'Balanço Patrimonial') {
-          await supabase
-            .from('financial_balanco_patrimonial')
-            .insert(rowsData.map((r) => ({ org_id: orgId, document_id: doc.id, ...r })))
-        } else if (documentType === 'DRE') {
-          await supabase
-            .from('financial_dre')
-            .insert(rowsData.map((r) => ({ org_id: orgId, document_id: doc.id, ...r })))
-        } else if (documentType === 'Balancete') {
-          await supabase
-            .from('financial_balancete')
-            .insert(rowsData.map((r) => ({ org_id: orgId, document_id: doc.id, ...r })))
-        } else if (documentType === 'Fluxo de Caixa') {
-          await supabase
-            .from('financial_fluxo_caixa')
-            .insert(rowsData.map((r) => ({ org_id: orgId, document_id: doc.id, ...r })))
-        }
       }
 
       await supabase.from('audit_logs').insert({
@@ -171,7 +166,7 @@ export const documentService = {
     } catch (error: any) {
       console.error('Client-side extraction failed:', error)
       await supabase
-        .from('documents')
+        .from('financial_documents' as any)
         .update({ status: 'Error', updated_at: new Date().toISOString() })
         .eq('id', doc.id)
 
@@ -183,7 +178,10 @@ export const documentService = {
     if (filePath) {
       await supabase.storage.from('documents').remove([filePath])
     }
-    const { error } = await supabase.from('documents').delete().eq('id', id)
+    const { error } = await supabase
+      .from('financial_documents' as any)
+      .delete()
+      .eq('id', id)
     return { error }
   },
 
@@ -195,30 +193,12 @@ export const documentService = {
   },
 
   async getExtractedData(documentId: string, documentType: string) {
-    const { data: rowsData, error: rowsError } = await supabase
-      .from('document_rows')
-      .select('*')
-      .eq('document_id', documentId)
-      .order('row_index', { ascending: true })
-
-    if (rowsData && rowsData.length > 0) {
-      return { data: rowsData.map((r) => r.data), isDynamic: true, error: null }
-    }
-
-    let tableName = ''
-    if (documentType === 'Balanço Patrimonial') tableName = 'financial_balanco_patrimonial'
-    else if (documentType === 'DRE') tableName = 'financial_dre'
-    else if (documentType === 'Balancete') tableName = 'financial_balancete'
-    else if (documentType === 'Fluxo de Caixa') tableName = 'financial_fluxo_caixa'
-
-    if (!tableName) return { data: [], isDynamic: false, error: null }
-
     const { data, error } = await supabase
-      .from(tableName)
+      .from('financial_data' as any)
       .select('*')
       .eq('document_id', documentId)
-      .order('created_at', { ascending: true })
+      .order('row_number', { ascending: true })
 
-    return { data, isDynamic: false, error }
+    return { data: data || [], isDynamic: true, error }
   },
 }

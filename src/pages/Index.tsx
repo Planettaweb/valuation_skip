@@ -17,11 +17,8 @@ export default function Index() {
     if (!userProfile) return
 
     try {
-      // By using .limit(0) instead of { head: true }, we make a standard GET request that returns
-      // an empty array `[]`. This safely bypasses the "Unexpected end of JSON input" error
-      // which occurs when parsing an empty string `""` from a HEAD request body.
       const { count: docs, error: docsError } = await supabase
-        .from('documents')
+        .from('financial_documents' as any)
         .select('id', { count: 'exact' })
         .eq('org_id', userProfile.org_id)
         .limit(0)
@@ -57,13 +54,13 @@ export default function Index() {
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'documents',
+          table: 'financial_documents',
           filter: `org_id=eq.${userProfile.org_id}`,
         },
         (payload) => {
           toast({
             title: 'Novo Documento',
-            description: `Um novo documento "${payload.new.filename}" foi adicionado na sua organização.`,
+            description: `Um novo documento "${payload.new.file_name}" foi adicionado na sua organização.`,
           })
           fetchData()
         },

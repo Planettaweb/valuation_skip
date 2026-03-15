@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Search } from 'lucide-react'
+import { Search, FilterX } from 'lucide-react'
+import { useSearchParams, Link } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/use-auth'
 import { documentService } from '@/services/documents'
 import { useToast } from '@/hooks/use-toast'
@@ -12,18 +14,21 @@ import { DocumentDataModal } from '@/components/documents/DocumentDataModal'
 export default function Documents() {
   const { userProfile } = useAuth()
   const { toast } = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const valuationId = searchParams.get('valuationId')
+
   const [documents, setDocuments] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
   const [viewDoc, setViewDoc] = useState<any>(null)
 
-  const canUpload = true // Any authenticated user can upload
+  const canUpload = true
   const canDelete = userProfile?.role === 'Admin' || userProfile?.role === 'Analyst'
 
   const fetchDocs = async () => {
     if (!userProfile) return
     setLoading(true)
-    const { data, error } = await documentService.getDocuments(userProfile.org_id)
+    const { data, error } = await documentService.getDocuments(userProfile.org_id, valuationId)
     if (error) {
       toast({
         title: 'Erro ao carregar documentos',
@@ -47,7 +52,7 @@ export default function Documents() {
         {
           event: '*',
           schema: 'public',
-          table: 'documents',
+          table: 'financial_documents',
           filter: `org_id=eq.${userProfile.org_id}`,
         },
         () => {
@@ -59,7 +64,7 @@ export default function Documents() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [userProfile, toast])
+  }, [userProfile, toast, valuationId])
 
   const filteredDocs = documents.filter((d) =>
     d.filename.toLowerCase().includes(searchTerm.toLowerCase()),
@@ -90,15 +95,31 @@ export default function Documents() {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Repositório Financeiro</h2>
           <p className="text-muted-foreground text-sm">
-            Gerencie uploads e processe dados financeiros diretamente no navegador.
+            {valuationId
+              ? 'Visualizando documentos filtrados por projeto.'
+              : 'Gerencie uploads e processe dados financeiros de seus clientes.'}
           </p>
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto">
+          {valuationId && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                searchParams.delete('valuationId')
+                setSearchParams(searchParams)
+              }}
+              className="border-white/10"
+            >
+              <FilterX className="w-4 h-4 mr-2" /> Limpar Filtro
+            </Button>
+          )}
+
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Filtrar por nome..."
+              placeholder="Filtrar por arquivo..."
               className="pl-9 bg-card/50 border-white/10"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}

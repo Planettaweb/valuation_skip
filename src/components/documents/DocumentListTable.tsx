@@ -124,6 +124,7 @@ export function DocumentListTable({
                   Arquivo <SortIcon field="filename" />
                 </div>
               </TableHead>
+              <TableHead>Projeto / Cliente</TableHead>
               <TableHead>Modelo</TableHead>
               <TableHead>Tamanho</TableHead>
               <TableHead>Status</TableHead>
@@ -143,10 +144,13 @@ export function DocumentListTable({
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i} className="border-white/5">
                   <TableCell>
-                    <Skeleton className="h-5 w-[200px]" />
+                    <Skeleton className="h-5 w-[150px]" />
                   </TableCell>
                   <TableCell>
-                    <Skeleton className="h-5 w-[100px]" />
+                    <Skeleton className="h-5 w-[150px]" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-5 w-[80px]" />
                   </TableCell>
                   <TableCell>
                     <Skeleton className="h-5 w-[60px]" />
@@ -164,7 +168,7 @@ export function DocumentListTable({
               ))
             ) : documents.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-16">
+                <TableCell colSpan={7} className="text-center py-16">
                   <div className="flex flex-col items-center justify-center text-muted-foreground space-y-3">
                     <div className="p-3 rounded-full bg-white/5">
                       <Inbox className="w-8 h-8 opacity-50" />
@@ -184,10 +188,26 @@ export function DocumentListTable({
                     <div className="flex items-center gap-2">
                       <FileText className="w-4 h-4 text-primary shrink-0" />
                       <span
-                        className="truncate max-w-[150px] sm:max-w-[250px]"
+                        className="truncate max-w-[150px] sm:max-w-[200px]"
                         title={doc.filename}
                       >
                         {doc.filename}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col max-w-[180px]">
+                      <span
+                        className="text-sm font-medium text-white truncate"
+                        title={doc.valuation_name}
+                      >
+                        {doc.valuation_name || 'Desconhecido'}
+                      </span>
+                      <span
+                        className="text-xs text-muted-foreground truncate"
+                        title={doc.client_name}
+                      >
+                        {doc.client_name || '—'}
                       </span>
                     </div>
                   </TableCell>
@@ -218,7 +238,7 @@ export function DocumentListTable({
                         onClick={() => onViewDetails(doc)}
                       >
                         <Eye className="w-3 h-3 mr-1" />
-                        Visualizar Dados
+                        Ver Dados
                       </Button>
 
                       {doc.file_path && (
