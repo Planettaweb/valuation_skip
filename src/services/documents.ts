@@ -64,16 +64,27 @@ export const documentService = {
           )
         }
 
-        rowsData = metadataObj.balanco_patrimonial.contas.map((c: any) => ({
-          classification_code: c.classificacao,
-          description: c.descricao,
-          value_year_n: c.valor_exercicio_atual,
-          nature_year_n: c.natureza_exercicio_atual,
-          value_year_n_minus_1: c.valor_exercicio_anterior,
-          nature_year_n_minus_1: c.natureza_exercicio_anterior,
-          year_n: metadataObj.balanco_patrimonial.cabecalho.year_n,
-          year_n_minus_1: metadataObj.balanco_patrimonial.cabecalho.year_n_minus_1,
-        }))
+        // Resilient Data Mapping: validate and clean extracted rows
+        rowsData = metadataObj.balanco_patrimonial.contas
+          .filter((c: any) => c.descricao && c.descricao.trim().length > 0)
+          .map((c: any) => ({
+            classification_code: c.classificacao || null,
+            description: c.descricao.trim(),
+            value_year_n:
+              typeof c.valor_exercicio_atual === 'number' ? c.valor_exercicio_atual : null,
+            nature_year_n: c.natureza_exercicio_atual || null,
+            value_year_n_minus_1:
+              typeof c.valor_exercicio_anterior === 'number' ? c.valor_exercicio_anterior : null,
+            nature_year_n_minus_1: c.natureza_exercicio_anterior || null,
+            year_n: metadataObj.balanco_patrimonial.cabecalho.year_n || null,
+            year_n_minus_1: metadataObj.balanco_patrimonial.cabecalho.year_n_minus_1 || null,
+          }))
+
+        if (rowsData.length === 0) {
+          throw new Error(
+            'Falha na extração: As linhas de conta contábil identificadas são inválidas ou vazias.',
+          )
+        }
       } else if (documentType === 'DRE') {
         onProgress?.('Simulando extração de DRE...')
         await new Promise((r) => setTimeout(r, 1000))

@@ -56,13 +56,11 @@ export async function extractTextFromPDF(file: File): Promise<string> {
   }
 }
 
-const parseValueAndNature = (val: string) => {
-  if (!val) return { value: 0, nature: null }
-  const str = val.trim()
-  const match = str.match(/([\d.,-]+)\s*([DCdc])?/)
-  if (!match) return { value: 0, nature: null }
+const parseIntSafe = (val: string) => parseInt(val, 10) || 0
 
-  let rawNum = match[1]
+const parseValueAndNatureStr = (valStr: string, nature: string | null) => {
+  if (!valStr || valStr === '-') return { value: 0, nature: nature || null }
+  let rawNum = valStr
   // Fallback for US format vs PT-BR format
   if (rawNum.includes(',') && rawNum.includes('.') && rawNum.indexOf(',') < rawNum.indexOf('.')) {
     rawNum = rawNum.replace(/,/g, '')
@@ -71,12 +69,8 @@ const parseValueAndNature = (val: string) => {
   }
 
   const value = parseFloat(rawNum) || 0
-  const nature = match[2] ? match[2].toUpperCase() : null
-
-  return { value, nature }
+  return { value, nature: nature ? nature.toUpperCase() : null }
 }
-
-const parseIntSafe = (val: string) => parseInt(val, 10) || 0
 
 export function parseBalancoPatrimonialText(text: string) {
   // Extract specific years dynamically from headers or text
@@ -108,102 +102,113 @@ export function parseBalancoPatrimonialText(text: string) {
     const cleanLine = line.trim()
     if (!cleanLine) continue
 
-    // Attempt 1: Standard match (Code Classification Description Value_N Nature Value_N-1 Nature)
-    const standardMatch = cleanLine.match(
-      /^(\d{1,6})\s+([\d.]+)\s+(.*?)\s+([\d.,-]+\s*[DCdc]?)\s+([\d.,-]+\s*[DCdc]?)$/,
-    )
+    const tokens = cleanLine.split(/\s+/)
+    if (tokens.length < 3) continue
 
-    if (standardMatch) {
-      const desc = standardMatch[3].trim()
-      if (desc.length > 2 && !/^(?:ano|exercício|saldo|valor|histórico)/i.test(desc)) {
-        const vn = parseValueAndNature(standardMatch[4])
-        const vn1 = parseValueAndNature(standardMatch[5])
+    const isVal = (t: string) => /^[-]?\d[\d.,]*$/.test(t) || t === '-'
+    const isValWithNat = (t: string) => /^[-]?\d[\d.,]*[DCdc]$/i.test(t)
+
+    const parsedValues = []
+    let i = tokens.length - 1
+
+    // Backwards Line Processing (Right-to-Left)
+    while (i >= 0 && parsedValues.length < 2) {
+      let token = tokens[i]
+      let nature: string | null = null
+      let valueStr: string | null = null
+
+      // Check if detached nature indicator (e.g. "D" or "C")
+      if (/^[DCdc]$/i.test(token) && i > 0) {
+        nature = token.toUpperCase()
+        i--
+        token = tokens[i]
+      }
+
+      // Check if attached nature indicator (e.g. "1.000,00D")
+      if (isValWithNat(token)) {
+        nature = token.slice(-1).toUpperCase()
+        valueStr = token.slice(0, -1)
+      } else if (isVal(token)) {
+        valueStr = token
+      } else {
+        break // Stop at the first non-value token from the end
+      }
+
+      if (valueStr) {
+        parsedValues.unshift({ valueStr, nature })
+      }
+      i--
+    }
+
+    if (parsedValues.length > 0) {
+      const descTokens = tokens.slice(0, i + 1)
+      if (descTokens.length === 0) continue
+
+      const descString = descTokens.join(' ')
+
+      // Adaptive pattern for classification and complex descriptions (e.g. "(-) AMORTIZAÇÃO ACUMULADA")
+      const prefixMatch = descString.match(/^(\d{1,6})?\s*([\d]+(?:\.\d+)*)\s+(.*)$/)
+      const clsMatch = descString.match(/^([\d]+(?:\.\d+)*)\s+(.*)$/)
+
+      let codigo = 0
+      let classificacao = ''
+      let descricao = descString
+
+      if (prefixMatch && prefixMatch[3]) {
+        codigo = parseIntSafe(prefixMatch[1] || '0')
+        classificacao = prefixMatch[2]
+        descricao = prefixMatch[3]
+      } else if (clsMatch && clsMatch[2]) {
+        classificacao = clsMatch[1]
+        descricao = clsMatch[2]
+      } else {
+        // No clear classification found. Be strict to avoid false positives.
+        if (parsedValues.length < 2) continue
+      }
+
+      descricao = descricao.trim()
+
+      if (
+        descricao.length > 2 &&
+        !/^(?:ano|exercício|saldo|valor|histórico|demonstrações)/i.test(descricao)
+      ) {
+        const vnStr =
+          parsedValues.length === 2
+            ? parsedValues[0].valueStr
+            : parsedValues.length === 1
+              ? parsedValues[0].valueStr
+              : '0'
+        const vnNat =
+          parsedValues.length === 2
+            ? parsedValues[0].nature
+            : parsedValues.length === 1
+              ? parsedValues[0].nature
+              : null
+
+        const vn1Str = parsedValues.length === 2 ? parsedValues[1].valueStr : '0'
+        const vn1Nat = parsedValues.length === 2 ? parsedValues[1].nature : null
+
+        const vn = parseValueAndNatureStr(vnStr, vnNat)
+        const vn1 = parseValueAndNatureStr(vn1Str, vn1Nat)
 
         contas.push({
-          codigo: parseIntSafe(standardMatch[1]),
-          classificacao: standardMatch[2],
-          descricao: desc,
+          codigo,
+          classificacao,
+          descricao,
           valor_exercicio_atual: vn.value,
           natureza_exercicio_atual: vn.nature,
           valor_exercicio_anterior: vn1.value,
           natureza_exercicio_anterior: vn1.nature,
         })
-        continue
-      }
-    }
-
-    // Attempt 2: Flexible fallback for weird spacing and missing codes
-    const fallbackMatch = cleanLine.match(
-      /^(\d{1,6})?\s*([\d.]+)\s+(.*?)((?:[\d.,-]+\s*[DCdc]?\s*){2})$/,
-    )
-    if (fallbackMatch && !standardMatch) {
-      const codStr = fallbackMatch[1] || '0'
-      const clsStr = fallbackMatch[2]
-      const desc = fallbackMatch[3].trim()
-
-      if (desc.length > 2 && !/^(?:ano|exercício|saldo|valor|histórico)/i.test(desc)) {
-        const valueChunk = fallbackMatch[4]
-        const valMatches = [...valueChunk.matchAll(/([\d.,-]+)\s*([DCdc]?)/g)]
-
-        const validMatches = valMatches.filter(
-          (m) =>
-            /[1-9]/.test(m[1]) ||
-            m[1] === '0' ||
-            m[1] === '0,00' ||
-            m[1] === '0.00' ||
-            /^[\d.,-]+$/.test(m[1]),
-        )
-
-        if (validMatches.length >= 2) {
-          const mN = validMatches[validMatches.length - 2]
-          const mN1 = validMatches[validMatches.length - 1]
-
-          const vn = parseValueAndNature(mN[0])
-          const vn1 = parseValueAndNature(mN1[0])
-
-          contas.push({
-            codigo: parseIntSafe(codStr),
-            classificacao: clsStr,
-            descricao: desc,
-            valor_exercicio_atual: vn.value,
-            natureza_exercicio_atual: vn.nature,
-            valor_exercicio_anterior: vn1.value,
-            natureza_exercicio_anterior: vn1.nature,
-          })
-          continue
-        }
-      }
-    }
-
-    // Attempt 3: No code, only classification and special characters in description
-    const noCodeMatch = cleanLine.match(
-      /^([\d.]+)\s+([A-Za-zÀ-Úà-ú\s\-/()&]+?)\s+([\d.,-]+\s*[DCdc]?)\s+([\d.,-]+\s*[DCdc]?)$/,
-    )
-    if (noCodeMatch && !standardMatch && !fallbackMatch) {
-      const clsStr = noCodeMatch[1]
-      const desc = noCodeMatch[2].trim()
-      if (desc.length > 2 && !/^(?:ano|exercício|saldo|valor|histórico)/i.test(desc)) {
-        const vn = parseValueAndNature(noCodeMatch[3])
-        const vn1 = parseValueAndNature(noCodeMatch[4])
-
-        contas.push({
-          codigo: 0,
-          classificacao: clsStr,
-          descricao: desc,
-          valor_exercicio_atual: vn.value,
-          natureza_exercicio_atual: vn.nature,
-          valor_exercicio_anterior: vn1.value,
-          natureza_exercicio_anterior: vn1.nature,
-        })
-        continue
       }
     }
   }
 
   const declaracao_final = {
     texto_reconhecimento: text.match(/(Reconhecemos a exatidão.*?)(?:\n|$)/i)?.[1] || '',
-    valor_total_ativo_passivo: parseValueAndNature(
+    valor_total_ativo_passivo: parseValueAndNatureStr(
       text.match(/Total Ativo e Passivo.*?([\d.,]+)/i)?.[1] || '0',
+      null,
     ).value,
     local_data: text.match(/(?:São Paulo|Rio de Janeiro|Local).*?(\d{2}.*?\d{4})/i)?.[0] || '',
     assinaturas: [] as any[],
