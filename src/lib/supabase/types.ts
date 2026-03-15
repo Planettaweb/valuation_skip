@@ -1323,8 +1323,8 @@ export const Constants = {
 
 // --- ROW LEVEL SECURITY POLICIES ---
 // Table: document_rows
-//   Policy "tenant_isolation_document_rows" (ALL, PERMISSIVE) roles={public}
-//     USING: (org_id = (current_setting('app.org_id'::text))::uuid)
+//   Policy "tenant_isolation_document_rows" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: (org_id = get_user_org_id())
 // Table: documents
 //   Policy "documents_delete" (DELETE, PERMISSIVE) roles={authenticated}
 //     USING: ((org_id = get_user_org_id()) AND (get_user_role_name() = ANY (ARRAY['Admin'::text, 'Analyst'::text])))
