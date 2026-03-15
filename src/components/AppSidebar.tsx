@@ -39,7 +39,7 @@ export function AppSidebar() {
             <Rocket className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h2 className="text-lg font-bold tracking-tight text-sidebar-foreground">Nearbound</h2>
+            <h2 className="text-lg font-bold tracking-tight text-sidebar-foreground">Nexus M&A</h2>
             <p className="text-[10px] text-primary uppercase tracking-widest font-semibold">
               Platform 2.0
             </p>
