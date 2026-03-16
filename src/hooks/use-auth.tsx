@@ -11,6 +11,7 @@ export interface UserProfile {
   role: string
   org_name: string
   permissions: string[]
+  avatar_url?: string | null
 }
 
 interface AuthContextType {
@@ -45,7 +46,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { data, error } = await supabase
         .from('users')
         .select(`
-          id, email, full_name, org_id, is_active,
+          id, email, full_name, org_id, is_active, avatar_url,
           organizations (name),
           users_roles ( 
             roles (
@@ -84,6 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           role: roleName,
           org_name: orgName,
           permissions: Array.from(perms),
+          avatar_url: data.avatar_url,
         })
       }
     } catch (e) {

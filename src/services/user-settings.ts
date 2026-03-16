@@ -1,9 +1,24 @@
 import { supabase } from '@/lib/supabase/client'
 
 export const userSettingsService = {
-  async updateProfile(userId: string, data: { full_name?: string }) {
+  async updateProfile(userId: string, data: { full_name?: string; avatar_url?: string | null }) {
     const { error } = await supabase.from('users').update(data).eq('id', userId)
     return { error }
+  },
+
+  async uploadAvatar(userId: string, file: File) {
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${userId}-${Math.random()}.${fileExt}`
+    const filePath = `${fileName}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, file, { upsert: true })
+
+    if (uploadError) return { error: uploadError, url: null }
+
+    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)
+    return { error: null, url: data.publicUrl }
   },
 
   async get2FAStatus(userId: string) {

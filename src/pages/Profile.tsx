@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/hooks/use-auth'
 import { userSettingsService } from '@/services/user-settings'
 import { useToast } from '@/hooks/use-toast'
@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Loader2, Building2, Shield } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Loader2, Building2, Shield, Upload, Trash2 } from 'lucide-react'
 
 export default function Profile() {
   const { userProfile, refreshProfile } = useAuth()
@@ -14,6 +15,8 @@ export default function Profile() {
 
   const [fullName, setFullName] = useState('')
   const [loading, setLoading] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (userProfile) {
@@ -46,6 +49,47 @@ export default function Profile() {
     setLoading(false)
   }
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !userProfile) return
+
+    setUploadingAvatar(true)
+    const { error, url } = await userSettingsService.uploadAvatar(userProfile.id, file)
+
+    if (error || !url) {
+      toast({
+        title: 'Erro ao fazer upload',
+        description: error?.message || 'Erro desconhecido',
+        variant: 'destructive',
+      })
+    } else {
+      const { error: updateError } = await userSettingsService.updateProfile(userProfile.id, {
+        avatar_url: url,
+      })
+      if (updateError) {
+        toast({ title: 'Erro ao salvar avatar', variant: 'destructive' })
+      } else {
+        toast({ title: 'Foto atualizada' })
+        await refreshProfile()
+      }
+    }
+    setUploadingAvatar(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const handleRemoveAvatar = async () => {
+    if (!userProfile) return
+    setUploadingAvatar(true)
+    const { error } = await userSettingsService.updateProfile(userProfile.id, { avatar_url: null })
+    if (error) {
+      toast({ title: 'Erro ao remover foto', variant: 'destructive' })
+    } else {
+      toast({ title: 'Foto removida com sucesso' })
+      await refreshProfile()
+    }
+    setUploadingAvatar(false)
+  }
+
   if (!userProfile) return null
 
   return (
@@ -72,24 +116,21 @@ export default function Profile() {
                     id="fullName"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Seu nome completo"
                     required
                   />
                 </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     value={userProfile.email}
                     disabled
-                    className="bg-muted/50 cursor-not-allowed text-muted-foreground"
+                    className="bg-muted/50 text-muted-foreground"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     O e-mail não pode ser alterado por aqui.
                   </p>
                 </div>
-
                 <div className="pt-2">
                   <Button
                     type="submit"
@@ -113,6 +154,53 @@ export default function Profile() {
         <div className="space-y-6">
           <Card className="glass-panel">
             <CardHeader>
+              <CardTitle className="text-lg">Foto de Perfil</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center gap-4">
+              <Avatar className="w-24 h-24 border-2 border-border">
+                <AvatarImage src={userProfile?.avatar_url || undefined} />
+                <AvatarFallback className="text-3xl bg-primary/20 text-primary">
+                  {userProfile?.full_name?.charAt(0) || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col gap-2 w-full">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                >
+                  {uploadingAvatar ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4 mr-2" />
+                  )}
+                  Alterar Foto
+                </Button>
+                {userProfile?.avatar_url && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive"
+                    onClick={handleRemoveAvatar}
+                    disabled={uploadingAvatar}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" /> Remover
+                  </Button>
+                )}
+              </div>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={handleFileChange}
+              />
+            </CardContent>
+          </Card>
+
+          <Card className="glass-panel">
+            <CardHeader>
               <CardTitle className="text-lg">Organização e Acesso</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -125,7 +213,6 @@ export default function Profile() {
                   <p className="text-sm text-muted-foreground">{userProfile.org_name}</p>
                 </div>
               </div>
-
               <div className="flex items-start gap-3">
                 <div className="p-2 bg-primary/10 rounded-lg text-primary">
                   <Shield className="w-5 h-5" />

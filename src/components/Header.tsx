@@ -38,9 +38,7 @@ export function Header() {
             <DropdownMenuTrigger className="outline-none">
               <div className="flex items-center gap-2 hover:opacity-80 transition-opacity">
                 <Avatar className="h-8 w-8 border border-border">
-                  <AvatarImage
-                    src={`https://img.usecurling.com/ppl/thumbnail?seed=${userProfile?.id}`}
-                  />
+                  <AvatarImage src={userProfile?.avatar_url || undefined} />
                   <AvatarFallback className="bg-primary/20 text-primary">
                     {userProfile?.full_name?.charAt(0) || 'U'}
                   </AvatarFallback>
