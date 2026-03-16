@@ -152,7 +152,6 @@ export async function persistStructuredData(
       account_name: d.description,
       value: toNum(d.value),
       period: d.period?.toString() || null,
-      document_type: documentType,
     })),
   )
   if (dataError) console.error('Error inserting into financial_data:', dataError)
