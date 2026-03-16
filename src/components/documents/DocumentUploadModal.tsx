@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Upload, Loader2, AlertCircle, Check, Trash2 } from 'lucide-react'
+import { Upload, Loader2, AlertCircle, Check, Trash2, Plus, Info } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import {
   Dialog,
@@ -11,6 +11,8 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -52,12 +54,17 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
 
   const [step, setStep] = useState<'form' | 'processing' | 'preview' | 'saving'>('form')
   const [statusMessage, setStatusMessage] = useState('')
+  const [diagnosticMsg, setDiagnosticMsg] = useState('')
   const [parsedPreview, setParsedPreview] = useState<{
     metadataObj: any
     rowsData: any[]
+    noise?: any[]
     rawText?: string
   } | null>(null)
+
   const [previewRows, setPreviewRows] = useState<any[]>([])
+  const [noiseRows, setNoiseRows] = useState<any[]>([])
+  const [showNoise, setShowNoise] = useState(false)
 
   useEffect(() => {
     if (isOpen) {
@@ -118,26 +125,38 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
   const handleProcessPreview = async () => {
     if (!file || !selectedClient) return
     setStep('processing')
-    setStatusMessage('Iniciando processamento local e validação...')
+    setStatusMessage('Iniciando processamento e validação...')
+    setDiagnosticMsg('')
+    setShowNoise(false)
 
     try {
       const parsed = await documentService.parseDocumentLocal(file, docType, setStatusMessage)
       setParsedPreview(parsed)
       setPreviewRows(parsed.rowsData || [])
+      setNoiseRows(parsed.noise || [])
+      if (parsed.diagnostic) setDiagnosticMsg(parsed.diagnostic)
       setStep('preview')
     } catch (err: any) {
-      toast({ title: 'Erro de Processamento', description: err.message, variant: 'destructive' })
-      setStep('form')
+      if (err.message?.includes('não suportado')) {
+        toast({ title: 'Erro de Formato', description: err.message, variant: 'destructive' })
+        setStep('form')
+      } else {
+        setDiagnosticMsg(err.message || 'Falha ao extrair dados. Entre no modo de Reparo Manual.')
+        setParsedPreview({ metadataObj: {}, rowsData: [] })
+        setPreviewRows([])
+        setNoiseRows([])
+        setStep('preview')
+      }
     }
   }
 
   const handleConfirmSave = async () => {
-    if (!file || !selectedClient || !parsedPreview) return
+    if (!file || !selectedClient) return
     setStep('saving')
     setStatusMessage('Iniciando gravação no SharePoint e Banco de Dados...')
 
     const payload = {
-      metadataObj: parsedPreview.metadataObj,
+      metadataObj: parsedPreview?.metadataObj || {},
       rowsData: previewRows,
     }
 
@@ -170,7 +189,9 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     setStep('form')
     setParsedPreview(null)
     setPreviewRows([])
-    setStatusMessage('')
+    setNoiseRows([])
+    setDiagnosticMsg('')
+    setShowNoise(false)
   }
 
   const handleOpenChange = (open: boolean) => {
@@ -178,12 +199,79 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     if (!open) resetState()
   }
 
+  const handleUpdateRow = (index: number, field: string, value: any) => {
+    const newRows = [...previewRows]
+    if (field === 'anterior') {
+      newRows[index] = {
+        ...newRows[index],
+        raw: { ...newRows[index].raw, valor_exercicio_anterior: value },
+      }
+    } else {
+      newRows[index] = { ...newRows[index], [field]: value }
+    }
+    setPreviewRows(newRows)
+  }
+
+  const handleAddRow = () => {
+    setPreviewRows([
+      ...previewRows,
+      {
+        classification_code: '',
+        description: '',
+        value: 0,
+        raw: { valor_exercicio_anterior: null },
+      },
+    ])
+  }
+
+  const handleRemoveRow = (i: number) => {
+    const newRows = [...previewRows]
+    newRows.splice(i, 1)
+    setPreviewRows(newRows)
+  }
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    if (step !== 'preview') return
+    const text = e.clipboardData.getData('Text')
+    if (!text) return
+
+    const lines = text.split('\n')
+    const newRows = []
+    for (const line of lines) {
+      const cols = line
+        .split('\t')
+        .map((c) => c.trim())
+        .filter(Boolean)
+      if (cols.length >= 2) {
+        let valStr = cols[cols.length - 1]
+        let isNeg = valStr.includes('(') || valStr.startsWith('-')
+        let parsed = parseFloat(valStr.replace(/[^\d,-]/g, '').replace(',', '.')) || 0
+        if (isNeg && parsed > 0) parsed = -parsed
+
+        newRows.push({
+          classification_code: cols.length >= 3 ? cols[0] : null,
+          description: cols.length >= 3 ? cols.slice(1, -1).join(' ') : cols[0],
+          value: parsed,
+          raw: {},
+        })
+      }
+    }
+    if (newRows.length > 0) {
+      e.preventDefault()
+      setPreviewRows([...previewRows, ...newRows])
+      toast({ title: 'Dados Colados', description: `${newRows.length} linhas adicionadas.` })
+    }
+  }
+
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
 
   const calculatedSum = previewRows.reduce((acc, row) => acc + (row.value || 0), 0)
   const extractedTotal = parsedPreview?.metadataObj?.extractedTotal || 0
-  const hasDiscrepancy = parsedPreview && Math.abs(calculatedSum - extractedTotal) > 0.01
+  const hasDiscrepancy =
+    parsedPreview?.metadataObj &&
+    extractedTotal > 0 &&
+    Math.abs(calculatedSum - extractedTotal) > 0.01
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -195,7 +283,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
       <DialogContent
         className={cn(
           'glass-panel border-white/10 transition-all duration-300',
-          step === 'preview' ? 'sm:max-w-4xl max-h-[95vh]' : 'sm:max-w-md',
+          step === 'preview' ? 'sm:max-w-5xl max-h-[95vh]' : 'sm:max-w-md',
         )}
       >
         <DialogHeader>
@@ -203,7 +291,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
           <DialogDescription>
             {step === 'form'
               ? 'Faça o upload e selecione o cliente e o modelo de extração.'
-              : 'Revise os dados estruturados extraídos antes de persistir.'}
+              : 'Revise os dados, edite ou adicione linhas manualmente antes de gravar.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -331,19 +419,45 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
               </div>
             )}
 
-            {step === 'preview' && parsedPreview && (
-              <div className="flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-medium">Revisão Tabular</h3>
+            {step === 'preview' && (
+              <div
+                className="flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200"
+                onPaste={handlePaste}
+              >
+                {diagnosticMsg && (
+                  <Alert
+                    variant="default"
+                    className="bg-yellow-500/10 border-yellow-500/50 text-yellow-200"
+                  >
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>Reparo Manual Recomendado</AlertTitle>
+                    <AlertDescription className="text-yellow-200/80">
+                      {diagnosticMsg} Você pode copiar e colar dados do Excel diretamente nesta
+                      tabela.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex items-center gap-4">
+                    <h3 className="text-base font-medium">Revisão Tabular</h3>
+                    <div className="flex items-center space-x-2 bg-card/50 px-3 py-1.5 rounded-md border border-white/5">
+                      <Switch id="noise-mode" checked={showNoise} onCheckedChange={setShowNoise} />
+                      <Label htmlFor="noise-mode" className="text-xs cursor-pointer">
+                        Exibir {noiseRows.length} Linhas Filtradas (Ruído)
+                      </Label>
+                    </div>
+                  </div>
+
                   <div className="flex gap-2 items-center">
                     <span className="text-xs text-muted-foreground bg-accent/50 px-2 py-1 rounded">
-                      {previewRows.length} registros extraídos
+                      {previewRows.length} registros úteis
                     </span>
-                    {!hasDiscrepancy && previewRows.length > 0 ? (
+                    {!hasDiscrepancy && previewRows.length > 0 && extractedTotal > 0 ? (
                       <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
                         Soma Validada: {formatCurrency(calculatedSum)}
                       </Badge>
-                    ) : previewRows.length > 0 ? (
+                    ) : hasDiscrepancy && previewRows.length > 0 ? (
                       <Badge
                         variant="destructive"
                         className="bg-destructive/10 text-destructive border-destructive/20"
@@ -352,88 +466,106 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                         {formatCurrency(extractedTotal)}
                       </Badge>
                     ) : null}
+                    <Button variant="outline" size="sm" onClick={handleAddRow} className="h-7 px-2">
+                      <Plus className="w-3 h-3 mr-1" /> Nova Linha
+                    </Button>
                   </div>
                 </div>
 
-                {hasDiscrepancy && previewRows.length > 0 && (
-                  <Alert variant="destructive" className="bg-destructive/10 border-destructive/50">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Discrepância Detectada na Validação</AlertTitle>
-                    <AlertDescription>
-                      Aviso: A soma dos registros diverge do total informado no documento.
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {previewRows.length === 0 ? (
-                  <div className="border border-white/10 rounded-md bg-card/50 p-8 flex flex-col items-center justify-center text-center space-y-3">
-                    <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center">
-                      <AlertCircle className="w-6 h-6 text-red-500" />
-                    </div>
-                    <p className="text-base font-medium text-white">
-                      Nenhum dado contábil encontrado.
-                    </p>
-                    <p className="text-sm text-muted-foreground max-w-md">
-                      Por favor, verifique se o arquivo possui dados legíveis. Documentos
-                      digitalizados como imagens não são suportados atualmente.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="border border-white/10 rounded-md flex-1 overflow-hidden flex flex-col bg-card/50 max-h-[50vh]">
-                    <div className="overflow-y-auto flex-1 custom-scrollbar">
-                      <Table>
-                        <TableHeader className="sticky top-0 bg-background/95 backdrop-blur z-10 shadow-sm">
-                          <TableRow className="hover:bg-transparent">
-                            <TableHead className="w-[120px]">Código de Classificação</TableHead>
-                            <TableHead>Descrição da Conta</TableHead>
-                            <TableHead className="text-right w-[150px]">
-                              Valor Período Atual
-                            </TableHead>
-                            <TableHead className="text-right w-[150px]">
-                              Valor Período Anterior
-                            </TableHead>
-                            <TableHead className="w-[50px]"></TableHead>
+                <div className="border border-white/10 rounded-md flex-1 overflow-hidden flex flex-col bg-card/50 max-h-[50vh]">
+                  <div className="overflow-y-auto flex-1 custom-scrollbar">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-background/95 backdrop-blur z-10 shadow-sm">
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="w-[140px]">Código Conta</TableHead>
+                          <TableHead>Descrição da Conta</TableHead>
+                          <TableHead className="text-right w-[160px]">Valor Atual</TableHead>
+                          <TableHead className="text-right w-[160px]">Valor Anterior</TableHead>
+                          <TableHead className="w-[50px]"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {previewRows.length === 0 && !showNoise && (
+                          <TableRow>
+                            <TableCell
+                              colSpan={5}
+                              className="text-center py-8 text-muted-foreground"
+                            >
+                              Nenhum dado válido na tabela. Clique em "Nova Linha" ou cole dados do
+                              Excel (Ctrl+V).
+                            </TableCell>
                           </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {previewRows.map((row: any, i: number) => (
-                            <TableRow key={i} className="border-white/5">
-                              <TableCell className="font-medium text-xs text-white/90">
-                                {row.classification_code || '-'}
-                              </TableCell>
-                              <TableCell className="text-xs text-white/80">
-                                {row.description}
-                              </TableCell>
-                              <TableCell className="text-right text-xs">
-                                {row.value != null ? formatCurrency(row.value) : '-'}
-                              </TableCell>
-                              <TableCell className="text-right text-muted-foreground text-xs">
-                                {row.raw?.valor_exercicio_anterior != null
-                                  ? formatCurrency(row.raw.valor_exercicio_anterior)
-                                  : '-'}
-                              </TableCell>
-                              <TableCell>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 text-muted-foreground hover:text-red-400 hover:bg-red-400/10"
-                                  onClick={() => {
-                                    const newRows = [...previewRows]
-                                    newRows.splice(i, 1)
-                                    setPreviewRows(newRows)
-                                  }}
-                                  title="Remover linha"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </Button>
+                        )}
+
+                        {previewRows.map((row: any, i: number) => (
+                          <TableRow key={`row-${i}`} className="border-white/5">
+                            <TableCell className="p-2">
+                              <Input
+                                value={row.classification_code || ''}
+                                onChange={(e) =>
+                                  handleUpdateRow(i, 'classification_code', e.target.value)
+                                }
+                                placeholder="1.01"
+                                className="h-8 text-xs bg-background/50 border-white/10"
+                              />
+                            </TableCell>
+                            <TableCell className="p-2">
+                              <Input
+                                value={row.description || ''}
+                                onChange={(e) => handleUpdateRow(i, 'description', e.target.value)}
+                                placeholder="Descrição"
+                                className="h-8 text-xs bg-background/50 border-white/10"
+                              />
+                            </TableCell>
+                            <TableCell className="p-2">
+                              <Input
+                                type="number"
+                                value={row.value ?? ''}
+                                onChange={(e) =>
+                                  handleUpdateRow(i, 'value', parseFloat(e.target.value) || 0)
+                                }
+                                className="h-8 text-xs text-right bg-background/50 border-white/10"
+                              />
+                            </TableCell>
+                            <TableCell className="p-2">
+                              <Input
+                                type="number"
+                                value={row.raw?.valor_exercicio_anterior ?? ''}
+                                onChange={(e) =>
+                                  handleUpdateRow(i, 'anterior', parseFloat(e.target.value) || 0)
+                                }
+                                className="h-8 text-xs text-right bg-background/50 border-white/10"
+                              />
+                            </TableCell>
+                            <TableCell className="p-2 text-center">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-red-400 hover:bg-red-400/10"
+                                onClick={() => handleRemoveRow(i)}
+                                title="Remover linha"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+
+                        {showNoise &&
+                          noiseRows.map((noise, i) => (
+                            <TableRow
+                              key={`noise-${i}`}
+                              className="opacity-40 hover:opacity-100 transition-opacity bg-accent/20"
+                            >
+                              <TableCell colSpan={5} className="text-xs font-mono p-2">
+                                [Ruído] {noise.linha_original}
                               </TableCell>
                             </TableRow>
                           ))}
-                        </TableBody>
-                      </Table>
-                    </div>
+                      </TableBody>
+                    </Table>
                   </div>
-                )}
+                </div>
 
                 <div className="flex gap-2 justify-end mt-2 pt-2 border-t border-white/5">
                   <Button

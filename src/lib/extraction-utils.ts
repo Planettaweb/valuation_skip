@@ -31,28 +31,55 @@ export function extractTableOnly(fullText: string): string {
     }
   }
 
+  if (tableStart >= tableEnd - 2) {
+    return fullText
+  }
+
   return lines.slice(tableStart, tableEnd).join('\n')
 }
 
-export function parseCSV(text: string, documentType: string) {
-  const lines = text.split('\n')
-  const rows: any[] = []
+export function parseValueStr(str: string) {
+  if (!str || typeof str !== 'string') return null
+  let cleanStr = str.replace(/(R\$|\$)/gi, '').trim()
+  let isNegative = cleanStr.includes('(') || cleanStr.startsWith('-')
+  let rawNum = cleanStr.replace(/[DcC()]/gi, '').trim()
+  if (!rawNum.match(/\d/)) return null
 
+  if (rawNum.includes(',') && rawNum.includes('.') && rawNum.indexOf(',') < rawNum.indexOf('.')) {
+    rawNum = rawNum.replace(/,/g, '')
+  } else {
+    rawNum = rawNum.replace(/\./g, '').replace(',', '.')
+  }
+  let value = parseFloat(rawNum)
+  if (isNaN(value)) return null
+  if (isNegative && value > 0) value = -Math.abs(value)
+  return value
+}
+
+export function parseStructuredData(rows: any[][], documentType: string) {
+  const rowsData: any[] = []
+  const noise: any[] = []
   let isHeader = true
-  for (const line of lines) {
-    const cleanLine = line.trim()
-    if (!cleanLine) continue
 
-    const cols = cleanLine.split(/[,;\t]/).map((c) => c.trim())
+  for (const cols of rows) {
+    if (!cols || !Array.isArray(cols) || cols.length === 0 || cols.every((c) => !c)) continue
+
+    const strCols = cols.map((c) => String(c || '').trim())
 
     if (isHeader) {
-      if (cols.some((c) => /valor|value|saldo|descrição|description|conta|code|código/i.test(c))) {
+      if (
+        strCols.some((c) =>
+          /valor|value|saldo|descrição|description|conta|code|código|débito|crédito/i.test(c),
+        )
+      ) {
         isHeader = false
+        noise.push({ linha_original: strCols.join(' | ') })
         continue
       }
-      if (cols.some((c) => /^[\d.,-]+$/.test(c))) {
+      if (strCols.some((c) => /^[\d.,-]+$/.test(c))) {
         isHeader = false
       } else {
+        noise.push({ linha_original: strCols.join(' | ') })
         continue
       }
     }
@@ -62,49 +89,45 @@ export function parseCSV(text: string, documentType: string) {
     let value = null
     let raw: any = {}
 
-    if (cols.length >= 3) {
-      classification_code = cols[0]
-      description = cols[1]
-      value =
-        parseFloat(
-          cols[2]
-            .replace(/[R$\s]/g, '')
-            .replace(/\./g, '')
-            .replace(',', '.'),
-        ) || 0
-      raw = {
-        valor_exercicio_anterior:
-          parseFloat(
-            cols[3]
-              ?.replace(/[R$\s]/g, '')
-              .replace(/\./g, '')
-              .replace(',', '.'),
-          ) || null,
-      }
-    } else if (cols.length === 2) {
-      description = cols[0]
-      value =
-        parseFloat(
-          cols[1]
-            .replace(/[R$\s]/g, '')
-            .replace(/\./g, '')
-            .replace(',', '.'),
-        ) || 0
-    } else {
-      continue
-    }
+    const numCols = strCols
+      .map((c, i) => ({ val: parseValueStr(c), idx: i }))
+      .filter((c) => c.val !== null)
 
-    if (description || value !== null) {
-      rows.push({
+    if (numCols.length > 0) {
+      const firstNumIdx = numCols[0].idx
+      value = numCols[0].val
+      if (numCols.length > 1) {
+        raw.valor_exercicio_anterior = numCols[1].val
+      }
+
+      if (firstNumIdx > 0) {
+        description = strCols[firstNumIdx - 1]
+      }
+      if (firstNumIdx > 1) {
+        classification_code = strCols[firstNumIdx - 2]
+      } else if (firstNumIdx === 0 && strCols.length > 1 && !numCols.find((n) => n.idx === 1)) {
+        description = strCols[1]
+      }
+
+      rowsData.push({
         classification_code,
-        description,
+        description: description || 'Sem Descrição',
         value,
         document_type: documentType,
         raw,
       })
+    } else {
+      noise.push({ linha_original: strCols.join(' | ') })
     }
   }
-  return rows
+
+  return { rowsData, noise }
+}
+
+export function parseCSV(text: string, documentType: string) {
+  const lines = text.split('\n')
+  const data = lines.map((l) => l.split(/[,;\t]/).map((c) => c.trim()))
+  return parseStructuredData(data, documentType)
 }
 
 export function extractArrayFromMetadata(metadata: any): any[] {
@@ -187,7 +210,7 @@ export function processExtractedData(extractedText: string, documentType: string
     raw: c,
   }))
 
-  return { metadataObj, rowsData, rawText: extractedText }
+  return { metadataObj, rowsData, rawText: extractedText, noise: metadataObj.noise || [] }
 }
 
 export async function persistStructuredData(

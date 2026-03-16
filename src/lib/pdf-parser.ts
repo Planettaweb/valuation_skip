@@ -92,20 +92,19 @@ export function parseFinancialText(text: string, docType: string) {
   const year_n = uniqueYears[0] || new Date().getFullYear()
 
   const contas: any[] = []
+  const noise: any[] = []
   let extractedTotal = 0
 
   const lines = text.split('\n')
-
-  const primaryRegex = /^(\d+)\s+([\d.]+)\s+(.+?)\s+([\d.,]+D?)\s+([\d.,]+D?)$/i
-  const secondaryRegex = /^([\d.]*)\s*(.+?)\s+([-\d.,()]+[DCdc]?)\s*([-\d.,()]+[DCdc]?)?$/
-  const basicFallback = /^(.*?)\s+([-\d.,()]+[DCdc]?)$/
 
   for (const line of lines) {
     const cleanLine = line.trim()
     if (!cleanLine) continue
 
-    if (/^(?:pág|folha|data|hora|impresso|sistema|relatório|cnpj|insc|empresa)/i.test(cleanLine))
+    if (/^(?:pág|folha|data|hora|impresso|sistema|relatório|cnpj|insc|empresa)/i.test(cleanLine)) {
+      noise.push({ linha_original: cleanLine })
       continue
+    }
 
     const totalMatch =
       cleanLine.match(/TOTALIZANDO.*?VALOR DE R\$?\s*([-\d.,]+)/i) ||
@@ -120,33 +119,20 @@ export function parseFinancialText(text: string, docType: string) {
       if (p.value) extractedTotal = p.value
     }
 
-    let match = cleanLine.match(primaryRegex)
-    if (match) {
-      const v1 = parseValueAndNatureStr(match[4], null)
-      const v2 = parseValueAndNatureStr(match[5], null)
-      contas.push({
-        codigo: parseIntSafe(match[1]),
-        classificacao: match[2],
-        descricao: match[3].trim(),
-        valor_exercicio_atual: v1.value,
-        natureza_exercicio_atual: v1.nature,
-        valor_exercicio_anterior: v2.value,
-        natureza_exercicio_anterior: v2.nature,
-        valor: v1.value,
-        linha_original: cleanLine,
-      })
-      continue
-    }
+    let matched = false
 
-    match = cleanLine.match(secondaryRegex)
-    if (match && match[2].length > 3 && !match[2].match(/^[\d.\s]+$/)) {
-      const v1 = parseValueAndNatureStr(match[3], null)
-      const v2 = parseValueAndNatureStr(match[4] || '', null)
+    // Pattern 1: code, secondary_code, description, val_current, val_previous
+    let m = cleanLine.match(
+      /^([\d.-]*\d[\d.-]*)\s+([\d.-]*\d[\d.-]*)\s+(.+?)\s+([-\d.,()]+[DCdc]?)\s+([-\d.,()]+[DCdc]?)$/i,
+    )
+    if (m) {
+      const v1 = parseValueAndNatureStr(m[4], null)
+      const v2 = parseValueAndNatureStr(m[5], null)
       if (v1.value !== null) {
         contas.push({
-          codigo: null,
-          classificacao: match[1] || null,
-          descricao: match[2].trim(),
+          codigo: m[1],
+          classificacao: m[2],
+          descricao: m[3].trim(),
           valor_exercicio_atual: v1.value,
           natureza_exercicio_atual: v1.nature,
           valor_exercicio_anterior: v2.value,
@@ -154,26 +140,104 @@ export function parseFinancialText(text: string, docType: string) {
           valor: v1.value,
           linha_original: cleanLine,
         })
-        continue
+        matched = true
       }
     }
 
-    const basicMatch = cleanLine.match(basicFallback)
-    if (basicMatch && basicMatch[1].length > 3 && !basicMatch[1].match(/^[\d.\s]+$/)) {
-      const v1 = parseValueAndNatureStr(basicMatch[2], null)
-      if (v1.value !== null) {
-        contas.push({
-          codigo: null,
-          classificacao: null,
-          descricao: basicMatch[1].trim(),
-          valor_exercicio_atual: v1.value,
-          natureza_exercicio_atual: v1.nature,
-          valor_exercicio_anterior: null,
-          natureza_exercicio_anterior: null,
-          valor: v1.value,
-          linha_original: cleanLine,
-        })
+    // Pattern 2: code, description, val_current, val_previous
+    if (!matched) {
+      m = cleanLine.match(
+        /^([\d.-]*\d[\d.-]*)\s+(.+?)\s+([-\d.,()]+[DCdc]?)\s+([-\d.,()]+[DCdc]?)$/i,
+      )
+      if (m && !/^[\d.\s]+$/.test(m[2])) {
+        const v1 = parseValueAndNatureStr(m[3], null)
+        const v2 = parseValueAndNatureStr(m[4], null)
+        if (v1.value !== null) {
+          contas.push({
+            codigo: null,
+            classificacao: m[1],
+            descricao: m[2].trim(),
+            valor_exercicio_atual: v1.value,
+            natureza_exercicio_atual: v1.nature,
+            valor_exercicio_anterior: v2.value,
+            natureza_exercicio_anterior: v2.nature,
+            valor: v1.value,
+            linha_original: cleanLine,
+          })
+          matched = true
+        }
       }
+    }
+
+    // Pattern 3: code, description, val_current
+    if (!matched) {
+      m = cleanLine.match(/^([\d.-]*\d[\d.-]*)\s+(.+?)\s+([-\d.,()]+[DCdc]?)$/i)
+      if (m && !/^[\d.\s]+$/.test(m[2])) {
+        const v1 = parseValueAndNatureStr(m[3], null)
+        if (v1.value !== null) {
+          contas.push({
+            codigo: null,
+            classificacao: m[1],
+            descricao: m[2].trim(),
+            valor_exercicio_atual: v1.value,
+            natureza_exercicio_atual: v1.nature,
+            valor_exercicio_anterior: null,
+            natureza_exercicio_anterior: null,
+            valor: v1.value,
+            linha_original: cleanLine,
+          })
+          matched = true
+        }
+      }
+    }
+
+    // Pattern 4: description, val_current, val_previous
+    if (!matched) {
+      m = cleanLine.match(/^(.+?)\s+([-\d.,()]+[DCdc]?)\s+([-\d.,()]+[DCdc]?)$/i)
+      if (m && m[1].length > 3 && !/^[\d.\s]+$/.test(m[1])) {
+        const v1 = parseValueAndNatureStr(m[2], null)
+        const v2 = parseValueAndNatureStr(m[3], null)
+        if (v1.value !== null) {
+          contas.push({
+            codigo: null,
+            classificacao: null,
+            descricao: m[1].trim(),
+            valor_exercicio_atual: v1.value,
+            natureza_exercicio_atual: v1.nature,
+            valor_exercicio_anterior: v2.value,
+            natureza_exercicio_anterior: v2.nature,
+            valor: v1.value,
+            linha_original: cleanLine,
+          })
+          matched = true
+        }
+      }
+    }
+
+    // Pattern 5: description, val_current
+    if (!matched) {
+      m = cleanLine.match(/^(.+?)\s+([-\d.,()]+[DCdc]?)$/i)
+      if (m && m[1].length > 3 && !/^[\d.\s]+$/.test(m[1])) {
+        const v1 = parseValueAndNatureStr(m[2], null)
+        if (v1.value !== null) {
+          contas.push({
+            codigo: null,
+            classificacao: null,
+            descricao: m[1].trim(),
+            valor_exercicio_atual: v1.value,
+            natureza_exercicio_atual: v1.nature,
+            valor_exercicio_anterior: null,
+            natureza_exercicio_anterior: null,
+            valor: v1.value,
+            linha_original: cleanLine,
+          })
+          matched = true
+        }
+      }
+    }
+
+    if (!matched) {
+      noise.push({ linha_original: cleanLine })
     }
   }
 
@@ -183,6 +247,7 @@ export function parseFinancialText(text: string, docType: string) {
     cabecalho: { year_n },
     docType,
     items: contas,
+    noise,
     extractedTotal,
     calculatedSum,
   }

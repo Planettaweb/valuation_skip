@@ -5,6 +5,7 @@ import {
   processExtractedData,
   persistStructuredData,
   parseCSV,
+  parseStructuredData,
 } from '@/lib/extraction-utils'
 
 export const documentService = {
@@ -40,13 +41,36 @@ export const documentService = {
 
     if (isStructured) {
       onProgress?.('Lendo arquivo estruturado...')
-      const text = await file.text()
-      const rowsData = parseCSV(text, documentType)
+      let rowsData: any[] = []
+      let noise: any[] = []
+      let diagnostic = ''
 
-      if (rowsData.length === 0) {
-        throw new Error(
-          'Falha na extração: Nenhum dado contábil encontrado. Verifique a legibilidade ou o formato do arquivo.',
-        )
+      if (file.name.endsWith('.xlsx')) {
+        try {
+          const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.0/package/xlsx.mjs')
+          const arrayBuffer = await file.arrayBuffer()
+          const workbook = XLSX.read(arrayBuffer, { type: 'array' })
+          const firstSheetName = workbook.SheetNames[0]
+          const firstSheet = workbook.Sheets[firstSheetName]
+          const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 })
+          const res = parseStructuredData(jsonData as any[][], documentType)
+          rowsData = res.rowsData
+          noise = res.noise
+        } catch (err: any) {
+          console.error('XLSX parse error:', err)
+          diagnostic =
+            'Não foi possível processar a planilha XLSX automaticamente. O arquivo pode estar protegido. Por favor, insira os dados no modo manual.'
+        }
+      } else {
+        const text = await file.text()
+        const res = parseCSV(text, documentType)
+        rowsData = res.rowsData
+        noise = res.noise
+      }
+
+      if (rowsData.length === 0 && !diagnostic) {
+        diagnostic =
+          'Não foi possível encontrar um padrão contábil legível no arquivo. Os cabeçalhos podem estar ausentes ou não reconhecidos.'
       }
 
       const calculatedSum = rowsData.reduce((acc, c) => acc + (c.value || 0), 0)
@@ -54,6 +78,8 @@ export const documentService = {
       return {
         metadataObj: { extractedTotal: calculatedSum, calculatedSum },
         rowsData,
+        noise,
+        diagnostic,
       }
     }
 
@@ -68,15 +94,15 @@ export const documentService = {
     extractedText = extractTableOnly(extractedText)
 
     onProgress?.('Aplicando extração avançada e checagem de soma...')
-    const { metadataObj, rowsData } = processExtractedData(extractedText, documentType)
+    const { metadataObj, rowsData, noise } = processExtractedData(extractedText, documentType)
 
+    let diagnostic = ''
     if (rowsData.length === 0) {
-      throw new Error(
-        'Falha na extração: Nenhum dado contábil encontrado. Verifique a legibilidade ou o formato do arquivo.',
-      )
+      diagnostic =
+        'Não foi possível extrair dados estruturados deste PDF automaticamente. O documento pode ser escaneado como imagem (sem OCR) ou ter um layout não suportado.'
     }
 
-    return { metadataObj, rowsData }
+    return { metadataObj, rowsData, noise, diagnostic }
   },
 
   async saveParsedDocument(
@@ -369,18 +395,27 @@ export const documentService = {
 
       if (isStructured) {
         onProgress?.('Lendo arquivo estruturado...')
-        const text = await file.text()
-        const rowsData = parseCSV(text, doc.document_type)
-
-        if (rowsData.length === 0) {
-          throw new Error(
-            'Falha na extração: Nenhum dado contábil encontrado. Verifique a legibilidade ou o formato do arquivo.',
-          )
-        }
-        const calculatedSum = rowsData.reduce((acc, c) => acc + (c.value || 0), 0)
-        parsedData = {
-          metadataObj: { extractedTotal: calculatedSum, calculatedSum },
-          rowsData,
+        if (file.name.endsWith('.xlsx')) {
+          const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.0/package/xlsx.mjs')
+          const arrayBuffer = await file.arrayBuffer()
+          const workbook = XLSX.read(arrayBuffer, { type: 'array' })
+          const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {
+            header: 1,
+          })
+          const rowsData = parseStructuredData(jsonData as any[][], doc.document_type).rowsData
+          const calculatedSum = rowsData.reduce((acc, c) => acc + (c.value || 0), 0)
+          parsedData = {
+            metadataObj: { extractedTotal: calculatedSum, calculatedSum },
+            rowsData,
+          }
+        } else {
+          const text = await file.text()
+          const rowsData = parseCSV(text, doc.document_type).rowsData
+          const calculatedSum = rowsData.reduce((acc, c) => acc + (c.value || 0), 0)
+          parsedData = {
+            metadataObj: { extractedTotal: calculatedSum, calculatedSum },
+            rowsData,
+          }
         }
       } else {
         if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
@@ -395,12 +430,6 @@ export const documentService = {
 
         onProgress?.('Extraindo mapa de contas financeiras...')
         parsedData = processExtractedData(extractedText, doc.document_type)
-
-        if (parsedData.rowsData.length === 0) {
-          throw new Error(
-            'Falha na extração: Nenhum dado contábil encontrado. Verifique a legibilidade ou o formato do arquivo.',
-          )
-        }
       }
 
       onProgress?.('Persistindo resultados da nova extração...')
