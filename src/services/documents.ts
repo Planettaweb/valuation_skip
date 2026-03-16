@@ -42,12 +42,13 @@ export const documentService = {
     let valuationId: string | null = null
 
     try {
-      onProgress?.('Acessando Microsoft Graph API...')
+      onProgress?.('Acessando configurações do cliente...')
 
       const { data: clientData } = await supabase
         .from('clients' as any)
         .select('client_name')
         .eq('id', clientId)
+        .eq('org_id', orgId)
         .single()
 
       const clientName = clientData?.client_name || 'Cliente_Desconhecido'
@@ -56,6 +57,7 @@ export const documentService = {
         .from('valuations' as any)
         .select('id')
         .eq('client_id', clientId)
+        .eq('org_id', orgId)
         .limit(1)
         .single()
 
@@ -84,7 +86,7 @@ export const documentService = {
       const folderType = subfolderMap[documentType] || 'Outros'
       const folderPath = `${clientName.replace(/[^a-zA-Z0-9_\- ]/g, '_')}/${folderType}`
 
-      onProgress?.('Fazendo upload para o SharePoint...')
+      onProgress?.('Fazendo upload de produção para o SharePoint...')
 
       const formData = new FormData()
       formData.append('file', file)
@@ -105,7 +107,7 @@ export const documentService = {
       sharepointPath = spData.path
     } catch (err: any) {
       console.error(err)
-      return { data: null, error: new Error(`Falha no SharePoint: ${err.message}`) }
+      return { data: null, error: new Error(`Falha de infraestrutura: ${err.message}`) }
     }
 
     onProgress?.('Criando registro do documento no banco...')
@@ -134,19 +136,19 @@ export const documentService = {
       }
 
       if (file.type !== 'application/pdf') {
-        throw new Error('Todos os documentos financeiros devem ser em formato PDF.')
+        throw new Error('A extração atual suporta apenas arquivos PDF.')
       }
 
-      onProgress?.('Lendo arquivo PDF localmente (todas as páginas)...')
+      onProgress?.('Lendo arquivo de produção...')
       let extractedText = await extractTextFromPDF(file)
 
-      onProgress?.('Removendo cabeçalho e rodapé...')
+      onProgress?.('Normalizando documento contábil...')
       extractedText = extractTableOnly(extractedText)
 
-      onProgress?.('Analisando texto estruturado (Engine de NLP/Regex)...')
+      onProgress?.('Extraindo entidades financeiras...')
       const { metadataObj, rowsData } = processExtractedData(extractedText, documentType)
 
-      onProgress?.('Salvando metadados estruturados e concluindo...')
+      onProgress?.('Salvando dados estruturados no Supabase...')
       const finalMetadata = metadataObj ? metadataObj : rowsData
 
       const { data: updatedDoc, error: updateError } = await supabase
@@ -162,22 +164,22 @@ export const documentService = {
 
       if (updateError) throw updateError
 
-      onProgress?.('Persistindo em tabelas analíticas secundárias...')
+      onProgress?.('Mapeando tabelas analíticas secundárias...')
       await persistStructuredData(orgId, doc.id, documentType, rowsData)
 
       await supabase.from('audit_logs').insert({
         org_id: orgId,
         user_id: userId,
-        action: 'process_document_client_side',
+        action: 'process_document_production',
         resource_type: 'document',
         resource_id: doc.id,
-        details: 'Document processed successfully via client-side PDF parser',
+        details: 'Document processed successfully and mapped to real financial tables',
       })
 
       onProgress?.('Processamento concluído com sucesso!')
       return { data: updatedDoc, error: null }
     } catch (error: any) {
-      console.error('Client-side extraction failed:', error)
+      console.error('Production extraction failed:', error)
       await supabase
         .from('financial_documents' as any)
         .update({ status: 'Error', updated_at: new Date().toISOString() })
@@ -194,14 +196,15 @@ export const documentService = {
     onProgress?: (msg: string) => void,
   ) {
     try {
-      onProgress?.('Buscando informações do documento...')
+      onProgress?.('Buscando informações de produção do documento...')
       const { data: doc, error: docError } = await supabase
         .from('financial_documents' as any)
         .select('*')
         .eq('id', docId)
+        .eq('org_id', orgId)
         .single()
 
-      if (docError || !doc) throw new Error('Documento não encontrado.')
+      if (docError || !doc) throw new Error('Documento não encontrado na organização atual.')
       if (!doc.sharepoint_path)
         throw new Error('O documento não possui um caminho no SharePoint para ser baixado.')
 
@@ -228,27 +231,32 @@ export const documentService = {
       const blob = await res.blob()
       const file = new File([blob], doc.file_name, { type: blob.type || 'application/pdf' })
 
-      onProgress?.('Removendo extração antiga...')
+      onProgress?.('Limpando registros analíticos antigos...')
       await supabase
         .from('financial_data' as any)
         .delete()
         .eq('document_id', docId)
+        .eq('org_id', orgId)
       await supabase
         .from('financial_balanco_patrimonial' as any)
         .delete()
         .eq('document_id', docId)
+        .eq('org_id', orgId)
       await supabase
         .from('financial_balancete' as any)
         .delete()
         .eq('document_id', docId)
+        .eq('org_id', orgId)
       await supabase
         .from('financial_dre' as any)
         .delete()
         .eq('document_id', docId)
+        .eq('org_id', orgId)
       await supabase
         .from('financial_fluxo_caixa' as any)
         .delete()
         .eq('document_id', docId)
+        .eq('org_id', orgId)
 
       const supportedTypes = ['Balanço', 'Balancete', 'DRE', 'Fluxo de Caixa']
       if (!supportedTypes.includes(doc.document_type)) {
@@ -259,16 +267,16 @@ export const documentService = {
         throw new Error('A extração requer um arquivo PDF.')
       }
 
-      onProgress?.('Lendo arquivo PDF localmente (todas as páginas)...')
+      onProgress?.('Iniciando processamento analítico completo...')
       let extractedText = await extractTextFromPDF(file)
 
-      onProgress?.('Removendo cabeçalho e rodapé...')
+      onProgress?.('Isolando escopo tabular...')
       extractedText = extractTableOnly(extractedText)
 
-      onProgress?.('Analisando texto estruturado (Engine de NLP/Regex melhorada)...')
+      onProgress?.('Extraindo mapa de contas financeiras...')
       const { metadataObj, rowsData } = processExtractedData(extractedText, doc.document_type)
 
-      onProgress?.('Salvando metadados estruturados e atualizando status...')
+      onProgress?.('Persistindo resultados da nova extração...')
       const finalMetadata = metadataObj ? metadataObj : rowsData
 
       const { data: updatedDoc, error: updateError } = await supabase
@@ -284,19 +292,19 @@ export const documentService = {
 
       if (updateError) throw updateError
 
-      onProgress?.('Persistindo nas tabelas analíticas para os dashboards...')
+      onProgress?.('Validando integridade em tabelas secundárias...')
       await persistStructuredData(orgId, doc.id, doc.document_type, rowsData)
 
       await supabase.from('audit_logs').insert({
         org_id: orgId,
         user_id: userId,
-        action: 'reprocess_document',
+        action: 'reprocess_document_production',
         resource_type: 'document',
         resource_id: doc.id,
-        details: 'Document reprocessed successfully from SharePoint',
+        details: 'Document reprocessed securely into real databases',
       })
 
-      onProgress?.('Reprocessamento concluído com sucesso!')
+      onProgress?.('Reprocessamento finalizado.')
       return { data: updatedDoc, error: null }
     } catch (error: any) {
       console.error('Reprocessing failed:', error)

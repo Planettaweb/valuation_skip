@@ -58,13 +58,13 @@ export async function extractTextFromPDF(file: File): Promise<string> {
 
 const parseIntSafe = (val: string) => parseInt(val, 10) || 0
 
-const parseValueAndNatureStr = (valStr: string, nature: string | null) => {
-  if (!valStr || valStr === '-') return { value: 0, nature: nature || null }
+const parseValueAndNatureStr = (valStr: string | null, nature: string | null) => {
+  if (valStr === null) return { value: null, nature: nature || null }
+  if (valStr === '-') return { value: 0, nature: nature || null }
 
-  let rawNum = valStr.replace(/[()]/g, '') // remove parentheses for parsing
+  let rawNum = valStr.replace(/[()]/g, '')
   let isNegative = valStr.includes('(') || valStr.startsWith('-')
 
-  // Fallback for US format vs PT-BR format
   if (rawNum.includes(',') && rawNum.includes('.') && rawNum.indexOf(',') < rawNum.indexOf('.')) {
     rawNum = rawNum.replace(/,/g, '')
   } else {
@@ -77,67 +77,46 @@ const parseValueAndNatureStr = (valStr: string, nature: string | null) => {
   return { value, nature: nature ? nature.toUpperCase() : null }
 }
 
-export function parseBalancoPatrimonialText(text: string) {
-  // Extract specific years dynamically from headers or text
+export function parseFinancialText(text: string, docType: string) {
   const yearMatches = [...text.matchAll(/\b(201\d|202\d)\b/g)].map((m) => parseIntSafe(m[1]))
   const uniqueYears = [...new Set(yearMatches)].sort((a, b) => b - a)
   const year_n = uniqueYears[0] || new Date().getFullYear()
-  const year_n_minus_1 = uniqueYears[1] || year_n - 1
-
-  const cabecalho = {
-    empresa:
-      text.match(/(?:Empresa|Razão Social)[:\s]*([A-Z0-9\s.\-&]+)(?:\n|$)/i)?.[1]?.trim() || '',
-    cnpj: text.match(/(?:CNPJ)[:\s]*([\d.\-/]+)/i)?.[1] || '',
-    inscricao_junta_comercial: text.match(/(?:NIRE|Inscrição|Junta)[:\s]*(\d+)/i)?.[1] || '',
-    data_abertura: text.match(/(?:Abertura|Início)[:\s]*([\d]{2}\/[\d]{2}\/[\d]{4})/i)?.[1] || '',
-    data_encerramento_balanco:
-      text.match(/(?:Encerramento|Fim)[:\s]*([\d]{2}\/[\d]{2}\/[\d]{4})/i)?.[1] || '',
-    folha: parseIntSafe(text.match(/(?:Folha|Pág)[\w]*[:\s]*(\d+)/i)?.[1] || '0'),
-    numero_livro: parseIntSafe(text.match(/(?:Livro)[:\s]*(\d+)/i)?.[1] || '0'),
-    data_emissao: text.match(/(?:Emissão)[:\s]*([\d]{2}\/[\d]{2}\/[\d]{4})/i)?.[1] || '',
-    hora_emissao: text.match(/(?:Hora)[:\s]*([\d]{2}:[\d]{2})/i)?.[1] || '',
-    year_n,
-    year_n_minus_1,
-  }
 
   const contas: any[] = []
   const lines = text.split('\n')
 
   for (const line of lines) {
     const cleanLine = line.trim()
-    if (!cleanLine) continue
+    if (!cleanLine || /^(?:pág|folha|data|hora|impresso|sistema|relatório)/i.test(cleanLine))
+      continue
 
     const tokens = cleanLine.split(/\s+/)
-    if (tokens.length < 3) continue
-
-    const isVal = (t: string) => /^[-]?\d[\d.,]*$/.test(t) || t === '-' || /^\([\d.,]+\)$/.test(t)
-    const isValWithNat = (t: string) =>
-      /^[-]?\d[\d.,]*[DCdc]$/i.test(t) || /^\([\d.,]+\)[DCdc]$/i.test(t)
-
     const parsedValues = []
     let i = tokens.length - 1
 
-    // Backwards Line Processing (Right-to-Left)
+    const isVal = (t: string) =>
+      /^[-]?\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?$/.test(t) || t === '-' || /^\([\d.,]+\)$/.test(t)
+    const isValWithNat = (t: string) =>
+      /^[-]?\d[\d.,]*[DCdc]$/i.test(t) || /^\([\d.,]+\)[DCdc]$/i.test(t)
+
     while (i >= 0 && parsedValues.length < 2) {
       let token = tokens[i]
       let nature: string | null = null
       let valueStr: string | null = null
 
-      // Check if detached nature indicator (e.g. "D" or "C")
       if (/^[DCdc]$/i.test(token) && i > 0) {
         nature = token.toUpperCase()
         i--
         token = tokens[i]
       }
 
-      // Check if attached nature indicator (e.g. "1.000,00D" or "(1.000,00)C")
       if (isValWithNat(token)) {
         nature = token.slice(-1).toUpperCase()
         valueStr = token.slice(0, -1)
       } else if (isVal(token)) {
         valueStr = token
       } else {
-        break // Stop at the first non-value token from the end
+        break
       }
 
       if (valueStr) {
@@ -146,19 +125,15 @@ export function parseBalancoPatrimonialText(text: string) {
       i--
     }
 
-    if (parsedValues.length > 0) {
-      const descTokens = tokens.slice(0, i + 1)
-      if (descTokens.length === 0) continue
+    const descTokens = tokens.slice(0, i + 1)
+    let descricao = descTokens.join(' ').trim()
 
-      const descString = descTokens.join(' ')
-
-      // Adaptive pattern for classification and complex descriptions (e.g. "(-) AMORTIZAÇÃO ACUMULADA")
-      const prefixMatch = descString.match(/^(\d{1,6})?\s*([\d]+(?:\.\d+)*)\s+(.*)$/)
-      const clsMatch = descString.match(/^([\d]+(?:\.\d+)*)\s+(.*)$/)
-
+    if (parsedValues.length > 0 || descricao.length > 2) {
       let codigo = 0
       let classificacao = ''
-      let descricao = descString
+
+      const prefixMatch = descricao.match(/^(\d{1,6})?\s*([\d]+(?:\.\d+)*)\s+(.*)$/)
+      const clsMatch = descricao.match(/^([\d]+(?:\.\d+)*)\s+(.*)$/)
 
       if (prefixMatch && prefixMatch[3]) {
         codigo = parseIntSafe(prefixMatch[1] || '0')
@@ -167,78 +142,34 @@ export function parseBalancoPatrimonialText(text: string) {
       } else if (clsMatch && clsMatch[2]) {
         classificacao = clsMatch[1]
         descricao = clsMatch[2]
-      } else if (parsedValues.length >= 1 && descString.trim().length > 3) {
-        // Broaden the rule: accept any description if there are valid numerical values parsed
-        descricao = descString
-      } else {
-        continue
       }
 
-      descricao = descricao.trim()
+      if (!descricao) descricao = 'Sem Descrição'
 
-      if (
-        descricao.length > 2 &&
-        !/^(?:ano|exercício|saldo|valor|histórico|demonstrações)/i.test(descricao)
-      ) {
-        const vnStr =
-          parsedValues.length === 2
-            ? parsedValues[0].valueStr
-            : parsedValues.length === 1
-              ? parsedValues[0].valueStr
-              : '0'
-        const vnNat =
-          parsedValues.length === 2
-            ? parsedValues[0].nature
-            : parsedValues.length === 1
-              ? parsedValues[0].nature
-              : null
+      const vnStr = parsedValues.length >= 1 ? parsedValues[0].valueStr : null
+      const vnNat = parsedValues.length >= 1 ? parsedValues[0].nature : null
+      const vn1Str = parsedValues.length >= 2 ? parsedValues[1].valueStr : null
+      const vn1Nat = parsedValues.length >= 2 ? parsedValues[1].nature : null
 
-        const vn1Str = parsedValues.length === 2 ? parsedValues[1].valueStr : '0'
-        const vn1Nat = parsedValues.length === 2 ? parsedValues[1].nature : null
+      const vn = parseValueAndNatureStr(vnStr, vnNat)
+      const vn1 = parseValueAndNatureStr(vn1Str, vn1Nat)
 
-        const vn = parseValueAndNatureStr(vnStr, vnNat)
-        const vn1 = parseValueAndNatureStr(vn1Str, vn1Nat)
-
-        contas.push({
-          codigo,
-          classificacao,
-          descricao,
-          valor_exercicio_atual: vn.value,
-          natureza_exercicio_atual: vn.nature,
-          valor_exercicio_anterior: vn1.value,
-          natureza_exercicio_anterior: vn1.nature,
-        })
-      }
+      contas.push({
+        codigo,
+        classificacao,
+        descricao,
+        valor_exercicio_atual: vn.value,
+        natureza_exercicio_atual: vn.nature,
+        valor_exercicio_anterior: vn1.value,
+        natureza_exercicio_anterior: vn1.nature,
+        valor: vn.value,
+      })
     }
   }
 
-  const declaracao_final = {
-    texto_reconhecimento: text.match(/(Reconhecemos a exatidão.*?)(?:\n|$)/i)?.[1] || '',
-    valor_total_ativo_passivo: parseValueAndNatureStr(
-      text.match(/Total Ativo e Passivo.*?([\d.,]+)/i)?.[1] || '0',
-      null,
-    ).value,
-    local_data: text.match(/(?:São Paulo|Rio de Janeiro|Local).*?(\d{2}.*?\d{4})/i)?.[0] || '',
-    assinaturas: [] as any[],
-  }
-
-  const sigRegex =
-    /(?:Nome|Assinatura)[:\s]*([A-Za-zÀ-Úà-ú\s]+)(?:Cargo)[:\s]*([A-Za-z\s]+)(?:CPF)[:\s]*([\d.-]+)/gi
-  let sigMatch
-  while ((sigMatch = sigRegex.exec(text)) !== null) {
-    declaracao_final.assinaturas.push({
-      nome: sigMatch[1].trim(),
-      cargo: sigMatch[2].trim(),
-      cpf: sigMatch[3].trim(),
-      registro_conselho: '',
-    })
-  }
-
   return {
-    balanco_patrimonial: {
-      cabecalho,
-      contas,
-      declaracao_final,
-    },
+    cabecalho: { year_n },
+    docType,
+    items: contas,
   }
 }

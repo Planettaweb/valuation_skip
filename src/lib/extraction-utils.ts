@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase/client'
-import { parseBalancoPatrimonialText } from '@/lib/pdf-parser'
+import { parseFinancialText } from '@/lib/pdf-parser'
 
 export function extractTableOnly(fullText: string): string {
   const lines = fullText.split('\n')
@@ -38,20 +38,21 @@ export function extractArrayFromMetadata(metadata: any): any[] {
   if (!metadata) return []
   if (Array.isArray(metadata)) return metadata
 
-  const possibleKeys = ['contas', 'dados', 'items', 'rows']
+  const possibleKeys = ['contas', 'dados', 'items', 'rows', 'balanco_patrimonial']
+  const queue = [metadata]
 
-  for (const key of possibleKeys) {
-    if (Array.isArray(metadata[key])) return metadata[key]
-  }
+  while (queue.length > 0) {
+    const curr = queue.shift()
+    if (Array.isArray(curr)) return curr
 
-  for (const outerKey of Object.keys(metadata)) {
-    if (
-      metadata[outerKey] &&
-      typeof metadata[outerKey] === 'object' &&
-      !Array.isArray(metadata[outerKey])
-    ) {
+    if (curr && typeof curr === 'object') {
       for (const key of possibleKeys) {
-        if (Array.isArray(metadata[outerKey][key])) return metadata[outerKey][key]
+        if (Array.isArray(curr[key])) return curr[key]
+      }
+      for (const key of Object.keys(curr)) {
+        if (curr[key] && typeof curr[key] === 'object' && !Array.isArray(curr[key])) {
+          queue.push(curr[key])
+        }
       }
     }
   }
@@ -72,33 +73,25 @@ export function isValidRow(c: any): boolean {
   )
 
   const hasValue =
-    typeof c.valor === 'number' ||
-    typeof c.value === 'number' ||
-    typeof c.total === 'number' ||
-    typeof c.valor_exercicio_atual === 'number' ||
-    typeof c.current_balance === 'number' ||
-    typeof c.balance === 'number' ||
-    typeof c.debit === 'number' ||
-    typeof c.credit === 'number'
+    c.valor != null ||
+    c.value != null ||
+    c.total != null ||
+    c.valor_exercicio_atual != null ||
+    c.current_balance != null ||
+    c.balance != null ||
+    c.debit != null ||
+    c.credit != null
 
   return hasDesc || hasValue
 }
 
 export function processExtractedData(extractedText: string, documentType: string) {
-  const parserMap: Record<string, (text: string) => any> = {
-    Balanço: parseBalancoPatrimonialText,
-    Balancete: parseBalancoPatrimonialText,
-    DRE: parseBalancoPatrimonialText,
-    'Fluxo de Caixa': parseBalancoPatrimonialText,
-  }
-
-  const parser = parserMap[documentType] || parseBalancoPatrimonialText
-  const metadataObj = parser(extractedText)
+  const metadataObj = parseFinancialText(extractedText, documentType)
   const rawArray = extractArrayFromMetadata(metadataObj)
 
   if (rawArray.length === 0) {
     throw new Error(
-      `Falha na extração: Nenhum dado contábil encontrado em ${documentType}. Verifique se o PDF está legível.`,
+      'Falha na extração: Nenhum dado contábil encontrado. Verifique a legibilidade do arquivo.',
     )
   }
 
@@ -109,32 +102,28 @@ export function processExtractedData(extractedText: string, documentType: string
       c.description ||
       c.account_description ||
       c.nome_conta ||
-      'Unknown'
+      'Sem Descrição'
     )
       .toString()
       .trim(),
     value:
-      typeof c.valor_exercicio_atual === 'number'
-        ? c.valor_exercicio_atual
-        : typeof c.valor === 'number'
-          ? c.valor
-          : typeof c.value === 'number'
-            ? c.value
-            : typeof c.current_balance === 'number'
-              ? c.current_balance
-              : typeof c.balance === 'number'
-                ? c.balance
-                : typeof c.total === 'number'
-                  ? c.total
-                  : null,
+      c.valor_exercicio_atual ??
+      c.valor ??
+      c.value ??
+      c.current_balance ??
+      c.balance ??
+      c.total ??
+      null,
     period: metadataObj.cabecalho?.year_n || metadataObj.periodo || c.period || null,
-    nature: c.natureza || c.nature || null,
+    nature: c.natureza_exercicio_atual || c.natureza || c.nature || null,
     document_type: documentType,
     raw: c,
   }))
 
   if (rowsData.length === 0) {
-    throw new Error('Falha na extração: As linhas de dados extraídas são inválidas ou vazias.')
+    throw new Error(
+      'Falha na extração: Nenhum dado contábil encontrado. Verifique a legibilidade do arquivo.',
+    )
   }
 
   return { metadataObj, rowsData }
@@ -148,13 +137,20 @@ export async function persistStructuredData(
 ) {
   if (rowsData.length === 0) return
 
+  const toNum = (v: any) => {
+    if (typeof v === 'number') return v
+    if (!v) return null
+    const parsed = parseFloat(v.toString().replace(/[^\d.-]/g, ''))
+    return isNaN(parsed) ? null : parsed
+  }
+
   await supabase.from('financial_data' as any).insert(
     rowsData.map((d, index) => ({
       org_id: orgId,
       document_id: docId,
       row_number: index + 1,
-      account_name: d.description || 'Unknown',
-      value: d.value || 0,
+      account_name: d.description,
+      value: toNum(d.value),
       period: d.period?.toString() || null,
       document_type: documentType,
     })),
@@ -168,8 +164,8 @@ export async function persistStructuredData(
           document_id: docId,
           classification_code: d.classification_code,
           description: d.description,
-          value_year_n: d.value,
-          value_year_n_minus_1: d.raw.valor_exercicio_anterior || null,
+          value_year_n: toNum(d.value),
+          value_year_n_minus_1: toNum(d.raw.valor_exercicio_anterior),
           nature_year_n: d.nature,
           nature_year_n_minus_1: d.raw.natureza_exercicio_anterior || null,
           year_n: d.period ? parseInt(d.period) : null,
@@ -182,10 +178,10 @@ export async function persistStructuredData(
           document_id: docId,
           classification_code: d.classification_code,
           account_description: d.description,
-          previous_balance: d.raw.saldo_anterior || d.raw.previous_balance || null,
-          debit: d.raw.debito || d.raw.debit || null,
-          credit: d.raw.credito || d.raw.credit || null,
-          current_balance: d.value,
+          previous_balance: toNum(d.raw.saldo_anterior || d.raw.previous_balance),
+          debit: toNum(d.raw.debito || d.raw.debit),
+          credit: toNum(d.raw.credito || d.raw.credit),
+          current_balance: toNum(d.value),
         })),
       )
     } else if (documentType === 'DRE') {
@@ -194,9 +190,9 @@ export async function persistStructuredData(
           org_id: orgId,
           document_id: docId,
           description: d.description,
-          balance: d.value,
-          sum: d.raw.soma || d.raw.sum || null,
-          total: d.raw.total || d.value || null,
+          balance: toNum(d.value),
+          sum: toNum(d.raw.soma || d.raw.sum),
+          total: toNum(d.raw.total || d.value),
         })),
       )
     } else if (documentType === 'Fluxo de Caixa') {
@@ -205,12 +201,12 @@ export async function persistStructuredData(
           org_id: orgId,
           document_id: docId,
           description: d.description,
-          value: d.value,
+          value: toNum(d.value),
           period: d.period?.toString() || null,
         })),
       )
     }
   } catch (err) {
-    console.error('Non-critical error inserting into specific analytical tables:', err)
+    console.error('Error inserting into specific analytical tables:', err)
   }
 }
