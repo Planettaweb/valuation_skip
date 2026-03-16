@@ -302,11 +302,11 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     if (docType === 'Balanço' || docType === 'Balanço Patrimonial') {
       return (
         <TableRow className="hover:bg-transparent">
-          <TableHead className="w-[100px]">Codigo</TableHead>
-          <TableHead className="w-[120px]">Classificacao</TableHead>
-          <TableHead>Descricao</TableHead>
-          <TableHead className="text-right w-[140px]">Ano atual</TableHead>
-          <TableHead className="text-right w-[140px]">Ano anterior</TableHead>
+          <TableHead className="w-[100px]">Código</TableHead>
+          <TableHead className="w-[120px]">Classificação</TableHead>
+          <TableHead>Descrição</TableHead>
+          <TableHead className="text-right w-[140px]">Ano Atual</TableHead>
+          <TableHead className="text-right w-[140px]">Ano Anterior</TableHead>
           <TableHead className="w-[50px]"></TableHead>
         </TableRow>
       )
@@ -314,7 +314,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     if (docType === 'DRE') {
       return (
         <TableRow className="hover:bg-transparent">
-          <TableHead>Descricao</TableHead>
+          <TableHead>Descrição</TableHead>
           <TableHead className="text-right w-[140px]">Saldo</TableHead>
           <TableHead className="text-right w-[140px]">Soma</TableHead>
           <TableHead className="text-right w-[140px]">Total</TableHead>
@@ -325,10 +325,10 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     if (docType === 'Fluxo de Caixa') {
       return (
         <TableRow className="hover:bg-transparent">
-          <TableHead>Descricao</TableHead>
-          <TableHead className="w-[120px]">Mes</TableHead>
-          <TableHead className="text-right w-[140px]">Valor planejado</TableHead>
-          <TableHead className="text-right w-[140px]">Valor realizado</TableHead>
+          <TableHead>Descrição</TableHead>
+          <TableHead className="w-[120px]">Mês</TableHead>
+          <TableHead className="text-right w-[140px]">Valor Planejado</TableHead>
+          <TableHead className="text-right w-[140px]">Valor Realizado</TableHead>
           <TableHead className="w-[50px]"></TableHead>
         </TableRow>
       )
@@ -347,6 +347,8 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
   const getColSpan = () => {
     if (docType === 'Balancete') return 8
     if (docType === 'Balanço' || docType === 'Balanço Patrimonial') return 6
+    if (docType === 'DRE') return 5
+    if (docType === 'Fluxo de Caixa') return 5
     return 5
   }
 
@@ -667,7 +669,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                                     onChange={(e) =>
                                       handleUpdateRow(i, 'account_code', e.target.value)
                                     }
-                                    placeholder="Codigo"
+                                    placeholder="Código"
                                     className="h-8 text-xs bg-background/50 border-white/10"
                                   />
                                 </TableCell>
@@ -677,7 +679,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                                     onChange={(e) =>
                                       handleUpdateRow(i, 'classification_code', e.target.value)
                                     }
-                                    placeholder="Classificacao"
+                                    placeholder="Classificação"
                                     className="h-8 text-xs bg-background/50 border-white/10"
                                   />
                                 </TableCell>
@@ -687,7 +689,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                                     onChange={(e) =>
                                       handleUpdateRow(i, 'description', e.target.value)
                                     }
-                                    placeholder="Descricao"
+                                    placeholder="Descrição"
                                     className="h-8 text-xs bg-background/50 border-white/10"
                                   />
                                 </TableCell>
@@ -726,7 +728,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                                     onChange={(e) =>
                                       handleUpdateRow(i, 'description', e.target.value)
                                     }
-                                    placeholder="Descricao"
+                                    placeholder="Descrição"
                                     className="h-8 text-xs bg-background/50 border-white/10"
                                   />
                                 </TableCell>
@@ -780,7 +782,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                                     onChange={(e) =>
                                       handleUpdateRow(i, 'description', e.target.value)
                                     }
-                                    placeholder="Descricao"
+                                    placeholder="Descrição"
                                     className="h-8 text-xs bg-background/50 border-white/10"
                                   />
                                 </TableCell>
@@ -788,7 +790,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                                   <Input
                                     value={row.period || ''}
                                     onChange={(e) => handleUpdateRow(i, 'period', e.target.value)}
-                                    placeholder="Mes"
+                                    placeholder="Mês"
                                     className="h-8 text-xs bg-background/50 border-white/10"
                                   />
                                 </TableCell>

@@ -33,7 +33,11 @@ export const documentService = {
   },
 
   async parseDocumentLocal(file: File, documentType: string, onProgress?: (msg: string) => void) {
-    if (!['Balanço', 'Balancete', 'DRE', 'Fluxo de Caixa'].includes(documentType)) {
+    if (
+      !['Balanço', 'Balanço Patrimonial', 'Balancete', 'DRE', 'Fluxo de Caixa'].includes(
+        documentType,
+      )
+    ) {
       throw new Error(`Tipo de documento não suportado: ${documentType}`)
     }
 
@@ -155,6 +159,7 @@ export const documentService = {
 
       const subfolderMap: Record<string, string> = {
         Balanço: 'Balanço',
+        'Balanço Patrimonial': 'Balanço',
         Balancete: 'Balancete',
         DRE: 'DRE',
         'Fluxo de Caixa': 'Fluxo_Caixa',
@@ -385,7 +390,13 @@ export const documentService = {
         .eq('document_id', docId)
         .eq('org_id', orgId)
 
-      const supportedTypes = ['Balanço', 'Balancete', 'DRE', 'Fluxo de Caixa']
+      const supportedTypes = [
+        'Balanço',
+        'Balanço Patrimonial',
+        'Balancete',
+        'DRE',
+        'Fluxo de Caixa',
+      ]
       if (!supportedTypes.includes(doc.document_type)) {
         throw new Error(`Reprocessamento não suportado para: ${doc.document_type}`)
       }

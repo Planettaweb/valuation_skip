@@ -45,7 +45,6 @@ export default function ClientDetails() {
   const canDelete = userProfile?.role === 'Admin' || userProfile?.role === 'Analyst'
   const canReprocess = userProfile?.role === 'Admin'
 
-  // Filters and pagination for financial data
   const [finDocTypeFilter, setFinDocTypeFilter] = useState('all')
   const [finPeriodFilter, setFinPeriodFilter] = useState('')
   const [finPage, setFinPage] = useState(1)
@@ -289,7 +288,8 @@ export default function ClientDetails() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos os Tipos</SelectItem>
-                    <SelectItem value="Balanço">Balanço</SelectItem>
+                    <SelectItem value="Balanço Patrimonial">Balanço Patrimonial</SelectItem>
+                    <SelectItem value="Balanço">Balanço (Legado)</SelectItem>
                     <SelectItem value="Balancete">Balancete</SelectItem>
                     <SelectItem value="DRE">DRE</SelectItem>
                     <SelectItem value="Fluxo de Caixa">Fluxo de Caixa</SelectItem>

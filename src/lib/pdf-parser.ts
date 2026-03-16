@@ -121,26 +121,80 @@ export function parseFinancialText(text: string, docType: string) {
 
     let matched = false
 
-    // Pattern 1: code, secondary_code, description, val_current, val_previous
+    // Pattern 0: Balancete specific (Code, Class, Desc, Prev, Deb, Cred, Curr)
     let m = cleanLine.match(
-      /^([\d.-]*\d[\d.-]*)\s+([\d.-]*\d[\d.-]*)\s+(.+?)\s+([-\d.,()]+[DCdc]?)\s+([-\d.,()]+[DCdc]?)$/i,
+      /^([\d.-]*\d[\d.-]*)\s+([\d.-]*\d[\d.-]*)\s+(.+?)\s+([-\d.,()]+[DCdc]?)\s+([-\d.,()]+[DCdc]?)\s+([-\d.,()]+[DCdc]?)\s+([-\d.,()]+[DCdc]?)$/i,
     )
-    if (m) {
-      const v1 = parseValueAndNatureStr(m[4], null)
-      const v2 = parseValueAndNatureStr(m[5], null)
-      if (v1.value !== null) {
+    if (m && docType === 'Balancete') {
+      const prev = parseValueAndNatureStr(m[4], null)
+      const deb = parseValueAndNatureStr(m[5], null)
+      const cred = parseValueAndNatureStr(m[6], null)
+      const curr = parseValueAndNatureStr(m[7], null)
+      if (prev.value !== null && curr.value !== null) {
         contas.push({
           codigo: m[1],
           classificacao: m[2],
           descricao: m[3].trim(),
-          valor_exercicio_atual: v1.value,
-          natureza_exercicio_atual: v1.nature,
-          valor_exercicio_anterior: v2.value,
-          natureza_exercicio_anterior: v2.nature,
-          valor: v1.value,
+          saldo_anterior: prev.value,
+          debito: deb.value,
+          credito: cred.value,
+          valor_exercicio_atual: curr.value,
+          natureza_exercicio_atual: curr.nature,
+          valor: curr.value,
           linha_original: cleanLine,
         })
         matched = true
+      }
+    }
+
+    // Pattern 0.1: DRE specific (Desc, Saldo, Soma, Total)
+    if (!matched && docType === 'DRE') {
+      m = cleanLine.match(
+        /^(.+?)\s+([-\d.,()]+[DCdc]?)\s+([-\d.,()]+[DCdc]?)\s+([-\d.,()]+[DCdc]?)$/i,
+      )
+      if (m && m[1].length > 3 && !/^[\d.\s]+$/.test(m[1])) {
+        const v1 = parseValueAndNatureStr(m[2], null)
+        const v2 = parseValueAndNatureStr(m[3], null)
+        const v3 = parseValueAndNatureStr(m[4], null)
+        if (v1.value !== null) {
+          contas.push({
+            codigo: null,
+            classificacao: null,
+            descricao: m[1].trim(),
+            valor_exercicio_atual: v1.value,
+            natureza_exercicio_atual: v1.nature,
+            soma: v2.value,
+            total: v3.value,
+            valor: v1.value,
+            linha_original: cleanLine,
+          })
+          matched = true
+        }
+      }
+    }
+
+    // Pattern 1: code, secondary_code, description, val_current, val_previous
+    if (!matched) {
+      m = cleanLine.match(
+        /^([\d.-]*\d[\d.-]*)\s+([\d.-]*\d[\d.-]*)\s+(.+?)\s+([-\d.,()]+[DCdc]?)\s+([-\d.,()]+[DCdc]?)$/i,
+      )
+      if (m) {
+        const v1 = parseValueAndNatureStr(m[4], null)
+        const v2 = parseValueAndNatureStr(m[5], null)
+        if (v1.value !== null) {
+          contas.push({
+            codigo: m[1],
+            classificacao: m[2],
+            descricao: m[3].trim(),
+            valor_exercicio_atual: v1.value,
+            natureza_exercicio_atual: v1.nature,
+            valor_exercicio_anterior: v2.value,
+            natureza_exercicio_anterior: v2.nature,
+            valor: v1.value,
+            linha_original: cleanLine,
+          })
+          matched = true
+        }
       }
     }
 

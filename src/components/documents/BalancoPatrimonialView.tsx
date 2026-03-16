@@ -84,9 +84,9 @@ export function BalancoPatrimonialView({ bp, data }: { bp: any; data: any[] }) {
         <Table>
           <TableHeader>
             <TableRow className="border-white/10 hover:bg-transparent">
-              <TableHead>Codigo</TableHead>
-              <TableHead>Classificacao</TableHead>
-              <TableHead>Descricao</TableHead>
+              <TableHead>Código</TableHead>
+              <TableHead>Classificação</TableHead>
+              <TableHead>Descrição</TableHead>
               <TableHead className="text-right">Ano atual</TableHead>
               <TableHead className="text-right">Ano anterior</TableHead>
             </TableRow>

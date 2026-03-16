@@ -101,9 +101,9 @@ export function ExtractedDataView({
         <Table>
           <TableHeader>
             <TableRow className="border-white/10 hover:bg-transparent">
-              <TableHead>Codigo</TableHead>
-              <TableHead>Classificacao</TableHead>
-              <TableHead>Descricao</TableHead>
+              <TableHead>Código</TableHead>
+              <TableHead>Classificação</TableHead>
+              <TableHead>Descrição</TableHead>
               <TableHead className="text-right">Ano atual</TableHead>
               <TableHead className="text-right">Ano anterior</TableHead>
             </TableRow>
@@ -155,7 +155,7 @@ export function ExtractedDataView({
         <Table>
           <TableHeader>
             <TableRow className="border-white/10 hover:bg-transparent">
-              <TableHead>Descricao</TableHead>
+              <TableHead>Descrição</TableHead>
               <TableHead className="text-right">Saldo</TableHead>
               <TableHead className="text-right">Soma</TableHead>
               <TableHead className="text-right">Total</TableHead>
@@ -219,8 +219,8 @@ export function ExtractedDataView({
         <Table>
           <TableHeader>
             <TableRow className="border-white/10 hover:bg-transparent">
-              <TableHead>Descricao</TableHead>
-              <TableHead>Mes</TableHead>
+              <TableHead>Descrição</TableHead>
+              <TableHead>Mês</TableHead>
               <TableHead className="text-right">Valor planejado</TableHead>
               <TableHead className="text-right">Valor realizado</TableHead>
             </TableRow>
