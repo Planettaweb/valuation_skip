@@ -20,20 +20,10 @@ export function DocumentDataModal({ doc, onClose }: Props) {
   useEffect(() => {
     if (!doc) return
 
-    // If metadata exists, use it directly bypassing the network call
     if (doc.metadata) {
       setRawMetadata(doc.metadata)
-      let resolvedData = doc.metadata
-      if (!Array.isArray(doc.metadata)) {
-        if (doc.metadata.balanco_patrimonial?.contas) {
-          resolvedData = doc.metadata.balanco_patrimonial.contas
-        } else {
-          resolvedData = [doc.metadata]
-        }
-      }
-      setData(resolvedData)
-      setIsDynamic(true)
-      return
+    } else {
+      setRawMetadata(null)
     }
 
     const fetchData = async () => {
@@ -48,7 +38,6 @@ export function DocumentDataModal({ doc, onClose }: Props) {
         if (fetchError) throw fetchError
         setData(extracted || [])
         setIsDynamic(!!fetchIsDynamic)
-        setRawMetadata(null)
       } catch (err: any) {
         setError(err.message || 'Erro ao carregar dados do documento.')
       } finally {

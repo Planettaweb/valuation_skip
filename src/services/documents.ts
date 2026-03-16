@@ -363,12 +363,36 @@ export const documentService = {
   },
 
   async getExtractedData(documentId: string, documentType: string) {
+    let tableName = ''
+
+    switch (documentType) {
+      case 'Balanço':
+      case 'Balanço Patrimonial':
+        tableName = 'financial_balanco_patrimonial'
+        break
+      case 'Balancete':
+        tableName = 'financial_balancete'
+        break
+      case 'DRE':
+        tableName = 'financial_dre'
+        break
+      case 'Fluxo de Caixa':
+        tableName = 'financial_fluxo_caixa'
+        break
+      default:
+        return {
+          data: [],
+          isDynamic: true,
+          error: new Error('Tipo de documento não suportado para visualização estruturada.'),
+        }
+    }
+
     const { data, error } = await supabase
-      .from('financial_data' as any)
+      .from(tableName as any)
       .select('*')
       .eq('document_id', documentId)
-      .order('row_number', { ascending: true })
+      .order('created_at', { ascending: true })
 
-    return { data: data || [], isDynamic: true, error }
+    return { data: data || [], isDynamic: false, error }
   },
 }

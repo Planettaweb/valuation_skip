@@ -15,6 +15,7 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination'
 import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import { BalancoPatrimonialView } from './BalancoPatrimonialView'
 
 const PAGE_SIZE = 10
@@ -47,12 +48,16 @@ export function ExtractedDataView({
     return data.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   }, [data, page])
 
-  if (rawMetadata?.balanco_patrimonial) {
+  if (rawMetadata?.balanco_patrimonial && (type === 'Balanço' || type === 'Balanço Patrimonial')) {
     return <BalancoPatrimonialView bp={rawMetadata.balanco_patrimonial} data={data} />
   }
 
   if (!data || data.length === 0) {
-    return <p className="text-center text-muted-foreground py-8">Nenhum dado extraído.</p>
+    return (
+      <p className="text-center text-muted-foreground py-8">
+        Nenhum dado encontrado para este documento.
+      </p>
+    )
   }
 
   const renderTable = () => {
@@ -91,7 +96,7 @@ export function ExtractedDataView({
       )
     }
 
-    if (type === 'Balanço Patrimonial') {
+    if (type === 'Balanço' || type === 'Balanço Patrimonial') {
       return (
         <Table>
           <TableHeader>
@@ -110,9 +115,31 @@ export function ExtractedDataView({
               >
                 <TableCell className="text-muted-foreground">{r.classification_code}</TableCell>
                 <TableCell className="font-medium">{r.description}</TableCell>
-                <TableCell className="text-right">{formatCurrency(r.value_year_n)}</TableCell>
                 <TableCell className="text-right">
-                  {formatCurrency(r.value_year_n_minus_1)}
+                  <div className="flex items-center justify-end gap-2">
+                    <span>{formatCurrency(r.value_year_n)}</span>
+                    {r.nature_year_n && (
+                      <Badge
+                        variant="outline"
+                        className="px-1.5 min-w-6 justify-center text-muted-foreground border-white/20"
+                      >
+                        {r.nature_year_n}
+                      </Badge>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <span>{formatCurrency(r.value_year_n_minus_1)}</span>
+                    {r.nature_year_n_minus_1 && (
+                      <Badge
+                        variant="outline"
+                        className="px-1.5 min-w-6 justify-center text-muted-foreground border-white/20"
+                      >
+                        {r.nature_year_n_minus_1}
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

@@ -95,10 +95,10 @@ export function BalancoPatrimonialView({ bp, data }: { bp: any; data: any[] }) {
             {currentData.map((r: any, idx: number) => (
               <TableRow key={idx} className="border-white/5 hover:bg-white/5">
                 <TableCell className="text-muted-foreground">
-                  {r.codigo || r.classification_code}
+                  {r.codigo || r.classification_code || '-'}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {r.classificacao || r.classification_code}
+                  {r.classificacao || r.classification_code || '-'}
                 </TableCell>
                 <TableCell className="font-medium">{r.descricao || r.description}</TableCell>
                 <TableCell className="text-right">
