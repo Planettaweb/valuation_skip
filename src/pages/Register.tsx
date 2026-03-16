@@ -30,8 +30,10 @@ export default function Register() {
     if (error) {
       toast({ title: 'Erro ao Registrar', description: error.message, variant: 'destructive' })
     } else {
-      // Trigger Edge Function
-      supabase.functions.invoke('notify-admin', { body: { email, orgName } }).catch(console.error)
+      // Trigger Edge Function with full details
+      supabase.functions
+        .invoke('notify-admin', { body: { email, orgName, fullName } })
+        .catch(console.error)
 
       toast({
         title: 'Conta Criada',

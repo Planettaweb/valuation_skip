@@ -47,7 +47,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
         <div className="glass-panel p-8 max-w-md w-full text-center border-border z-10">
           <h1 className="text-2xl font-bold text-foreground mb-2">Aprovação Pendente</h1>
           <p className="text-muted-foreground mb-6">
-            Sua conta está aguardando aprovação do administrador.
+            Seu perfil está sendo avaliado pelo administrador. Você será notificado quando seu
+            acesso for liberado.
           </p>
           <button
             onClick={async () => {
