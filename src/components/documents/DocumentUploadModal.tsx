@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Upload, Loader2, AlertCircle, Check } from 'lucide-react'
+import { Upload, Loader2, AlertCircle, Check, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import {
   Dialog,
@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import {
   Table,
   TableBody,
@@ -51,9 +52,12 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
 
   const [step, setStep] = useState<'form' | 'processing' | 'preview' | 'saving'>('form')
   const [statusMessage, setStatusMessage] = useState('')
-  const [parsedPreview, setParsedPreview] = useState<{ metadataObj: any; rowsData: any[] } | null>(
-    null,
-  )
+  const [parsedPreview, setParsedPreview] = useState<{
+    metadataObj: any
+    rowsData: any[]
+    rawText?: string
+  } | null>(null)
+  const [previewRows, setPreviewRows] = useState<any[]>([])
 
   useEffect(() => {
     if (isOpen) {
@@ -115,6 +119,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     try {
       const parsed = await documentService.parseDocumentLocal(file, docType, setStatusMessage)
       setParsedPreview(parsed)
+      setPreviewRows(parsed.rowsData || [])
       setStep('preview')
     } catch (err: any) {
       toast({ title: 'Erro de Processamento', description: err.message, variant: 'destructive' })
@@ -127,13 +132,18 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     setStep('saving')
     setStatusMessage('Iniciando gravação no SharePoint e Banco de Dados...')
 
+    const payload = {
+      metadataObj: parsedPreview.metadataObj,
+      rowsData: previewRows,
+    }
+
     const { error } = await documentService.saveParsedDocument(
       file,
       userProfile.org_id,
       userProfile.id,
       selectedClient,
       docType,
-      parsedPreview,
+      payload,
       setStatusMessage,
     )
 
@@ -155,6 +165,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     setFile(null)
     setStep('form')
     setParsedPreview(null)
+    setPreviewRows([])
     setStatusMessage('')
   }
 
@@ -166,12 +177,9 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
 
-  const hasDiscrepancy =
-    parsedPreview &&
-    Math.abs(
-      (parsedPreview.metadataObj.calculatedSum || 0) -
-        (parsedPreview.metadataObj.extractedTotal || 0),
-    ) > 0.01
+  const calculatedSum = previewRows.reduce((acc, row) => acc + (row.value || 0), 0)
+  const extractedTotal = parsedPreview?.metadataObj?.extractedTotal || 0
+  const hasDiscrepancy = parsedPreview && Math.abs(calculatedSum - extractedTotal) > 0.01
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -323,62 +331,110 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
               <div className="flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
                 <div className="flex items-center justify-between">
                   <h3 className="text-base font-medium">Revisão Tabular</h3>
-                  <span className="text-xs text-muted-foreground bg-accent/50 px-2 py-1 rounded">
-                    {parsedPreview.rowsData.length} registros extraídos
-                  </span>
+                  <div className="flex gap-2 items-center">
+                    <span className="text-xs text-muted-foreground bg-accent/50 px-2 py-1 rounded">
+                      {previewRows.length} registros extraídos
+                    </span>
+                    {!hasDiscrepancy && previewRows.length > 0 ? (
+                      <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                        Soma Validada: {formatCurrency(calculatedSum)}
+                      </Badge>
+                    ) : previewRows.length > 0 ? (
+                      <Badge
+                        variant="destructive"
+                        className="bg-destructive/10 text-destructive border-destructive/20"
+                      >
+                        Divergência: {formatCurrency(calculatedSum)} vs{' '}
+                        {formatCurrency(extractedTotal)}
+                      </Badge>
+                    ) : null}
+                  </div>
                 </div>
 
-                {hasDiscrepancy && (
+                {hasDiscrepancy && previewRows.length > 0 && (
                   <Alert variant="destructive" className="bg-destructive/10 border-destructive/50">
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Discrepância Detectada na Validação</AlertTitle>
                     <AlertDescription>
-                      Atenção: A soma dos registros extraídos (
-                      {formatCurrency(parsedPreview.metadataObj.calculatedSum)}) diverge do valor
-                      total informado no documento (
-                      {formatCurrency(parsedPreview.metadataObj.extractedTotal)}).
+                      Atenção: A soma dos registros extraídos ({formatCurrency(calculatedSum)})
+                      diverge do valor total informado no documento (
+                      {formatCurrency(extractedTotal)}). Remova linhas de ruído se necessário.
                     </AlertDescription>
                   </Alert>
                 )}
 
-                <div className="border rounded-md flex-1 overflow-hidden flex flex-col bg-card/50 max-h-[50vh]">
-                  <div className="overflow-y-auto flex-1">
-                    <Table>
-                      <TableHeader className="sticky top-0 bg-background/95 backdrop-blur z-10 shadow-sm">
-                        <TableRow>
-                          <TableHead className="w-[120px]">Classificação</TableHead>
-                          <TableHead>Descrição da Conta</TableHead>
-                          <TableHead className="text-right w-[150px]">Valor Ano N</TableHead>
-                          <TableHead className="text-right w-[150px]">Valor Ano N-1</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {parsedPreview.rowsData.map((row: any, i: number) => (
-                          <TableRow key={i}>
-                            <TableCell className="font-medium text-xs">
-                              {row.classification_code}
-                            </TableCell>
-                            <TableCell className="text-xs">{row.description}</TableCell>
-                            <TableCell className="text-right text-xs">
-                              {row.value != null ? formatCurrency(row.value) : '-'}
-                            </TableCell>
-                            <TableCell className="text-right text-muted-foreground text-xs">
-                              {row.raw?.valor_exercicio_anterior != null
-                                ? formatCurrency(row.raw.valor_exercicio_anterior)
-                                : '-'}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                {previewRows.length === 0 ? (
+                  <div className="border border-white/10 rounded-md bg-card/50 p-4 space-y-2">
+                    <p className="text-sm font-medium text-amber-500">Revisão Manual Necessária</p>
+                    <p className="text-xs text-muted-foreground">
+                      O formato do documento não foi reconhecido automaticamente com os padrões
+                      estritos. Abaixo está o texto bruto extraído para revisão.
+                    </p>
+                    <textarea
+                      className="w-full h-64 bg-black/50 border border-white/10 rounded-md p-3 text-xs font-mono text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                      readOnly
+                      value={parsedPreview.rawText || ''}
+                    />
                   </div>
-                </div>
+                ) : (
+                  <div className="border border-white/10 rounded-md flex-1 overflow-hidden flex flex-col bg-card/50 max-h-[50vh]">
+                    <div className="overflow-y-auto flex-1 custom-scrollbar">
+                      <Table>
+                        <TableHeader className="sticky top-0 bg-background/95 backdrop-blur z-10 shadow-sm">
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead className="w-[120px]">Classificação</TableHead>
+                            <TableHead>Descrição da Conta</TableHead>
+                            <TableHead className="text-right w-[150px]">Valor Ano N</TableHead>
+                            <TableHead className="text-right w-[150px]">Valor Ano N-1</TableHead>
+                            <TableHead className="w-[50px]"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {previewRows.map((row: any, i: number) => (
+                            <TableRow key={i} className="border-white/5">
+                              <TableCell className="font-medium text-xs text-white/90">
+                                {row.classification_code}
+                              </TableCell>
+                              <TableCell className="text-xs text-white/80">
+                                {row.description}
+                              </TableCell>
+                              <TableCell className="text-right text-xs">
+                                {row.value != null ? formatCurrency(row.value) : '-'}
+                              </TableCell>
+                              <TableCell className="text-right text-muted-foreground text-xs">
+                                {row.raw?.valor_exercicio_anterior != null
+                                  ? formatCurrency(row.raw.valor_exercicio_anterior)
+                                  : '-'}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-muted-foreground hover:text-red-400 hover:bg-red-400/10"
+                                  onClick={() => {
+                                    const newRows = [...previewRows]
+                                    newRows.splice(i, 1)
+                                    setPreviewRows(newRows)
+                                  }}
+                                  title="Remover linha"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex gap-2 justify-end mt-2 pt-2 border-t border-white/5">
                   <Button
                     variant="outline"
                     onClick={() => setStep('form')}
                     disabled={step === 'saving'}
+                    className="border-white/10"
                   >
                     Voltar e Descartar
                   </Button>

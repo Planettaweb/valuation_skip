@@ -62,8 +62,16 @@ const parseValueAndNatureStr = (valStr: string | null, nature: string | null) =>
   if (!valStr) return { value: null, nature: nature || null }
   if (valStr === '-') return { value: 0, nature: nature || null }
 
-  let rawNum = valStr.replace(/[DcC()]/g, '').trim()
-  let isNegative = valStr.includes('(') || valStr.startsWith('-')
+  let cleanStr = valStr.replace(/(R\$|\$)/gi, '').trim()
+  let isNegative = cleanStr.includes('(') || cleanStr.startsWith('-')
+  let extractedNature = nature
+
+  const natMatch = cleanStr.match(/[DcC]$/i)
+  if (natMatch && !extractedNature) {
+    extractedNature = natMatch[0].toUpperCase()
+  }
+
+  let rawNum = cleanStr.replace(/[DcC()]/gi, '').trim()
 
   if (rawNum.includes(',') && rawNum.includes('.') && rawNum.indexOf(',') < rawNum.indexOf('.')) {
     rawNum = rawNum.replace(/,/g, '')
@@ -73,12 +81,6 @@ const parseValueAndNatureStr = (valStr: string | null, nature: string | null) =>
 
   let value = parseFloat(rawNum) || 0
   if (isNegative && value > 0) value = -Math.abs(value)
-
-  let extractedNature = nature
-  const natMatch = valStr.match(/[DcC]$/i)
-  if (natMatch && !extractedNature) {
-    extractedNature = natMatch[0].toUpperCase()
-  }
 
   return { value, nature: extractedNature || null }
 }
@@ -93,12 +95,6 @@ export function parseFinancialText(text: string, docType: string) {
 
   const lines = text.split('\n')
 
-  // Feature: Regex-Powered Tabular Extraction
-  // Group 1: Internal Code (Integer)
-  // Group 2: Classification Code (e.g., 1.1.10.1)
-  // Group 3: Account Description
-  // Group 4: Value Year N
-  // Group 5: Value Year N-1
   const strictRegex = /^(\d+)\s+([\d.]+)\s+(.+?)\s+([-\d.,()]+[DCdc]?)\s+([-\d.,()]+[DCdc]?)$/
   const fallbackRegex = /^([\d.]+)\s+(.+?)\s+([-\d.,()]+[DCdc]?)\s*([-\d.,()]+[DCdc]?)?$/
 
@@ -106,15 +102,19 @@ export function parseFinancialText(text: string, docType: string) {
     const cleanLine = line.trim()
     if (!cleanLine) continue
 
-    // Noise filtering
-    if (/^(?:pág|folha|data|hora|impresso|sistema|relatório|cnpj|insc)/i.test(cleanLine)) continue
+    if (/^(?:pág|folha|data|hora|impresso|sistema|relatório|cnpj|insc|empresa)/i.test(cleanLine))
+      continue
 
-    // Extract Check-sum Total
     const totalMatch =
       cleanLine.match(/TOTALIZANDO.*?VALOR DE R\$?\s*([-\d.,]+)/i) ||
-      cleanLine.match(/^(?:TOTAL GERAL|TOTAL|PASSIVO E PATRIMÔNIO LÍQUIDO).*?([-\d.,]+[DCdc]?)$/i)
-    if (totalMatch && totalMatch[1]) {
-      const p = parseValueAndNatureStr(totalMatch[1], null)
+      cleanLine.match(
+        /^(?:TOTAL GERAL|TOTAL|PASSIVO E PATRIMÔNIO LÍQUIDO).*?([-\d.,]+[DCdc]?)$/i,
+      ) ||
+      cleanLine.match(/TOTAL.*?([-\d.,]+[DCdc]?)$/i)
+
+    if (totalMatch) {
+      const matchVal = totalMatch[1] || totalMatch[2] || totalMatch[0]
+      const p = parseValueAndNatureStr(matchVal, null)
       if (p.value) extractedTotal = p.value
     }
 
@@ -154,7 +154,6 @@ export function parseFinancialText(text: string, docType: string) {
     }
   }
 
-  // Calculate sum of individual rows for Automated Check-sum Validation
   const calculatedSum = contas.reduce((acc, c) => acc + (c.valor_exercicio_atual || 0), 0)
 
   return {

@@ -26,7 +26,7 @@ export function extractTableOnly(fullText: string): string {
 
   for (let i = lines.length - 1; i > tableStart; i--) {
     if (tableEndPatterns.some((p) => p.test(lines[i]))) {
-      tableEnd = i
+      tableEnd = i + 1
       break
     }
   }
@@ -89,12 +89,6 @@ export function processExtractedData(extractedText: string, documentType: string
   const metadataObj = parseFinancialText(extractedText, documentType)
   const rawArray = extractArrayFromMetadata(metadataObj)
 
-  if (rawArray.length === 0) {
-    throw new Error(
-      'Falha na extração: Nenhum dado contábil encontrado usando os padrões avançados. Verifique a legibilidade do arquivo.',
-    )
-  }
-
   const rowsData = rawArray.filter(isValidRow).map((c: any) => ({
     classification_code: c.classificacao || c.classification_code || null,
     description: (
@@ -120,13 +114,7 @@ export function processExtractedData(extractedText: string, documentType: string
     raw: c,
   }))
 
-  if (rowsData.length === 0) {
-    throw new Error(
-      'Falha na extração: Nenhum dado contábil encontrado. Verifique a legibilidade do arquivo.',
-    )
-  }
-
-  return { metadataObj, rowsData }
+  return { metadataObj, rowsData, rawText: extractedText }
 }
 
 export async function persistStructuredData(
@@ -140,8 +128,11 @@ export async function persistStructuredData(
   const toNum = (v: any) => {
     if (typeof v === 'number') return v
     if (!v) return null
-    const parsed = parseFloat(v.toString().replace(/[^\d.-]/g, ''))
-    return isNaN(parsed) ? null : parsed
+    const str = v.toString()
+    let isNeg = str.includes('-') || str.includes('(')
+    let parsed = parseFloat(str.replace(/[^\d.-]/g, ''))
+    if (isNaN(parsed)) return null
+    return isNeg && parsed > 0 ? -parsed : Math.abs(parsed) * (isNeg ? -1 : 1)
   }
 
   const { error: dataError } = await supabase.from('financial_data' as any).insert(
@@ -165,9 +156,9 @@ export async function persistStructuredData(
           classification_code: d.classification_code,
           description: d.description,
           value_year_n: toNum(d.value),
-          value_year_n_minus_1: toNum(d.raw.valor_exercicio_anterior),
+          value_year_n_minus_1: toNum(d.raw?.valor_exercicio_anterior),
           nature_year_n: d.nature,
-          nature_year_n_minus_1: d.raw.natureza_exercicio_anterior || null,
+          nature_year_n_minus_1: d.raw?.natureza_exercicio_anterior || null,
           year_n: d.period ? parseInt(d.period) : null,
         })),
       )
@@ -179,9 +170,9 @@ export async function persistStructuredData(
           document_id: docId,
           classification_code: d.classification_code,
           account_description: d.description,
-          previous_balance: toNum(d.raw.saldo_anterior || d.raw.previous_balance),
-          debit: toNum(d.raw.debito || d.raw.debit),
-          credit: toNum(d.raw.credito || d.raw.credit),
+          previous_balance: toNum(d.raw?.saldo_anterior || d.raw?.previous_balance),
+          debit: toNum(d.raw?.debito || d.raw?.debit),
+          credit: toNum(d.raw?.credito || d.raw?.credit),
           current_balance: toNum(d.value),
         })),
       )
@@ -193,8 +184,8 @@ export async function persistStructuredData(
           document_id: docId,
           description: d.description,
           balance: toNum(d.value),
-          sum: toNum(d.raw.soma || d.raw.sum),
-          total: toNum(d.raw.total || d.value),
+          sum: toNum(d.raw?.soma || d.raw?.sum),
+          total: toNum(d.raw?.total || d.value),
         })),
       )
       if (error) throw error
