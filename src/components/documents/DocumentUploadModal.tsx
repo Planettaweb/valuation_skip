@@ -74,11 +74,15 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
 
   const validateAndSetFile = (f?: File) => {
     if (!f) return
-    const allowedTypes = ['application/pdf']
-    if (!allowedTypes.includes(f.type) && !f.name.endsWith('.pdf')) {
+    const nameLower = f.name.toLowerCase()
+    if (
+      !nameLower.endsWith('.pdf') &&
+      !nameLower.endsWith('.csv') &&
+      !nameLower.endsWith('.xlsx')
+    ) {
       toast({
         title: 'Formato inválido',
-        description: 'A extração avançada suporta apenas PDF atualmente.',
+        description: 'A extração suporta apenas PDF, CSV e XLSX.',
         variant: 'destructive',
       })
       return
@@ -276,7 +280,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                     type="file"
                     className="hidden"
                     onChange={(e) => validateAndSetFile(e.target.files?.[0])}
-                    accept=".pdf"
+                    accept=".pdf,.csv,.xlsx"
                   />
                   <Upload
                     className={cn(
@@ -297,7 +301,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                         Arraste e solte o documento aqui
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Ou clique para buscar no computador (.pdf)
+                        Ou clique para buscar no computador (.pdf, .csv, .xlsx)
                       </p>
                     </div>
                   )}
@@ -356,9 +360,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Discrepância Detectada na Validação</AlertTitle>
                     <AlertDescription>
-                      Atenção: A soma dos registros extraídos ({formatCurrency(calculatedSum)})
-                      diverge do valor total informado no documento (
-                      {formatCurrency(extractedTotal)}). Remova linhas de ruído se necessário.
+                      Aviso: A soma dos registros diverge do total informado no documento.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -372,7 +374,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                       Nenhum dado contábil encontrado.
                     </p>
                     <p className="text-sm text-muted-foreground max-w-md">
-                      Por favor, verifique se o PDF possui texto selecionável. Documentos
+                      Por favor, verifique se o arquivo possui dados legíveis. Documentos
                       digitalizados como imagens não são suportados atualmente.
                     </p>
                   </div>

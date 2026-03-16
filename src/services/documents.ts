@@ -4,6 +4,7 @@ import {
   extractTableOnly,
   processExtractedData,
   persistStructuredData,
+  parseCSV,
 } from '@/lib/extraction-utils'
 
 export const documentService = {
@@ -35,8 +36,29 @@ export const documentService = {
       throw new Error(`Tipo de documento não suportado: ${documentType}`)
     }
 
-    if (file.type !== 'application/pdf') {
-      throw new Error('A extração atual suporta apenas arquivos PDF.')
+    const isStructured = file.name.endsWith('.csv') || file.name.endsWith('.xlsx')
+
+    if (isStructured) {
+      onProgress?.('Lendo arquivo estruturado...')
+      const text = await file.text()
+      const rowsData = parseCSV(text, documentType)
+
+      if (rowsData.length === 0) {
+        throw new Error(
+          'Falha na extração: Nenhum dado contábil encontrado. Verifique a legibilidade ou o formato do arquivo.',
+        )
+      }
+
+      const calculatedSum = rowsData.reduce((acc, c) => acc + (c.value || 0), 0)
+
+      return {
+        metadataObj: { extractedTotal: calculatedSum, calculatedSum },
+        rowsData,
+      }
+    }
+
+    if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
+      throw new Error('A extração suporta apenas PDF, CSV e XLSX.')
     }
 
     onProgress?.('Lendo arquivo PDF...')
@@ -47,6 +69,12 @@ export const documentService = {
 
     onProgress?.('Aplicando extração avançada e checagem de soma...')
     const { metadataObj, rowsData } = processExtractedData(extractedText, documentType)
+
+    if (rowsData.length === 0) {
+      throw new Error(
+        'Falha na extração: Nenhum dado contábil encontrado. Verifique a legibilidade ou o formato do arquivo.',
+      )
+    }
 
     return { metadataObj, rowsData }
   },
@@ -134,7 +162,6 @@ export const documentService = {
 
     onProgress?.('Criando registro do documento no banco...')
 
-    // Database Integrity Sequence
     const { data: mainDoc, error: mainDocError } = await supabase
       .from('documents')
       .insert({
@@ -160,7 +187,7 @@ export const documentService = {
     const { data: doc, error: insertError } = await supabase
       .from('financial_documents' as any)
       .insert({
-        id: mainDoc.id, // Guarantee FK integrity
+        id: mainDoc.id,
         org_id: orgId,
         valuation_id: valuationId,
         file_name: file.name,
@@ -310,6 +337,7 @@ export const documentService = {
         .delete()
         .eq('document_id', docId)
         .eq('org_id', orgId)
+      await supabase.from('document_rows').delete().eq('document_id', docId).eq('org_id', orgId)
       await supabase
         .from('financial_balanco_patrimonial' as any)
         .delete()
@@ -336,21 +364,47 @@ export const documentService = {
         throw new Error(`Reprocessamento não suportado para: ${doc.document_type}`)
       }
 
-      if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
-        throw new Error('A extração requer um arquivo PDF.')
+      let parsedData
+      const isStructured = file.name.endsWith('.csv') || file.name.endsWith('.xlsx')
+
+      if (isStructured) {
+        onProgress?.('Lendo arquivo estruturado...')
+        const text = await file.text()
+        const rowsData = parseCSV(text, doc.document_type)
+
+        if (rowsData.length === 0) {
+          throw new Error(
+            'Falha na extração: Nenhum dado contábil encontrado. Verifique a legibilidade ou o formato do arquivo.',
+          )
+        }
+        const calculatedSum = rowsData.reduce((acc, c) => acc + (c.value || 0), 0)
+        parsedData = {
+          metadataObj: { extractedTotal: calculatedSum, calculatedSum },
+          rowsData,
+        }
+      } else {
+        if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
+          throw new Error('A extração suporta apenas PDF, CSV e XLSX.')
+        }
+
+        onProgress?.('Iniciando processamento analítico completo...')
+        let extractedText = await extractTextFromPDF(file)
+
+        onProgress?.('Isolando escopo tabular...')
+        extractedText = extractTableOnly(extractedText)
+
+        onProgress?.('Extraindo mapa de contas financeiras...')
+        parsedData = processExtractedData(extractedText, doc.document_type)
+
+        if (parsedData.rowsData.length === 0) {
+          throw new Error(
+            'Falha na extração: Nenhum dado contábil encontrado. Verifique a legibilidade ou o formato do arquivo.',
+          )
+        }
       }
 
-      onProgress?.('Iniciando processamento analítico completo...')
-      let extractedText = await extractTextFromPDF(file)
-
-      onProgress?.('Isolando escopo tabular...')
-      extractedText = extractTableOnly(extractedText)
-
-      onProgress?.('Extraindo mapa de contas financeiras...')
-      const { metadataObj, rowsData } = processExtractedData(extractedText, doc.document_type)
-
       onProgress?.('Persistindo resultados da nova extração...')
-      const finalMetadata = metadataObj ? metadataObj : rowsData
+      const finalMetadata = parsedData.metadataObj ? parsedData.metadataObj : parsedData.rowsData
 
       const { data: updatedDoc, error: updateError } = await supabase
         .from('financial_documents' as any)
@@ -375,7 +429,7 @@ export const documentService = {
         .eq('id', doc.id)
 
       onProgress?.('Validando integridade em tabelas secundárias...')
-      await persistStructuredData(orgId, doc.id, doc.document_type, rowsData)
+      await persistStructuredData(orgId, doc.id, doc.document_type, parsedData.rowsData)
 
       await supabase.from('audit_logs').insert({
         org_id: orgId,

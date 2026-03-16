@@ -96,7 +96,7 @@ export function parseFinancialText(text: string, docType: string) {
 
   const lines = text.split('\n')
 
-  const primaryRegex = /^(\d+)\s+([\d.]+)\s+(.+?)\s+([-\d.,()]+[DCdc]?)\s+([-\d.,()]+[DCdc]?)$/
+  const primaryRegex = /^(\d+)\s+([\d.]+)\s+(.+?)\s+([\d.,]+D?)\s+([\d.,]+D?)$/i
   const secondaryRegex = /^([\d.]*)\s*(.+?)\s+([-\d.,()]+[DCdc]?)\s*([-\d.,()]+[DCdc]?)?$/
   const basicFallback = /^(.*?)\s+([-\d.,()]+[DCdc]?)$/
 

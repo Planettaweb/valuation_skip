@@ -34,6 +34,79 @@ export function extractTableOnly(fullText: string): string {
   return lines.slice(tableStart, tableEnd).join('\n')
 }
 
+export function parseCSV(text: string, documentType: string) {
+  const lines = text.split('\n')
+  const rows: any[] = []
+
+  let isHeader = true
+  for (const line of lines) {
+    const cleanLine = line.trim()
+    if (!cleanLine) continue
+
+    const cols = cleanLine.split(/[,;\t]/).map((c) => c.trim())
+
+    if (isHeader) {
+      if (cols.some((c) => /valor|value|saldo|descrição|description|conta|code|código/i.test(c))) {
+        isHeader = false
+        continue
+      }
+      if (cols.some((c) => /^[\d.,-]+$/.test(c))) {
+        isHeader = false
+      } else {
+        continue
+      }
+    }
+
+    let classification_code = null
+    let description = ''
+    let value = null
+    let raw: any = {}
+
+    if (cols.length >= 3) {
+      classification_code = cols[0]
+      description = cols[1]
+      value =
+        parseFloat(
+          cols[2]
+            .replace(/[R$\s]/g, '')
+            .replace(/\./g, '')
+            .replace(',', '.'),
+        ) || 0
+      raw = {
+        valor_exercicio_anterior:
+          parseFloat(
+            cols[3]
+              ?.replace(/[R$\s]/g, '')
+              .replace(/\./g, '')
+              .replace(',', '.'),
+          ) || null,
+      }
+    } else if (cols.length === 2) {
+      description = cols[0]
+      value =
+        parseFloat(
+          cols[1]
+            .replace(/[R$\s]/g, '')
+            .replace(/\./g, '')
+            .replace(',', '.'),
+        ) || 0
+    } else {
+      continue
+    }
+
+    if (description || value !== null) {
+      rows.push({
+        classification_code,
+        description,
+        value,
+        document_type: documentType,
+        raw,
+      })
+    }
+  }
+  return rows
+}
+
 export function extractArrayFromMetadata(metadata: any): any[] {
   if (!metadata) return []
   if (Array.isArray(metadata)) return metadata
@@ -146,6 +219,16 @@ export async function persistStructuredData(
     })),
   )
   if (dataError) console.error('Error inserting into financial_data:', dataError)
+
+  const { error: rowsError } = await supabase.from('document_rows').insert(
+    rowsData.map((d, index) => ({
+      org_id: orgId,
+      document_id: docId,
+      row_index: index + 1,
+      data: d,
+    })),
+  )
+  if (rowsError) console.error('Error inserting into document_rows:', rowsError)
 
   try {
     if (documentType === 'Balanço' || documentType === 'Balanço Patrimonial') {
