@@ -1,41 +1,47 @@
 import { supabase } from '@/lib/supabase/client'
-import { extractTextFromPDF, parseBalancoPatrimonialText, parseBalanceteText, parseDREText, parseFluxoCaixaText } from '@/lib/pdf-parser'
+import {
+  extractTextFromPDF,
+  parseBalancoPatrimonialText,
+  parseBalanceteText,
+  parseDREText,
+  parseFluxoCaixaText,
+} from '@/lib/pdf-parser'
 
 // ✅ NOVA FUNÇÃO: Extrai apenas a tabela (remove cabeçalho/rodapé)
 function extractTableOnly(fullText: string): string {
   const lines = fullText.split('\n')
-  
+
   // Padrões que indicam INÍCIO da tabela
   const tableStartPatterns = [
     /^\s*(ATIVO|PASSIVO|RECEITA|DESPESA|SALDO|Conta|Código|Descricao|Description|Account|CONTAS)/i,
-    /^\s*[A-Z\s]{10,}[\s]{5,}[\d.,\-\(\)]+/, // Linha com números
+    /^\s*[A-Z\s]{10,}[\s]{5,}[\d.,\-()]+/, // Linha com números
   ]
-  
+
   // Padrões que indicam FIM da tabela (rodapé)
   const tableEndPatterns = [
     /^\s*(TOTAL GERAL|TOTAL|Assinado|Responsável|Data:|Carimbo|Assinatura|Preparado|Revisado)/i,
     /^\s*_{5,}/, // Linhas de underscore (assinatura)
   ]
-  
+
   let tableStart = 0
   let tableEnd = lines.length
-  
+
   // Encontra início da tabela
-  for (let i = 0; i &lt; lines.length; i++) {
-    if (tableStartPatterns.some(p => p.test(lines[i]))) {
+  for (let i = 0; i < lines.length; i++) {
+    if (tableStartPatterns.some((p) => p.test(lines[i]))) {
       tableStart = i
       break
     }
   }
-  
+
   // Encontra fim da tabela
   for (let i = lines.length - 1; i > tableStart; i--) {
-    if (tableEndPatterns.some(p => p.test(lines[i]))) {
+    if (tableEndPatterns.some((p) => p.test(lines[i]))) {
       tableEnd = i
       break
     }
   }
-  
+
   return lines.slice(tableStart, tableEnd).join('\n')
 }
 
@@ -176,9 +182,9 @@ export const documentService = {
 
       // ✅ MUDANÇA 2: Map de parsers para cada tipo
       const parserMap: Record<string, (text: string) => any> = {
-        'Balanço': parseBalancoPatrimonialText,
-        'Balancete': parseBalanceteText,
-        'DRE': parseDREText,
+        Balanço: parseBalancoPatrimonialText,
+        Balancete: parseBalanceteText,
+        DRE: parseDREText,
         'Fluxo de Caixa': parseFluxoCaixaText,
       }
 
@@ -208,18 +214,20 @@ export const documentService = {
           classification_code: c.classificacao || null,
           description: c.descricao.trim(),
           value:
-            typeof c.valor_exercicio_atual === 'number' ? c.valor_exercicio_atual : 
-            typeof c.valor === 'number' ? c.valor :
-            typeof c.total === 'number' ? c.total : null,
+            typeof c.valor_exercicio_atual === 'number'
+              ? c.valor_exercicio_atual
+              : typeof c.valor === 'number'
+                ? c.valor
+                : typeof c.total === 'number'
+                  ? c.total
+                  : null,
           period: metadataObj.cabecalho?.year_n || metadataObj.periodo || null,
           nature: c.natureza || null,
           document_type: documentType,
         }))
 
       if (rowsData.length === 0) {
-        throw new Error(
-          'Falha na extração: As linhas de dados extraídas são inválidas ou vazias.',
-        )
+        throw new Error('Falha na extração: As linhas de dados extraídas são inválidas ou vazias.')
       }
 
       onProgress?.('Salvando metadados estruturados e concluindo...')
@@ -335,9 +343,9 @@ export const documentService = {
 
       // ✅ MUDANÇA 8: Map de parsers (igual ao uploadDocument)
       const parserMap: Record<string, (text: string) => any> = {
-        'Balanço': parseBalancoPatrimonialText,
-        'Balancete': parseBalanceteText,
-        'DRE': parseDREText,
+        Balanço: parseBalancoPatrimonialText,
+        Balancete: parseBalanceteText,
+        DRE: parseDREText,
         'Fluxo de Caixa': parseFluxoCaixaText,
       }
 
@@ -371,18 +379,20 @@ export const documentService = {
           classification_code: c.classificacao || null,
           description: c.descricao.trim(),
           value:
-            typeof c.valor_exercicio_atual === 'number' ? c.valor_exercicio_atual : 
-            typeof c.valor === 'number' ? c.valor :
-            typeof c.total === 'number' ? c.total : null,
+            typeof c.valor_exercicio_atual === 'number'
+              ? c.valor_exercicio_atual
+              : typeof c.valor === 'number'
+                ? c.valor
+                : typeof c.total === 'number'
+                  ? c.total
+                  : null,
           period: metadataObj.cabecalho?.year_n || metadataObj.periodo || null,
           nature: c.natureza || null,
           document_type: doc.document_type,
         }))
 
       if (rowsData.length === 0) {
-        throw new Error(
-          'Falha na extração: As linhas de dados extraídas são inválidas ou vazias.',
-        )
+        throw new Error('Falha na extração: As linhas de dados extraídas são inválidas ou vazias.')
       }
 
       onProgress?.('Salvando metadados estruturados e atualizando status...')
