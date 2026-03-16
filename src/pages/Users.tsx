@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Trash2, Edit2, Loader2 } from 'lucide-react'
+import { Plus, Search, Trash2, Edit2, Loader2, User as UserIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -167,16 +167,18 @@ export default function Users() {
                   <TableRow key={u.id} className="border-white/5 hover:bg-white/5">
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8 border border-white/10">
-                          <AvatarImage
-                            src={`https://img.usecurling.com/ppl/thumbnail?seed=${u.id}`}
-                          />
+                        <Avatar className="h-8 w-8 border border-border">
+                          <AvatarImage src={u.avatar_url || undefined} />
                           <AvatarFallback className="bg-primary/20 text-primary">
-                            {u.full_name?.charAt(0) || 'U'}
+                            {u.full_name ? (
+                              u.full_name.charAt(0).toUpperCase()
+                            ) : (
+                              <UserIcon className="w-4 h-4" />
+                            )}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col">
-                          <span className="font-medium text-white">
+                          <span className="font-medium text-foreground">
                             {u.full_name || 'Sem Nome'}
                           </span>
                           <span className="text-xs text-muted-foreground">{u.email}</span>
@@ -215,7 +217,7 @@ export default function Users() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 hover:text-red-400 hover:bg-red-400/10"
+                            className="h-8 w-8 hover:text-destructive hover:bg-destructive/10"
                             onClick={() => {
                               setToDelete(u)
                               setConfirmOpen(true)

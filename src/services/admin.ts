@@ -6,7 +6,7 @@ export const adminService = {
     return await supabase
       .from('users')
       .select(
-        `id, email, full_name, is_active, org_id, organizations(name), users_roles(role_id, roles(name))`,
+        `id, email, full_name, is_active, org_id, avatar_url, organizations(name), users_roles(role_id, roles(name))`,
       )
       .order('created_at', { ascending: false })
   },
