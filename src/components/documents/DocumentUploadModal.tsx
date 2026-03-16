@@ -48,7 +48,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
   const [dragActive, setDragActive] = useState(false)
   const [file, setFile] = useState<File | null>(null)
 
-  const [docType, setDocType] = useState('Balanço')
+  const [docType, setDocType] = useState('Balanço Patrimonial')
   const [clients, setClients] = useState<any[]>([])
   const [selectedClient, setSelectedClient] = useState(defaultClientId || '')
 
@@ -199,12 +199,12 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     if (!open) resetState()
   }
 
-  const handleUpdateRow = (index: number, field: string, value: any) => {
+  const handleUpdateRow = (index: number, field: string, value: any, isRaw = false) => {
     const newRows = [...previewRows]
-    if (field === 'anterior') {
+    if (isRaw) {
       newRows[index] = {
         ...newRows[index],
-        raw: { ...newRows[index].raw, valor_exercicio_anterior: value },
+        raw: { ...(newRows[index].raw || {}), [field]: value },
       }
     } else {
       newRows[index] = { ...newRows[index], [field]: value }
@@ -216,10 +216,20 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     setPreviewRows([
       ...previewRows,
       {
+        account_code: '',
         classification_code: '',
         description: '',
         value: 0,
-        raw: { valor_exercicio_anterior: null },
+        period: '',
+        raw: {
+          valor_exercicio_anterior: null,
+          previous_balance: null,
+          debit: null,
+          credit: null,
+          sum: null,
+          total: null,
+          planned_value: null,
+        },
       },
     ])
   }
@@ -249,7 +259,8 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
         if (isNeg && parsed > 0) parsed = -parsed
 
         newRows.push({
-          classification_code: cols.length >= 3 ? cols[0] : null,
+          account_code: cols.length >= 3 ? cols[0] : null,
+          classification_code: null,
           description: cols.length >= 3 ? cols.slice(1, -1).join(' ') : cols[0],
           value: parsed,
           raw: {},
@@ -273,6 +284,72 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     extractedTotal > 0 &&
     Math.abs(calculatedSum - extractedTotal) > 0.01
 
+  const renderTableHeaders = () => {
+    if (docType === 'Balancete') {
+      return (
+        <TableRow className="hover:bg-transparent">
+          <TableHead className="w-[100px]">Código</TableHead>
+          <TableHead className="w-[120px]">Classificação</TableHead>
+          <TableHead>Descrição da conta</TableHead>
+          <TableHead className="text-right w-[120px]">Saldo Anterior</TableHead>
+          <TableHead className="text-right w-[100px]">Débito</TableHead>
+          <TableHead className="text-right w-[100px]">Crédito</TableHead>
+          <TableHead className="text-right w-[120px]">Saldo Atual</TableHead>
+          <TableHead className="w-[50px]"></TableHead>
+        </TableRow>
+      )
+    }
+    if (docType === 'Balanço' || docType === 'Balanço Patrimonial') {
+      return (
+        <TableRow className="hover:bg-transparent">
+          <TableHead className="w-[100px]">Codigo</TableHead>
+          <TableHead className="w-[120px]">Classificacao</TableHead>
+          <TableHead>Descricao</TableHead>
+          <TableHead className="text-right w-[140px]">Ano atual</TableHead>
+          <TableHead className="text-right w-[140px]">Ano anterior</TableHead>
+          <TableHead className="w-[50px]"></TableHead>
+        </TableRow>
+      )
+    }
+    if (docType === 'DRE') {
+      return (
+        <TableRow className="hover:bg-transparent">
+          <TableHead>Descricao</TableHead>
+          <TableHead className="text-right w-[140px]">Saldo</TableHead>
+          <TableHead className="text-right w-[140px]">Soma</TableHead>
+          <TableHead className="text-right w-[140px]">Total</TableHead>
+          <TableHead className="w-[50px]"></TableHead>
+        </TableRow>
+      )
+    }
+    if (docType === 'Fluxo de Caixa') {
+      return (
+        <TableRow className="hover:bg-transparent">
+          <TableHead>Descricao</TableHead>
+          <TableHead className="w-[120px]">Mes</TableHead>
+          <TableHead className="text-right w-[140px]">Valor planejado</TableHead>
+          <TableHead className="text-right w-[140px]">Valor realizado</TableHead>
+          <TableHead className="w-[50px]"></TableHead>
+        </TableRow>
+      )
+    }
+    return (
+      <TableRow className="hover:bg-transparent">
+        <TableHead className="w-[140px]">Código Conta</TableHead>
+        <TableHead>Descrição da Conta</TableHead>
+        <TableHead className="text-right w-[160px]">Valor Atual</TableHead>
+        <TableHead className="text-right w-[160px]">Valor Anterior</TableHead>
+        <TableHead className="w-[50px]"></TableHead>
+      </TableRow>
+    )
+  }
+
+  const getColSpan = () => {
+    if (docType === 'Balancete') return 8
+    if (docType === 'Balanço' || docType === 'Balanço Patrimonial') return 6
+    return 5
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
@@ -283,7 +360,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
       <DialogContent
         className={cn(
           'glass-panel border-white/10 transition-all duration-300',
-          step === 'preview' ? 'sm:max-w-5xl max-h-[95vh]' : 'sm:max-w-md',
+          step === 'preview' ? 'sm:max-w-[95vw] max-h-[95vh]' : 'sm:max-w-md',
         )}
       >
         <DialogHeader>
@@ -341,7 +418,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                         <SelectValue placeholder="Selecione o modelo" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Balanço">Balanço</SelectItem>
+                        <SelectItem value="Balanço Patrimonial">Balanço Patrimonial</SelectItem>
                         <SelectItem value="DRE">DRE</SelectItem>
                         <SelectItem value="Balancete">Balancete</SelectItem>
                         <SelectItem value="Fluxo de Caixa">Fluxo de Caixa</SelectItem>
@@ -440,7 +517,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
 
                 <div className="flex items-center justify-between flex-wrap gap-4">
                   <div className="flex items-center gap-4">
-                    <h3 className="text-base font-medium">Revisão Tabular</h3>
+                    <h3 className="text-base font-medium">Revisão Tabular - {docType}</h3>
                     <div className="flex items-center space-x-2 bg-card/50 px-3 py-1.5 rounded-md border border-white/5">
                       <Switch id="noise-mode" checked={showNoise} onCheckedChange={setShowNoise} />
                       <Label htmlFor="noise-mode" className="text-xs cursor-pointer">
@@ -476,19 +553,13 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                   <div className="overflow-y-auto flex-1 custom-scrollbar">
                     <Table>
                       <TableHeader className="sticky top-0 bg-background/95 backdrop-blur z-10 shadow-sm">
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead className="w-[140px]">Código Conta</TableHead>
-                          <TableHead>Descrição da Conta</TableHead>
-                          <TableHead className="text-right w-[160px]">Valor Atual</TableHead>
-                          <TableHead className="text-right w-[160px]">Valor Anterior</TableHead>
-                          <TableHead className="w-[50px]"></TableHead>
-                        </TableRow>
+                        {renderTableHeaders()}
                       </TableHeader>
                       <TableBody>
                         {previewRows.length === 0 && !showNoise && (
                           <TableRow>
                             <TableCell
-                              colSpan={5}
+                              colSpan={getColSpan()}
                               className="text-center py-8 text-muted-foreground"
                             >
                               Nenhum dado válido na tabela. Clique em "Nova Linha" ou cole dados do
@@ -499,44 +570,255 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
 
                         {previewRows.map((row: any, i: number) => (
                           <TableRow key={`row-${i}`} className="border-white/5">
-                            <TableCell className="p-2">
-                              <Input
-                                value={row.classification_code || ''}
-                                onChange={(e) =>
-                                  handleUpdateRow(i, 'classification_code', e.target.value)
-                                }
-                                placeholder="1.01"
-                                className="h-8 text-xs bg-background/50 border-white/10"
-                              />
-                            </TableCell>
-                            <TableCell className="p-2">
-                              <Input
-                                value={row.description || ''}
-                                onChange={(e) => handleUpdateRow(i, 'description', e.target.value)}
-                                placeholder="Descrição"
-                                className="h-8 text-xs bg-background/50 border-white/10"
-                              />
-                            </TableCell>
-                            <TableCell className="p-2">
-                              <Input
-                                type="number"
-                                value={row.value ?? ''}
-                                onChange={(e) =>
-                                  handleUpdateRow(i, 'value', parseFloat(e.target.value) || 0)
-                                }
-                                className="h-8 text-xs text-right bg-background/50 border-white/10"
-                              />
-                            </TableCell>
-                            <TableCell className="p-2">
-                              <Input
-                                type="number"
-                                value={row.raw?.valor_exercicio_anterior ?? ''}
-                                onChange={(e) =>
-                                  handleUpdateRow(i, 'anterior', parseFloat(e.target.value) || 0)
-                                }
-                                className="h-8 text-xs text-right bg-background/50 border-white/10"
-                              />
-                            </TableCell>
+                            {docType === 'Balancete' && (
+                              <>
+                                <TableCell className="p-2">
+                                  <Input
+                                    value={row.account_code || ''}
+                                    onChange={(e) =>
+                                      handleUpdateRow(i, 'account_code', e.target.value)
+                                    }
+                                    placeholder="Código"
+                                    className="h-8 text-xs bg-background/50 border-white/10"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    value={row.classification_code || ''}
+                                    onChange={(e) =>
+                                      handleUpdateRow(i, 'classification_code', e.target.value)
+                                    }
+                                    placeholder="Classificação"
+                                    className="h-8 text-xs bg-background/50 border-white/10"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    value={row.description || ''}
+                                    onChange={(e) =>
+                                      handleUpdateRow(i, 'description', e.target.value)
+                                    }
+                                    placeholder="Descrição"
+                                    className="h-8 text-xs bg-background/50 border-white/10"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    type="number"
+                                    value={row.raw?.previous_balance ?? ''}
+                                    onChange={(e) =>
+                                      handleUpdateRow(
+                                        i,
+                                        'previous_balance',
+                                        parseFloat(e.target.value) || 0,
+                                        true,
+                                      )
+                                    }
+                                    className="h-8 text-xs text-right bg-background/50 border-white/10"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    type="number"
+                                    value={row.raw?.debit ?? ''}
+                                    onChange={(e) =>
+                                      handleUpdateRow(
+                                        i,
+                                        'debit',
+                                        parseFloat(e.target.value) || 0,
+                                        true,
+                                      )
+                                    }
+                                    className="h-8 text-xs text-right bg-background/50 border-white/10"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    type="number"
+                                    value={row.raw?.credit ?? ''}
+                                    onChange={(e) =>
+                                      handleUpdateRow(
+                                        i,
+                                        'credit',
+                                        parseFloat(e.target.value) || 0,
+                                        true,
+                                      )
+                                    }
+                                    className="h-8 text-xs text-right bg-background/50 border-white/10"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    type="number"
+                                    value={row.value ?? ''}
+                                    onChange={(e) =>
+                                      handleUpdateRow(i, 'value', parseFloat(e.target.value) || 0)
+                                    }
+                                    className="h-8 text-xs text-right bg-background/50 border-white/10"
+                                  />
+                                </TableCell>
+                              </>
+                            )}
+                            {(docType === 'Balanço' || docType === 'Balanço Patrimonial') && (
+                              <>
+                                <TableCell className="p-2">
+                                  <Input
+                                    value={row.account_code || ''}
+                                    onChange={(e) =>
+                                      handleUpdateRow(i, 'account_code', e.target.value)
+                                    }
+                                    placeholder="Codigo"
+                                    className="h-8 text-xs bg-background/50 border-white/10"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    value={row.classification_code || ''}
+                                    onChange={(e) =>
+                                      handleUpdateRow(i, 'classification_code', e.target.value)
+                                    }
+                                    placeholder="Classificacao"
+                                    className="h-8 text-xs bg-background/50 border-white/10"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    value={row.description || ''}
+                                    onChange={(e) =>
+                                      handleUpdateRow(i, 'description', e.target.value)
+                                    }
+                                    placeholder="Descricao"
+                                    className="h-8 text-xs bg-background/50 border-white/10"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    type="number"
+                                    value={row.value ?? ''}
+                                    onChange={(e) =>
+                                      handleUpdateRow(i, 'value', parseFloat(e.target.value) || 0)
+                                    }
+                                    className="h-8 text-xs text-right bg-background/50 border-white/10"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    type="number"
+                                    value={row.raw?.valor_exercicio_anterior ?? ''}
+                                    onChange={(e) =>
+                                      handleUpdateRow(
+                                        i,
+                                        'valor_exercicio_anterior',
+                                        parseFloat(e.target.value) || 0,
+                                        true,
+                                      )
+                                    }
+                                    className="h-8 text-xs text-right bg-background/50 border-white/10"
+                                  />
+                                </TableCell>
+                              </>
+                            )}
+                            {docType === 'DRE' && (
+                              <>
+                                <TableCell className="p-2">
+                                  <Input
+                                    value={row.description || ''}
+                                    onChange={(e) =>
+                                      handleUpdateRow(i, 'description', e.target.value)
+                                    }
+                                    placeholder="Descricao"
+                                    className="h-8 text-xs bg-background/50 border-white/10"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    type="number"
+                                    value={row.value ?? ''}
+                                    onChange={(e) =>
+                                      handleUpdateRow(i, 'value', parseFloat(e.target.value) || 0)
+                                    }
+                                    className="h-8 text-xs text-right bg-background/50 border-white/10"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    type="number"
+                                    value={row.raw?.sum ?? ''}
+                                    onChange={(e) =>
+                                      handleUpdateRow(
+                                        i,
+                                        'sum',
+                                        parseFloat(e.target.value) || 0,
+                                        true,
+                                      )
+                                    }
+                                    className="h-8 text-xs text-right bg-background/50 border-white/10"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    type="number"
+                                    value={row.raw?.total ?? ''}
+                                    onChange={(e) =>
+                                      handleUpdateRow(
+                                        i,
+                                        'total',
+                                        parseFloat(e.target.value) || 0,
+                                        true,
+                                      )
+                                    }
+                                    className="h-8 text-xs text-right bg-background/50 border-white/10"
+                                  />
+                                </TableCell>
+                              </>
+                            )}
+                            {docType === 'Fluxo de Caixa' && (
+                              <>
+                                <TableCell className="p-2">
+                                  <Input
+                                    value={row.description || ''}
+                                    onChange={(e) =>
+                                      handleUpdateRow(i, 'description', e.target.value)
+                                    }
+                                    placeholder="Descricao"
+                                    className="h-8 text-xs bg-background/50 border-white/10"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    value={row.period || ''}
+                                    onChange={(e) => handleUpdateRow(i, 'period', e.target.value)}
+                                    placeholder="Mes"
+                                    className="h-8 text-xs bg-background/50 border-white/10"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    type="number"
+                                    value={row.raw?.planned_value ?? ''}
+                                    onChange={(e) =>
+                                      handleUpdateRow(
+                                        i,
+                                        'planned_value',
+                                        parseFloat(e.target.value) || 0,
+                                        true,
+                                      )
+                                    }
+                                    className="h-8 text-xs text-right bg-background/50 border-white/10"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <Input
+                                    type="number"
+                                    value={row.value ?? ''}
+                                    onChange={(e) =>
+                                      handleUpdateRow(i, 'value', parseFloat(e.target.value) || 0)
+                                    }
+                                    className="h-8 text-xs text-right bg-background/50 border-white/10"
+                                  />
+                                </TableCell>
+                              </>
+                            )}
                             <TableCell className="p-2 text-center">
                               <Button
                                 variant="ghost"
@@ -557,7 +839,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                               key={`noise-${i}`}
                               className="opacity-40 hover:opacity-100 transition-opacity bg-accent/20"
                             >
-                              <TableCell colSpan={5} className="text-xs font-mono p-2">
+                              <TableCell colSpan={getColSpan()} className="text-xs font-mono p-2">
                                 [Ruído] {noise.linha_original}
                               </TableCell>
                             </TableRow>

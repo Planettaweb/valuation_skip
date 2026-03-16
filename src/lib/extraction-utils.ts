@@ -69,7 +69,9 @@ export function parseStructuredData(rows: any[][], documentType: string) {
     if (isHeader) {
       if (
         strCols.some((c) =>
-          /valor|value|saldo|descrição|description|conta|code|código|débito|crédito/i.test(c),
+          /valor|value|saldo|descrição|description|conta|code|código|débito|crédito|mes|planejado|realizado/i.test(
+            c,
+          ),
         )
       ) {
         isHeader = false
@@ -84,9 +86,11 @@ export function parseStructuredData(rows: any[][], documentType: string) {
       }
     }
 
+    let account_code = null
     let classification_code = null
     let description = ''
     let value = null
+    let period = null
     let raw: any = {}
 
     const numCols = strCols
@@ -95,24 +99,46 @@ export function parseStructuredData(rows: any[][], documentType: string) {
 
     if (numCols.length > 0) {
       const firstNumIdx = numCols[0].idx
-      value = numCols[0].val
-      if (numCols.length > 1) {
-        raw.valor_exercicio_anterior = numCols[1].val
-      }
 
       if (firstNumIdx > 0) {
         description = strCols[firstNumIdx - 1]
       }
       if (firstNumIdx > 1) {
         classification_code = strCols[firstNumIdx - 2]
+      }
+      if (firstNumIdx > 2) {
+        account_code = strCols[firstNumIdx - 3]
       } else if (firstNumIdx === 0 && strCols.length > 1 && !numCols.find((n) => n.idx === 1)) {
         description = strCols[1]
       }
 
+      if (documentType === 'Balancete') {
+        raw.previous_balance = numCols[0]?.val || null
+        raw.debit = numCols[1]?.val || null
+        raw.credit = numCols[2]?.val || null
+        value = numCols[3]?.val || numCols[0]?.val
+      } else if (documentType === 'DRE') {
+        value = numCols[0]?.val || null
+        raw.sum = numCols[1]?.val || null
+        raw.total = numCols[2]?.val || null
+      } else if (documentType === 'Fluxo de Caixa') {
+        raw.planned_value = numCols[0]?.val || null
+        value = numCols[1]?.val || numCols[0]?.val
+        period =
+          strCols.find((c) => /^[A-Za-z]{3}\/?\d{2,4}$/.test(c) || /^\d{2}\/\d{4}$/.test(c)) || null
+      } else {
+        value = numCols[0]?.val || null
+        if (numCols.length > 1) {
+          raw.valor_exercicio_anterior = numCols[1].val
+        }
+      }
+
       rowsData.push({
+        account_code,
         classification_code,
         description: description || 'Sem Descrição',
         value,
+        period,
         document_type: documentType,
         raw,
       })
@@ -176,7 +202,8 @@ export function isValidRow(c: any): boolean {
     c.current_balance != null ||
     c.balance != null ||
     c.debit != null ||
-    c.credit != null
+    c.credit != null ||
+    c.realized_value != null
 
   return hasDesc || hasValue
 }
@@ -186,6 +213,7 @@ export function processExtractedData(extractedText: string, documentType: string
   const rawArray = extractArrayFromMetadata(metadataObj)
 
   const rowsData = rawArray.filter(isValidRow).map((c: any) => ({
+    account_code: c.account_code || c.codigo || null,
     classification_code: c.classificacao || c.classification_code || null,
     description: (
       c.descricao ||
@@ -202,12 +230,22 @@ export function processExtractedData(extractedText: string, documentType: string
       c.value ??
       c.current_balance ??
       c.balance ??
+      c.realized_value ??
       c.total ??
       null,
-    period: metadataObj.cabecalho?.year_n || metadataObj.periodo || c.period || null,
+    period: metadataObj.cabecalho?.year_n || metadataObj.periodo || c.period || c.mes || null,
     nature: c.natureza_exercicio_atual || c.natureza || c.nature || null,
     document_type: documentType,
-    raw: c,
+    raw: {
+      valor_exercicio_anterior: c.valor_exercicio_anterior,
+      previous_balance: c.saldo_anterior || c.previous_balance,
+      debit: c.debito || c.debit,
+      credit: c.credito || c.credit,
+      sum: c.soma || c.sum,
+      total: c.total,
+      planned_value: c.valor_planejado || c.planned_value,
+      ...c,
+    },
   }))
 
   return { metadataObj, rowsData, rawText: extractedText, noise: metadataObj.noise || [] }
@@ -259,6 +297,7 @@ export async function persistStructuredData(
         rowsData.map((d) => ({
           org_id: orgId,
           document_id: docId,
+          account_code: d.account_code,
           classification_code: d.classification_code,
           description: d.description,
           value_year_n: toNum(d.value),
@@ -274,11 +313,12 @@ export async function persistStructuredData(
         rowsData.map((d) => ({
           org_id: orgId,
           document_id: docId,
+          account_code: d.account_code,
           classification_code: d.classification_code,
           account_description: d.description,
-          previous_balance: toNum(d.raw?.saldo_anterior || d.raw?.previous_balance),
-          debit: toNum(d.raw?.debito || d.raw?.debit),
-          credit: toNum(d.raw?.credito || d.raw?.credit),
+          previous_balance: toNum(d.raw?.previous_balance),
+          debit: toNum(d.raw?.debit),
+          credit: toNum(d.raw?.credit),
           current_balance: toNum(d.value),
         })),
       )
@@ -290,7 +330,7 @@ export async function persistStructuredData(
           document_id: docId,
           description: d.description,
           balance: toNum(d.value),
-          sum: toNum(d.raw?.soma || d.raw?.sum),
+          sum: toNum(d.raw?.sum),
           total: toNum(d.raw?.total || d.value),
         })),
       )
@@ -302,6 +342,8 @@ export async function persistStructuredData(
           document_id: docId,
           description: d.description,
           value: toNum(d.value),
+          planned_value: toNum(d.raw?.planned_value),
+          realized_value: toNum(d.value),
           period: d.period?.toString() || null,
         })),
       )

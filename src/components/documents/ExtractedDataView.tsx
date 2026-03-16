@@ -101,18 +101,20 @@ export function ExtractedDataView({
         <Table>
           <TableHeader>
             <TableRow className="border-white/10 hover:bg-transparent">
-              <TableHead>Código</TableHead>
-              <TableHead>Descrição</TableHead>
-              <TableHead className="text-right">Ano N</TableHead>
-              <TableHead className="text-right">Ano N-1</TableHead>
+              <TableHead>Codigo</TableHead>
+              <TableHead>Classificacao</TableHead>
+              <TableHead>Descricao</TableHead>
+              <TableHead className="text-right">Ano atual</TableHead>
+              <TableHead className="text-right">Ano anterior</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {currentData.map((r) => (
               <TableRow
-                key={r.id || r.classification_code}
+                key={r.id || r.classification_code || Math.random()}
                 className="border-white/5 hover:bg-white/5"
               >
+                <TableCell className="text-muted-foreground">{r.account_code}</TableCell>
                 <TableCell className="text-muted-foreground">{r.classification_code}</TableCell>
                 <TableCell className="font-medium">{r.description}</TableCell>
                 <TableCell className="text-right">
@@ -153,7 +155,7 @@ export function ExtractedDataView({
         <Table>
           <TableHeader>
             <TableRow className="border-white/10 hover:bg-transparent">
-              <TableHead>Descrição</TableHead>
+              <TableHead>Descricao</TableHead>
               <TableHead className="text-right">Saldo</TableHead>
               <TableHead className="text-right">Soma</TableHead>
               <TableHead className="text-right">Total</TableHead>
@@ -161,7 +163,10 @@ export function ExtractedDataView({
           </TableHeader>
           <TableBody>
             {currentData.map((r) => (
-              <TableRow key={r.id || r.description} className="border-white/5 hover:bg-white/5">
+              <TableRow
+                key={r.id || r.description || Math.random()}
+                className="border-white/5 hover:bg-white/5"
+              >
                 <TableCell className="font-medium">{r.description}</TableCell>
                 <TableCell className="text-right">{formatCurrency(r.balance)}</TableCell>
                 <TableCell className="text-right">{formatCurrency(r.sum)}</TableCell>
@@ -179,7 +184,8 @@ export function ExtractedDataView({
           <TableHeader>
             <TableRow className="border-white/10 hover:bg-transparent">
               <TableHead>Código</TableHead>
-              <TableHead>Conta</TableHead>
+              <TableHead>Classificação</TableHead>
+              <TableHead>Descrição da conta</TableHead>
               <TableHead className="text-right">Saldo Anterior</TableHead>
               <TableHead className="text-right">Débito</TableHead>
               <TableHead className="text-right">Crédito</TableHead>
@@ -189,9 +195,10 @@ export function ExtractedDataView({
           <TableBody>
             {currentData.map((r) => (
               <TableRow
-                key={r.id || r.classification_code}
+                key={r.id || r.classification_code || Math.random()}
                 className="border-white/5 hover:bg-white/5"
               >
+                <TableCell className="text-muted-foreground">{r.account_code}</TableCell>
                 <TableCell className="text-muted-foreground">{r.classification_code}</TableCell>
                 <TableCell className="font-medium">{r.account_description}</TableCell>
                 <TableCell className="text-right">{formatCurrency(r.previous_balance)}</TableCell>
@@ -212,20 +219,30 @@ export function ExtractedDataView({
         <Table>
           <TableHeader>
             <TableRow className="border-white/10 hover:bg-transparent">
-              <TableHead>Período</TableHead>
-              <TableHead>Descrição</TableHead>
-              <TableHead className="text-right">Valor</TableHead>
+              <TableHead>Descricao</TableHead>
+              <TableHead>Mes</TableHead>
+              <TableHead className="text-right">Valor planejado</TableHead>
+              <TableHead className="text-right">Valor realizado</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {currentData.map((r) => (
-              <TableRow key={r.id || r.description} className="border-white/5 hover:bg-white/5">
-                <TableCell className="text-muted-foreground">{r.period}</TableCell>
+              <TableRow
+                key={r.id || r.description || Math.random()}
+                className="border-white/5 hover:bg-white/5"
+              >
                 <TableCell className="font-medium">{r.description}</TableCell>
+                <TableCell className="text-muted-foreground">{r.period}</TableCell>
+                <TableCell className="text-right text-muted-foreground">
+                  {formatCurrency(r.planned_value)}
+                </TableCell>
                 <TableCell
-                  className={cn('text-right', r.value < 0 ? 'text-red-400' : 'text-emerald-400')}
+                  className={cn(
+                    'text-right font-medium',
+                    (r.realized_value || r.value) < 0 ? 'text-red-400' : 'text-emerald-400',
+                  )}
                 >
-                  {formatCurrency(r.value)}
+                  {formatCurrency(r.realized_value || r.value)}
                 </TableCell>
               </TableRow>
             ))}

@@ -84,39 +84,39 @@ export function BalancoPatrimonialView({ bp, data }: { bp: any; data: any[] }) {
         <Table>
           <TableHeader>
             <TableRow className="border-white/10 hover:bg-transparent">
-              <TableHead>Código</TableHead>
-              <TableHead>Classificação</TableHead>
-              <TableHead>Descrição</TableHead>
-              <TableHead className="text-right">Saldo {yearN}</TableHead>
-              <TableHead className="text-right">Saldo {yearN1}</TableHead>
+              <TableHead>Codigo</TableHead>
+              <TableHead>Classificacao</TableHead>
+              <TableHead>Descricao</TableHead>
+              <TableHead className="text-right">Ano atual</TableHead>
+              <TableHead className="text-right">Ano anterior</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {currentData.map((r: any, idx: number) => (
               <TableRow key={idx} className="border-white/5 hover:bg-white/5">
                 <TableCell className="text-muted-foreground">
-                  {r.codigo || r.classification_code || '-'}
+                  {r.account_code || r.codigo || '-'}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {r.classificacao || r.classification_code || '-'}
+                  {r.classification_code || r.classificacao || '-'}
                 </TableCell>
-                <TableCell className="font-medium">{r.descricao || r.description}</TableCell>
+                <TableCell className="font-medium">{r.description || r.descricao}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
-                    <span>{formatCurrency(r.valor_exercicio_atual ?? r.value_year_n)}</span>
-                    {(r.natureza_exercicio_atual || r.nature_year_n) && (
+                    <span>{formatCurrency(r.value_year_n ?? r.valor_exercicio_atual)}</span>
+                    {(r.nature_year_n || r.natureza_exercicio_atual) && (
                       <Badge
                         variant="outline"
                         className={cn(
                           'px-1.5 min-w-6 justify-center',
-                          (r.natureza_exercicio_atual ?? r.nature_year_n) === 'D'
+                          (r.nature_year_n ?? r.natureza_exercicio_atual) === 'D'
                             ? 'text-rose-400 border-rose-400/30 bg-rose-400/10'
-                            : (r.natureza_exercicio_atual ?? r.nature_year_n) === 'C'
+                            : (r.nature_year_n ?? r.natureza_exercicio_atual) === 'C'
                               ? 'text-emerald-400 border-emerald-400/30 bg-emerald-400/10'
                               : 'text-muted-foreground',
                         )}
                       >
-                        {r.natureza_exercicio_atual ?? r.nature_year_n}
+                        {r.nature_year_n ?? r.natureza_exercicio_atual}
                       </Badge>
                     )}
                   </div>
@@ -124,21 +124,21 @@ export function BalancoPatrimonialView({ bp, data }: { bp: any; data: any[] }) {
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
                     <span>
-                      {formatCurrency(r.valor_exercicio_anterior ?? r.value_year_n_minus_1)}
+                      {formatCurrency(r.value_year_n_minus_1 ?? r.valor_exercicio_anterior)}
                     </span>
-                    {(r.natureza_exercicio_anterior || r.nature_year_n_minus_1) && (
+                    {(r.nature_year_n_minus_1 || r.natureza_exercicio_anterior) && (
                       <Badge
                         variant="outline"
                         className={cn(
                           'px-1.5 min-w-6 justify-center',
-                          (r.natureza_exercicio_anterior ?? r.nature_year_n_minus_1) === 'D'
+                          (r.nature_year_n_minus_1 ?? r.natureza_exercicio_anterior) === 'D'
                             ? 'text-rose-400 border-rose-400/30 bg-rose-400/10'
-                            : (r.natureza_exercicio_anterior ?? r.nature_year_n_minus_1) === 'C'
+                            : (r.nature_year_n_minus_1 ?? r.natureza_exercicio_anterior) === 'C'
                               ? 'text-emerald-400 border-emerald-400/30 bg-emerald-400/10'
                               : 'text-muted-foreground',
                         )}
                       >
-                        {r.natureza_exercicio_anterior ?? r.nature_year_n_minus_1}
+                        {r.nature_year_n_minus_1 ?? r.natureza_exercicio_anterior}
                       </Badge>
                     )}
                   </div>
