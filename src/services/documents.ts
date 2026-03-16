@@ -1,5 +1,43 @@
 import { supabase } from '@/lib/supabase/client'
-import { extractTextFromPDF, parseBalancoPatrimonialText } from '@/lib/pdf-parser'
+import { extractTextFromPDF, parseBalancoPatrimonialText, parseBalanceteText, parseDREText, parseFluxoCaixaText } from '@/lib/pdf-parser'
+
+// ✅ NOVA FUNÇÃO: Extrai apenas a tabela (remove cabeçalho/rodapé)
+function extractTableOnly(fullText: string): string {
+  const lines = fullText.split('\n')
+  
+  // Padrões que indicam INÍCIO da tabela
+  const tableStartPatterns = [
+    /^\s*(ATIVO|PASSIVO|RECEITA|DESPESA|SALDO|Conta|Código|Descricao|Description|Account|CONTAS)/i,
+    /^\s*[A-Z\s]{10,}[\s]{5,}[\d.,\-\(\)]+/, // Linha com números
+  ]
+  
+  // Padrões que indicam FIM da tabela (rodapé)
+  const tableEndPatterns = [
+    /^\s*(TOTAL GERAL|TOTAL|Assinado|Responsável|Data:|Carimbo|Assinatura|Preparado|Revisado)/i,
+    /^\s*_{5,}/, // Linhas de underscore (assinatura)
+  ]
+  
+  let tableStart = 0
+  let tableEnd = lines.length
+  
+  // Encontra início da tabela
+  for (let i = 0; i &lt; lines.length; i++) {
+    if (tableStartPatterns.some(p => p.test(lines[i]))) {
+      tableStart = i
+      break
+    }
+  }
+  
+  // Encontra fim da tabela
+  for (let i = lines.length - 1; i > tableStart; i--) {
+    if (tableEndPatterns.some(p => p.test(lines[i]))) {
+      tableEnd = i
+      break
+    }
+  }
+  
+  return lines.slice(tableStart, tableEnd).join('\n')
+}
 
 export const documentService = {
   async getDocuments(orgId: string, filters?: { clientId?: string }) {
@@ -127,69 +165,61 @@ export const documentService = {
       let rowsData: any[] = []
       let metadataObj: any = null
 
-      if (documentType === 'Balanço') {
-        if (file.type !== 'application/pdf') {
-          throw new Error('A extração de Balanço requer um arquivo PDF.')
-        }
+      // ✅ MUDANÇA 1: Valida PDF para TODOS os 4 tipos (não apenas Balanço)
+      if (!['Balanço', 'Balancete', 'DRE', 'Fluxo de Caixa'].includes(documentType)) {
+        throw new Error(`Tipo de documento não suportado: ${documentType}`)
+      }
 
-        onProgress?.('Lendo arquivo PDF localmente (todas as páginas)...')
-        const extractedText = await extractTextFromPDF(file)
+      if (file.type !== 'application/pdf') {
+        throw new Error('Todos os documentos financeiros devem ser em formato PDF.')
+      }
 
-        onProgress?.('Analisando texto estruturado (Engine de NLP/Regex)...')
-        metadataObj = parseBalancoPatrimonialText(extractedText)
+      // ✅ MUDANÇA 2: Map de parsers para cada tipo
+      const parserMap: Record<string, (text: string) => any> = {
+        'Balanço': parseBalancoPatrimonialText,
+        'Balancete': parseBalanceteText,
+        'DRE': parseDREText,
+        'Fluxo de Caixa': parseFluxoCaixaText,
+      }
 
-        if (
-          !metadataObj.balanco_patrimonial.contas ||
-          metadataObj.balanco_patrimonial.contas.length === 0
-        ) {
-          throw new Error(
-            'Falha na extração: Nenhuma conta contábil encontrada. Verifique se o PDF está legível e contém dados de Balanço.',
-          )
-        }
+      onProgress?.('Lendo arquivo PDF localmente (todas as páginas)...')
+      let extractedText = await extractTextFromPDF(file)
 
-        rowsData = metadataObj.balanco_patrimonial.contas
-          .filter((c: any) => c.descricao && c.descricao.trim().length > 0)
-          .map((c: any) => ({
-            classification_code: c.classificacao || null,
-            description: c.descricao.trim(),
-            value_year_n:
-              typeof c.valor_exercicio_atual === 'number' ? c.valor_exercicio_atual : null,
-            nature_year_n: c.natureza_exercicio_atual || null,
-            value_year_n_minus_1:
-              typeof c.valor_exercicio_anterior === 'number' ? c.valor_exercicio_anterior : null,
-            nature_year_n_minus_1: c.natureza_exercicio_anterior || null,
-            year_n: metadataObj.balanco_patrimonial.cabecalho.year_n || null,
-            year_n_minus_1: metadataObj.balanco_patrimonial.cabecalho.year_n_minus_1 || null,
-          }))
+      // ✅ MUDANÇA 3: Extrai apenas a tabela
+      onProgress?.('Removendo cabeçalho e rodapé...')
+      extractedText = extractTableOnly(extractedText)
 
-        if (rowsData.length === 0) {
-          throw new Error(
-            'Falha na extração: As linhas de conta contábil identificadas são inválidas ou vazias.',
-          )
-        }
-      } else if (documentType === 'DRE') {
-        onProgress?.('Simulando extração de DRE...')
-        await new Promise((r) => setTimeout(r, 1000))
-        rowsData = [
-          { description: 'Receita Líquida', balance: null, sum: null, total: 28135234.77 },
-        ]
-      } else if (documentType === 'Balancete') {
-        onProgress?.('Simulando extração de Balancete...')
-        await new Promise((r) => setTimeout(r, 1000))
-        rowsData = [
-          {
-            classification_code: '1',
-            account_description: 'ATIVO',
-            previous_balance: 2850024.56,
-            debit: 111694961.01,
-            credit: 90634464.63,
-            current_balance: 23910520.94,
-          },
-        ]
-      } else if (documentType === 'Fluxo de Caixa') {
-        onProgress?.('Simulando extração de Fluxo de Caixa...')
-        await new Promise((r) => setTimeout(r, 1000))
-        rowsData = [{ description: 'Saldo Final de Caixa', value: 23314302.5, period: '2025' }]
+      // ✅ MUDANÇA 4: Chama o parser apropriado
+      onProgress?.('Analisando texto estruturado (Engine de NLP/Regex)...')
+      const parser = parserMap[documentType]
+      metadataObj = parser(extractedText)
+
+      // ✅ MUDANÇA 5: Validação genérica para todos os tipos
+      if (!metadataObj || !metadataObj.contas || metadataObj.contas.length === 0) {
+        throw new Error(
+          `Falha na extração: Nenhum dado contábil encontrado em ${documentType}. Verifique se o PDF está legível.`,
+        )
+      }
+
+      // ✅ MUDANÇA 6: Estrutura unificada para todos os tipos
+      rowsData = metadataObj.contas
+        .filter((c: any) => c.descricao && c.descricao.trim().length > 0)
+        .map((c: any) => ({
+          classification_code: c.classificacao || null,
+          description: c.descricao.trim(),
+          value:
+            typeof c.valor_exercicio_atual === 'number' ? c.valor_exercicio_atual : 
+            typeof c.valor === 'number' ? c.valor :
+            typeof c.total === 'number' ? c.total : null,
+          period: metadataObj.cabecalho?.year_n || metadataObj.periodo || null,
+          nature: c.natureza || null,
+          document_type: documentType,
+        }))
+
+      if (rowsData.length === 0) {
+        throw new Error(
+          'Falha na extração: As linhas de dados extraídas são inválidas ou vazias.',
+        )
       }
 
       onProgress?.('Salvando metadados estruturados e concluindo...')
@@ -216,10 +246,10 @@ export const documentService = {
             org_id: orgId,
             document_id: doc.id,
             row_number: index + 1,
-            account_name: d.description || d.account_description || 'Unknown',
-            value:
-              d.value_year_n || d.value || d.total || d.current_balance || d.previous_balance || 0,
-            period: d.year_n?.toString() || d.period || null,
+            account_name: d.description || 'Unknown',
+            value: d.value || 0,
+            period: d.period?.toString() || null,
+            document_type: d.document_type,
           })),
         )
       }
@@ -297,48 +327,62 @@ export const documentService = {
       let rowsData: any[] = []
       let metadataObj: any = null
 
-      if (doc.document_type === 'Balanço') {
-        if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
-          throw new Error('A extração de Balanço requer um arquivo PDF.')
-        }
+      // ✅ MUDANÇA 7: Suporta reprocessamento para TODOS os 4 tipos
+      const supportedTypes = ['Balanço', 'Balancete', 'DRE', 'Fluxo de Caixa']
+      if (!supportedTypes.includes(doc.document_type)) {
+        throw new Error(`Reprocessamento não suportado para: ${doc.document_type}`)
+      }
 
-        onProgress?.('Lendo arquivo PDF localmente (todas as páginas)...')
-        const extractedText = await extractTextFromPDF(file)
+      // ✅ MUDANÇA 8: Map de parsers (igual ao uploadDocument)
+      const parserMap: Record<string, (text: string) => any> = {
+        'Balanço': parseBalancoPatrimonialText,
+        'Balancete': parseBalanceteText,
+        'DRE': parseDREText,
+        'Fluxo de Caixa': parseFluxoCaixaText,
+      }
 
-        onProgress?.('Analisando texto estruturado (Engine de NLP/Regex melhorada)...')
-        metadataObj = parseBalancoPatrimonialText(extractedText)
+      if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
+        throw new Error('A extração requer um arquivo PDF.')
+      }
 
-        if (
-          !metadataObj.balanco_patrimonial.contas ||
-          metadataObj.balanco_patrimonial.contas.length === 0
-        ) {
-          throw new Error(
-            'Falha na extração: Nenhuma conta contábil encontrada. Verifique se o PDF está legível e contém dados de Balanço.',
-          )
-        }
+      onProgress?.('Lendo arquivo PDF localmente (todas as páginas)...')
+      let extractedText = await extractTextFromPDF(file)
 
-        rowsData = metadataObj.balanco_patrimonial.contas
-          .filter((c: any) => c.descricao && c.descricao.trim().length > 0)
-          .map((c: any) => ({
-            classification_code: c.classificacao || null,
-            description: c.descricao.trim(),
-            value_year_n:
-              typeof c.valor_exercicio_atual === 'number' ? c.valor_exercicio_atual : null,
-            nature_year_n: c.natureza_exercicio_atual || null,
-            value_year_n_minus_1:
-              typeof c.valor_exercicio_anterior === 'number' ? c.valor_exercicio_anterior : null,
-            nature_year_n_minus_1: c.natureza_exercicio_anterior || null,
-            year_n: metadataObj.balanco_patrimonial.cabecalho.year_n || null,
-            year_n_minus_1: metadataObj.balanco_patrimonial.cabecalho.year_n_minus_1 || null,
-          }))
+      // ✅ MUDANÇA 9: Extrai apenas a tabela
+      onProgress?.('Removendo cabeçalho e rodapé...')
+      extractedText = extractTableOnly(extractedText)
 
-        if (rowsData.length === 0) {
-          throw new Error(
-            'Falha na extração: As linhas de conta contábil identificadas são inválidas ou vazias.',
-          )
-        }
-      } else {
-        throw new Error(`Reprocessamento automatizado não suportado para: ${doc.document_type}`)
+      // ✅ MUDANÇA 10: Chama o parser apropriado
+      onProgress?.('Analisando texto estruturado (Engine de NLP/Regex melhorada)...')
+      const parser = parserMap[doc.document_type]
+      metadataObj = parser(extractedText)
+
+      // ✅ MUDANÇA 11: Validação genérica
+      if (!metadataObj || !metadataObj.contas || metadataObj.contas.length === 0) {
+        throw new Error(
+          `Falha na extração: Nenhum dado encontrado em ${doc.document_type}. Verifique se o PDF está legível.`,
+        )
+      }
+
+      // ✅ MUDANÇA 12: Estrutura unificada (igual ao uploadDocument)
+      rowsData = metadataObj.contas
+        .filter((c: any) => c.descricao && c.descricao.trim().length > 0)
+        .map((c: any) => ({
+          classification_code: c.classificacao || null,
+          description: c.descricao.trim(),
+          value:
+            typeof c.valor_exercicio_atual === 'number' ? c.valor_exercicio_atual : 
+            typeof c.valor === 'number' ? c.valor :
+            typeof c.total === 'number' ? c.total : null,
+          period: metadataObj.cabecalho?.year_n || metadataObj.periodo || null,
+          nature: c.natureza || null,
+          document_type: doc.document_type,
+        }))
+
+      if (rowsData.length === 0) {
+        throw new Error(
+          'Falha na extração: As linhas de dados extraídas são inválidas ou vazias.',
+        )
       }
 
       onProgress?.('Salvando metadados estruturados e atualizando status...')
@@ -364,10 +408,10 @@ export const documentService = {
             org_id: orgId,
             document_id: doc.id,
             row_number: index + 1,
-            account_name: d.description || d.account_description || 'Unknown',
-            value:
-              d.value_year_n || d.value || d.total || d.current_balance || d.previous_balance || 0,
-            period: d.year_n?.toString() || d.period || null,
+            account_name: d.description || 'Unknown',
+            value: d.value || 0,
+            period: d.period?.toString() || null,
+            document_type: d.document_type,
           })),
         )
         if (insertErr) throw insertErr
