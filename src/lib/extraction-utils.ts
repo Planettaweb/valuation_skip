@@ -91,7 +91,7 @@ export function processExtractedData(extractedText: string, documentType: string
 
   if (rawArray.length === 0) {
     throw new Error(
-      'Falha na extração: Nenhum dado contábil encontrado. Verifique a legibilidade do arquivo.',
+      'Falha na extração: Nenhum dado contábil encontrado usando os padrões avançados. Verifique a legibilidade do arquivo.',
     )
   }
 

@@ -59,10 +59,10 @@ export async function extractTextFromPDF(file: File): Promise<string> {
 const parseIntSafe = (val: string) => parseInt(val, 10) || 0
 
 const parseValueAndNatureStr = (valStr: string | null, nature: string | null) => {
-  if (valStr === null) return { value: null, nature: nature || null }
+  if (!valStr) return { value: null, nature: nature || null }
   if (valStr === '-') return { value: 0, nature: nature || null }
 
-  let rawNum = valStr.replace(/[()]/g, '')
+  let rawNum = valStr.replace(/[DcC()]/g, '').trim()
   let isNegative = valStr.includes('(') || valStr.startsWith('-')
 
   if (rawNum.includes(',') && rawNum.includes('.') && rawNum.indexOf(',') < rawNum.indexOf('.')) {
@@ -74,7 +74,13 @@ const parseValueAndNatureStr = (valStr: string | null, nature: string | null) =>
   let value = parseFloat(rawNum) || 0
   if (isNegative && value > 0) value = -Math.abs(value)
 
-  return { value, nature: nature ? nature.toUpperCase() : null }
+  let extractedNature = nature
+  const natMatch = valStr.match(/[DcC]$/i)
+  if (natMatch && !extractedNature) {
+    extractedNature = natMatch[0].toUpperCase()
+  }
+
+  return { value, nature: extractedNature || null }
 }
 
 export function parseFinancialText(text: string, docType: string) {
@@ -83,93 +89,79 @@ export function parseFinancialText(text: string, docType: string) {
   const year_n = uniqueYears[0] || new Date().getFullYear()
 
   const contas: any[] = []
+  let extractedTotal = 0
+
   const lines = text.split('\n')
+
+  // Feature: Regex-Powered Tabular Extraction
+  // Group 1: Internal Code (Integer)
+  // Group 2: Classification Code (e.g., 1.1.10.1)
+  // Group 3: Account Description
+  // Group 4: Value Year N
+  // Group 5: Value Year N-1
+  const strictRegex = /^(\d+)\s+([\d.]+)\s+(.+?)\s+([-\d.,()]+[DCdc]?)\s+([-\d.,()]+[DCdc]?)$/
+  const fallbackRegex = /^([\d.]+)\s+(.+?)\s+([-\d.,()]+[DCdc]?)\s*([-\d.,()]+[DCdc]?)?$/
 
   for (const line of lines) {
     const cleanLine = line.trim()
-    if (!cleanLine || /^(?:pág|folha|data|hora|impresso|sistema|relatório)/i.test(cleanLine))
-      continue
+    if (!cleanLine) continue
 
-    const tokens = cleanLine.split(/\s+/)
-    const parsedValues = []
-    let i = tokens.length - 1
+    // Noise filtering
+    if (/^(?:pág|folha|data|hora|impresso|sistema|relatório|cnpj|insc)/i.test(cleanLine)) continue
 
-    const isVal = (t: string) =>
-      /^[-]?\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?$/.test(t) || t === '-' || /^\([\d.,]+\)$/.test(t)
-    const isValWithNat = (t: string) =>
-      /^[-]?\d[\d.,]*[DCdc]$/i.test(t) || /^\([\d.,]+\)[DCdc]$/i.test(t)
-
-    while (i >= 0 && parsedValues.length < 2) {
-      let token = tokens[i]
-      let nature: string | null = null
-      let valueStr: string | null = null
-
-      if (/^[DCdc]$/i.test(token) && i > 0) {
-        nature = token.toUpperCase()
-        i--
-        token = tokens[i]
-      }
-
-      if (isValWithNat(token)) {
-        nature = token.slice(-1).toUpperCase()
-        valueStr = token.slice(0, -1)
-      } else if (isVal(token)) {
-        valueStr = token
-      } else {
-        break
-      }
-
-      if (valueStr) {
-        parsedValues.unshift({ valueStr, nature })
-      }
-      i--
+    // Extract Check-sum Total
+    const totalMatch =
+      cleanLine.match(/TOTALIZANDO.*?VALOR DE R\$?\s*([-\d.,]+)/i) ||
+      cleanLine.match(/^(?:TOTAL GERAL|TOTAL|PASSIVO E PATRIMÔNIO LÍQUIDO).*?([-\d.,]+[DCdc]?)$/i)
+    if (totalMatch && totalMatch[1]) {
+      const p = parseValueAndNatureStr(totalMatch[1], null)
+      if (p.value) extractedTotal = p.value
     }
 
-    const descTokens = tokens.slice(0, i + 1)
-    let descricao = descTokens.join(' ').trim()
-
-    if (parsedValues.length > 0 || descricao.length > 2) {
-      let codigo = 0
-      let classificacao = ''
-
-      const prefixMatch = descricao.match(/^(\d{1,6})?\s*([\d]+(?:\.\d+)*)\s+(.*)$/)
-      const clsMatch = descricao.match(/^([\d]+(?:\.\d+)*)\s+(.*)$/)
-
-      if (prefixMatch && prefixMatch[3]) {
-        codigo = parseIntSafe(prefixMatch[1] || '0')
-        classificacao = prefixMatch[2]
-        descricao = prefixMatch[3]
-      } else if (clsMatch && clsMatch[2]) {
-        classificacao = clsMatch[1]
-        descricao = clsMatch[2]
-      }
-
-      if (!descricao) descricao = 'Sem Descrição'
-
-      const vnStr = parsedValues.length >= 1 ? parsedValues[0].valueStr : null
-      const vnNat = parsedValues.length >= 1 ? parsedValues[0].nature : null
-      const vn1Str = parsedValues.length >= 2 ? parsedValues[1].valueStr : null
-      const vn1Nat = parsedValues.length >= 2 ? parsedValues[1].nature : null
-
-      const vn = parseValueAndNatureStr(vnStr, vnNat)
-      const vn1 = parseValueAndNatureStr(vn1Str, vn1Nat)
-
+    let match = cleanLine.match(strictRegex)
+    if (match) {
+      const v1 = parseValueAndNatureStr(match[4], null)
+      const v2 = parseValueAndNatureStr(match[5], null)
       contas.push({
-        codigo,
-        classificacao,
-        descricao,
-        valor_exercicio_atual: vn.value,
-        natureza_exercicio_atual: vn.nature,
-        valor_exercicio_anterior: vn1.value,
-        natureza_exercicio_anterior: vn1.nature,
-        valor: vn.value,
+        codigo: parseIntSafe(match[1]),
+        classificacao: match[2],
+        descricao: match[3].trim(),
+        valor_exercicio_atual: v1.value,
+        natureza_exercicio_atual: v1.nature,
+        valor_exercicio_anterior: v2.value,
+        natureza_exercicio_anterior: v2.nature,
+        valor: v1.value,
+        linha_original: cleanLine,
+      })
+      continue
+    }
+
+    match = cleanLine.match(fallbackRegex)
+    if (match) {
+      const v1 = parseValueAndNatureStr(match[3], null)
+      const v2 = parseValueAndNatureStr(match[4], null)
+      contas.push({
+        codigo: null,
+        classificacao: match[1],
+        descricao: match[2].trim(),
+        valor_exercicio_atual: v1.value,
+        natureza_exercicio_atual: v1.nature,
+        valor_exercicio_anterior: v2.value,
+        natureza_exercicio_anterior: v2.nature,
+        valor: v1.value,
+        linha_original: cleanLine,
       })
     }
   }
+
+  // Calculate sum of individual rows for Automated Check-sum Validation
+  const calculatedSum = contas.reduce((acc, c) => acc + (c.valor_exercicio_atual || 0), 0)
 
   return {
     cabecalho: { year_n },
     docType,
     items: contas,
+    extractedTotal,
+    calculatedSum,
   }
 }

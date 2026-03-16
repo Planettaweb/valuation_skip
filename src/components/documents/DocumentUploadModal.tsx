@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Upload, Loader2, AlertCircle } from 'lucide-react'
+import { Upload, Loader2, AlertCircle, Check } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import {
   Dialog,
@@ -18,6 +18,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { useToast } from '@/hooks/use-toast'
 import { documentService } from '@/services/documents'
 import { clientService } from '@/services/clients'
@@ -40,8 +49,11 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
   const [clients, setClients] = useState<any[]>([])
   const [selectedClient, setSelectedClient] = useState(defaultClientId || '')
 
-  const [uploading, setUploading] = useState(false)
+  const [step, setStep] = useState<'form' | 'processing' | 'preview' | 'saving'>('form')
   const [statusMessage, setStatusMessage] = useState('')
+  const [parsedPreview, setParsedPreview] = useState<{ metadataObj: any; rowsData: any[] } | null>(
+    null,
+  )
 
   useEffect(() => {
     if (isOpen) {
@@ -58,21 +70,11 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
 
   const validateAndSetFile = (f?: File) => {
     if (!f) return
-    const allowedTypes = [
-      'application/pdf',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'text/csv',
-    ]
-    if (
-      !allowedTypes.includes(f.type) &&
-      !f.name.endsWith('.csv') &&
-      !f.name.endsWith('.xls') &&
-      !f.name.endsWith('.xlsx')
-    ) {
+    const allowedTypes = ['application/pdf']
+    if (!allowedTypes.includes(f.type) && !f.name.endsWith('.pdf')) {
       toast({
         title: 'Formato inválido',
-        description: 'Apenas PDF, Excel e CSV são suportados.',
+        description: 'A extração avançada suporta apenas PDF atualmente.',
         variant: 'destructive',
       })
       return
@@ -105,47 +107,91 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     validateAndSetFile(e.dataTransfer.files?.[0])
   }
 
-  const handleUpload = async () => {
+  const handleProcessPreview = async () => {
     if (!file || !selectedClient) return
-    setUploading(true)
-    setStatusMessage('Iniciando processamento...')
+    setStep('processing')
+    setStatusMessage('Iniciando processamento local e validação...')
 
-    const { error } = await documentService.uploadDocument(
+    try {
+      const parsed = await documentService.parseDocumentLocal(file, docType, setStatusMessage)
+      setParsedPreview(parsed)
+      setStep('preview')
+    } catch (err: any) {
+      toast({ title: 'Erro de Processamento', description: err.message, variant: 'destructive' })
+      setStep('form')
+    }
+  }
+
+  const handleConfirmSave = async () => {
+    if (!file || !selectedClient || !parsedPreview) return
+    setStep('saving')
+    setStatusMessage('Iniciando gravação no SharePoint e Banco de Dados...')
+
+    const { error } = await documentService.saveParsedDocument(
       file,
       userProfile.org_id,
       userProfile.id,
       selectedClient,
       docType,
-      (msg) => setStatusMessage(msg),
+      parsedPreview,
+      setStatusMessage,
     )
 
     if (error) {
-      toast({ title: 'Erro de Processamento', description: error.message, variant: 'destructive' })
+      toast({ title: 'Erro de Gravação', description: error.message, variant: 'destructive' })
+      setStep('preview')
     } else {
       toast({
-        title: 'Extração Concluída',
-        description: 'Os dados estruturados foram extraídos e salvos com sucesso.',
+        title: 'Documento Salvo',
+        description: 'Os dados extraídos foram validados e persistidos com sucesso.',
       })
       setIsOpen(false)
-      setFile(null)
+      resetState()
       onSuccess()
     }
-    setUploading(false)
+  }
+
+  const resetState = () => {
+    setFile(null)
+    setStep('form')
+    setParsedPreview(null)
     setStatusMessage('')
   }
 
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open)
+    if (!open) resetState()
+  }
+
+  const formatCurrency = (val: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
+
+  const hasDiscrepancy =
+    parsedPreview &&
+    Math.abs(
+      (parsedPreview.metadataObj.calculatedSum || 0) -
+        (parsedPreview.metadataObj.extractedTotal || 0),
+    ) > 0.01
+
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button className="bg-primary hover:bg-primary/90 shadow-[0_0_15px_rgba(139,92,246,0.2)]">
           <Upload className="w-4 h-4 mr-2" /> Upload Inteligente
         </Button>
       </DialogTrigger>
-      <DialogContent className="glass-panel border-white/10 sm:max-w-md">
+      <DialogContent
+        className={cn(
+          'glass-panel border-white/10 transition-all duration-300',
+          step === 'preview' ? 'sm:max-w-4xl max-h-[95vh]' : 'sm:max-w-md',
+        )}
+      >
         <DialogHeader>
           <DialogTitle>Processar Documento Financeiro</DialogTitle>
           <DialogDescription>
-            Faça o upload e selecione o cliente e o modelo de extração.
+            {step === 'form'
+              ? 'Faça o upload e selecione o cliente e o modelo de extração.'
+              : 'Revise os dados estruturados extraídos antes de persistir.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -165,106 +211,187 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
           </div>
         ) : (
           <div className="mt-4 flex flex-col gap-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Cliente</Label>
-                <Select
-                  value={selectedClient}
-                  onValueChange={setSelectedClient}
-                  disabled={!!defaultClientId}
+            {step === 'form' && (
+              <div className="flex flex-col gap-4 animate-in fade-in zoom-in-95">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground">Cliente</Label>
+                    <Select
+                      value={selectedClient}
+                      onValueChange={setSelectedClient}
+                      disabled={!!defaultClientId}
+                    >
+                      <SelectTrigger className="bg-card/50 border-white/10">
+                        <SelectValue placeholder="Selecione..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clients.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.client_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground">Modelo de Extração</Label>
+                    <Select value={docType} onValueChange={setDocType}>
+                      <SelectTrigger className="bg-card/50 border-white/10">
+                        <SelectValue placeholder="Selecione o modelo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Balanço">Balanço</SelectItem>
+                        <SelectItem value="DRE">DRE</SelectItem>
+                        <SelectItem value="Balancete">Balancete</SelectItem>
+                        <SelectItem value="Fluxo de Caixa">Fluxo de Caixa</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => document.getElementById('file-upload')?.click()}
+                  className={cn(
+                    'border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer',
+                    dragActive
+                      ? 'border-primary bg-primary/5'
+                      : 'border-white/20 bg-card/30 hover:bg-white/5',
+                    file ? 'border-primary/50' : '',
+                  )}
                 >
-                  <SelectTrigger className="bg-card/50 border-white/10">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.client_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  <input
+                    id="file-upload"
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => validateAndSetFile(e.target.files?.[0])}
+                    accept=".pdf"
+                  />
+                  <Upload
+                    className={cn(
+                      'w-8 h-8 mx-auto mb-3 transition-colors',
+                      file ? 'text-primary' : 'text-muted-foreground',
+                    )}
+                  />
+                  {file ? (
+                    <div className="space-y-1 animate-fade-in">
+                      <p className="text-sm font-medium text-white">{file.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="animate-fade-in">
+                      <p className="text-sm font-medium text-white">
+                        Arraste e solte o documento aqui
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Ou clique para buscar no computador (.pdf)
+                      </p>
+                    </div>
+                  )}
+                </div>
 
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Modelo de Extração</Label>
-                <Select value={docType} onValueChange={setDocType}>
-                  <SelectTrigger className="bg-card/50 border-white/10">
-                    <SelectValue placeholder="Selecione o modelo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Balanço">Balanço</SelectItem>
-                    <SelectItem value="DRE">DRE</SelectItem>
-                    <SelectItem value="Balancete">Balancete</SelectItem>
-                    <SelectItem value="Fluxo de Caixa">Fluxo de Caixa</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={() => document.getElementById('file-upload')?.click()}
-              className={cn(
-                'border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer',
-                dragActive
-                  ? 'border-primary bg-primary/5'
-                  : 'border-white/20 bg-card/30 hover:bg-white/5',
-                file ? 'border-primary/50' : '',
-              )}
-            >
-              <input
-                id="file-upload"
-                type="file"
-                className="hidden"
-                onChange={(e) => validateAndSetFile(e.target.files?.[0])}
-                accept=".pdf,.xls,.xlsx,.csv"
-              />
-              <Upload
-                className={cn(
-                  'w-8 h-8 mx-auto mb-3 transition-colors',
-                  file ? 'text-primary' : 'text-muted-foreground',
-                )}
-              />
-              {file ? (
-                <div className="space-y-1 animate-fade-in">
-                  <p className="text-sm font-medium text-white">{file.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {(file.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
-                </div>
-              ) : (
-                <div className="animate-fade-in">
-                  <p className="text-sm font-medium text-white">Arraste e solte o documento aqui</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Ou clique para buscar no computador (.pdf, .xls, .csv)
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {uploading && (
-              <div className="w-full animate-fade-in p-4 bg-primary/10 rounded-lg border border-primary/20 flex flex-col gap-3">
-                <div className="flex items-center gap-3 text-sm text-primary">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="font-medium">Processando Documento...</span>
-                </div>
-                <div className="w-full bg-background rounded-full h-1.5 overflow-hidden">
-                  <div className="bg-primary h-full animate-[pulse_2s_ease-in-out_infinite] w-full" />
-                </div>
-                <p className="text-xs text-primary/70 animate-pulse">{statusMessage}</p>
+                <Button
+                  onClick={handleProcessPreview}
+                  disabled={!file || !selectedClient}
+                  className="w-full mt-2"
+                >
+                  Extrair e Validar Dados
+                </Button>
               </div>
             )}
 
-            <Button
-              onClick={handleUpload}
-              disabled={!file || !selectedClient || uploading}
-              className="w-full mt-2"
-            >
-              {uploading ? 'Aguarde...' : 'Processar no Navegador'}
-            </Button>
+            {(step === 'processing' || step === 'saving') && (
+              <div className="w-full py-12 flex flex-col items-center justify-center gap-4 animate-in fade-in">
+                <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                <div className="text-center space-y-2">
+                  <h4 className="font-medium text-lg text-foreground">
+                    {step === 'processing' ? 'Analisando Documento' : 'Salvando Dados'}
+                  </h4>
+                  <p className="text-sm text-muted-foreground max-w-[280px] animate-pulse">
+                    {statusMessage}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {step === 'preview' && parsedPreview && (
+              <div className="flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-medium">Revisão Tabular</h3>
+                  <span className="text-xs text-muted-foreground bg-accent/50 px-2 py-1 rounded">
+                    {parsedPreview.rowsData.length} registros extraídos
+                  </span>
+                </div>
+
+                {hasDiscrepancy && (
+                  <Alert variant="destructive" className="bg-destructive/10 border-destructive/50">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Discrepância Detectada na Validação</AlertTitle>
+                    <AlertDescription>
+                      Atenção: A soma dos registros extraídos (
+                      {formatCurrency(parsedPreview.metadataObj.calculatedSum)}) diverge do valor
+                      total informado no documento (
+                      {formatCurrency(parsedPreview.metadataObj.extractedTotal)}).
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="border rounded-md flex-1 overflow-hidden flex flex-col bg-card/50 max-h-[50vh]">
+                  <div className="overflow-y-auto flex-1">
+                    <Table>
+                      <TableHeader className="sticky top-0 bg-background/95 backdrop-blur z-10 shadow-sm">
+                        <TableRow>
+                          <TableHead className="w-[120px]">Classificação</TableHead>
+                          <TableHead>Descrição da Conta</TableHead>
+                          <TableHead className="text-right w-[150px]">Valor Ano N</TableHead>
+                          <TableHead className="text-right w-[150px]">Valor Ano N-1</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {parsedPreview.rowsData.map((row: any, i: number) => (
+                          <TableRow key={i}>
+                            <TableCell className="font-medium text-xs">
+                              {row.classification_code}
+                            </TableCell>
+                            <TableCell className="text-xs">{row.description}</TableCell>
+                            <TableCell className="text-right text-xs">
+                              {row.value != null ? formatCurrency(row.value) : '-'}
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground text-xs">
+                              {row.raw?.valor_exercicio_anterior != null
+                                ? formatCurrency(row.raw.valor_exercicio_anterior)
+                                : '-'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 justify-end mt-2 pt-2 border-t border-white/5">
+                  <Button
+                    variant="outline"
+                    onClick={() => setStep('form')}
+                    disabled={step === 'saving'}
+                  >
+                    Voltar e Descartar
+                  </Button>
+                  <Button
+                    onClick={handleConfirmSave}
+                    disabled={step === 'saving'}
+                    className="gap-2"
+                  >
+                    <Check className="w-4 h-4" /> Confirmar e Gravar
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </DialogContent>

@@ -30,12 +30,34 @@ export const documentService = {
     return { data: mapped, error }
   },
 
-  async uploadDocument(
+  async parseDocumentLocal(file: File, documentType: string, onProgress?: (msg: string) => void) {
+    if (!['Balanço', 'Balancete', 'DRE', 'Fluxo de Caixa'].includes(documentType)) {
+      throw new Error(`Tipo de documento não suportado: ${documentType}`)
+    }
+
+    if (file.type !== 'application/pdf') {
+      throw new Error('A extração atual suporta apenas arquivos PDF.')
+    }
+
+    onProgress?.('Lendo arquivo PDF...')
+    let extractedText = await extractTextFromPDF(file)
+
+    onProgress?.('Isolando escopo tabular...')
+    extractedText = extractTableOnly(extractedText)
+
+    onProgress?.('Aplicando extração avançada e checagem de soma...')
+    const { metadataObj, rowsData } = processExtractedData(extractedText, documentType)
+
+    return { metadataObj, rowsData }
+  },
+
+  async saveParsedDocument(
     file: File,
     orgId: string,
     userId: string,
     clientId: string,
     documentType: string,
+    parsedData: { metadataObj: any; rowsData: any[] },
     onProgress?: (msg: string) => void,
   ) {
     let sharepointPath: string | null = null
@@ -112,9 +134,7 @@ export const documentService = {
 
     onProgress?.('Criando registro do documento no banco...')
 
-    // Feature: Sequential Persistence Logic
-    // Must insert into primary 'documents' table first to guarantee FK integrity
-    // for subsequent financial child tables inserting.
+    // Database Integrity Sequence
     const { data: mainDoc, error: mainDocError } = await supabase
       .from('documents')
       .insert({
@@ -140,7 +160,7 @@ export const documentService = {
     const { data: doc, error: insertError } = await supabase
       .from('financial_documents' as any)
       .insert({
-        id: mainDoc.id, // Explicitly bind IDs for relational consistency
+        id: mainDoc.id, // Guarantee FK integrity
         org_id: orgId,
         valuation_id: valuationId,
         file_name: file.name,
@@ -153,7 +173,6 @@ export const documentService = {
       .single()
 
     if (insertError || !doc) {
-      // Error Handling: Rollback primary document creation if secondary fails
       await supabase.from('documents').delete().eq('id', mainDoc.id)
       return {
         data: null,
@@ -162,25 +181,8 @@ export const documentService = {
     }
 
     try {
-      if (!['Balanço', 'Balancete', 'DRE', 'Fluxo de Caixa'].includes(documentType)) {
-        throw new Error(`Tipo de documento não suportado: ${documentType}`)
-      }
-
-      if (file.type !== 'application/pdf') {
-        throw new Error('A extração atual suporta apenas arquivos PDF.')
-      }
-
-      onProgress?.('Lendo arquivo de produção...')
-      let extractedText = await extractTextFromPDF(file)
-
-      onProgress?.('Normalizando documento contábil...')
-      extractedText = extractTableOnly(extractedText)
-
-      onProgress?.('Extraindo entidades financeiras...')
-      const { metadataObj, rowsData } = processExtractedData(extractedText, documentType)
-
       onProgress?.('Salvando dados estruturados no Supabase...')
-      const finalMetadata = metadataObj ? metadataObj : rowsData
+      const finalMetadata = parsedData.metadataObj ? parsedData.metadataObj : parsedData.rowsData
 
       const { data: updatedDoc, error: updateError } = await supabase
         .from('financial_documents' as any)
@@ -205,7 +207,7 @@ export const documentService = {
         .eq('id', doc.id)
 
       onProgress?.('Mapeando tabelas analíticas secundárias...')
-      await persistStructuredData(orgId, doc.id, documentType, rowsData)
+      await persistStructuredData(orgId, doc.id, documentType, parsedData.rowsData)
 
       await supabase.from('audit_logs').insert({
         org_id: orgId,
@@ -219,7 +221,7 @@ export const documentService = {
       onProgress?.('Processamento concluído com sucesso!')
       return { data: updatedDoc, error: null }
     } catch (error: any) {
-      console.error('Production extraction failed:', error)
+      console.error('Production persistence failed:', error)
       await supabase
         .from('financial_documents' as any)
         .update({ status: 'Error', updated_at: new Date().toISOString() })
@@ -229,7 +231,10 @@ export const documentService = {
         .update({ status: 'Error', updated_at: new Date().toISOString() })
         .eq('id', doc.id)
 
-      return { data: null, error: new Error(error.message || 'Erro durante a extração local.') }
+      return {
+        data: null,
+        error: new Error(error.message || 'Erro ao persistir os dados do documento.'),
+      }
     }
   },
 
@@ -252,7 +257,6 @@ export const documentService = {
       if (!doc.sharepoint_path)
         throw new Error('O documento não possui um caminho no SharePoint para ser baixado.')
 
-      // Ensure the document exists in `documents` to prevent FK errors when reprocessing legacy items
       const { data: mainDocCheck } = await supabase
         .from('documents')
         .select('id')
