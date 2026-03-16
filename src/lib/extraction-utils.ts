@@ -144,7 +144,7 @@ export async function persistStructuredData(
     return isNaN(parsed) ? null : parsed
   }
 
-  await supabase.from('financial_data' as any).insert(
+  const { error: dataError } = await supabase.from('financial_data' as any).insert(
     rowsData.map((d, index) => ({
       org_id: orgId,
       document_id: docId,
@@ -155,10 +155,11 @@ export async function persistStructuredData(
       document_type: documentType,
     })),
   )
+  if (dataError) console.error('Error inserting into financial_data:', dataError)
 
   try {
-    if (documentType === 'Balanço') {
-      await supabase.from('financial_balanco_patrimonial' as any).insert(
+    if (documentType === 'Balanço' || documentType === 'Balanço Patrimonial') {
+      const { error } = await supabase.from('financial_balanco_patrimonial' as any).insert(
         rowsData.map((d) => ({
           org_id: orgId,
           document_id: docId,
@@ -171,8 +172,9 @@ export async function persistStructuredData(
           year_n: d.period ? parseInt(d.period) : null,
         })),
       )
+      if (error) throw error
     } else if (documentType === 'Balancete') {
-      await supabase.from('financial_balancete' as any).insert(
+      const { error } = await supabase.from('financial_balancete' as any).insert(
         rowsData.map((d) => ({
           org_id: orgId,
           document_id: docId,
@@ -184,8 +186,9 @@ export async function persistStructuredData(
           current_balance: toNum(d.value),
         })),
       )
+      if (error) throw error
     } else if (documentType === 'DRE') {
-      await supabase.from('financial_dre' as any).insert(
+      const { error } = await supabase.from('financial_dre' as any).insert(
         rowsData.map((d) => ({
           org_id: orgId,
           document_id: docId,
@@ -195,8 +198,9 @@ export async function persistStructuredData(
           total: toNum(d.raw.total || d.value),
         })),
       )
+      if (error) throw error
     } else if (documentType === 'Fluxo de Caixa') {
-      await supabase.from('financial_fluxo_caixa' as any).insert(
+      const { error } = await supabase.from('financial_fluxo_caixa' as any).insert(
         rowsData.map((d) => ({
           org_id: orgId,
           document_id: docId,
@@ -205,8 +209,10 @@ export async function persistStructuredData(
           period: d.period?.toString() || null,
         })),
       )
+      if (error) throw error
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('Error inserting into specific analytical tables:', err)
+    throw new Error('Falha ao persistir dados estruturados nas tabelas analíticas: ' + err.message)
   }
 }

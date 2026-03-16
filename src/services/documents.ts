@@ -112,9 +112,35 @@ export const documentService = {
 
     onProgress?.('Criando registro do documento no banco...')
 
+    // Feature: Sequential Persistence Logic
+    // Must insert into primary 'documents' table first to guarantee FK integrity
+    // for subsequent financial child tables inserting.
+    const { data: mainDoc, error: mainDocError } = await supabase
+      .from('documents')
+      .insert({
+        org_id: orgId,
+        user_id: userId,
+        title: file.name,
+        filename: file.name,
+        file_size: file.size,
+        mime_type: file.type || 'application/pdf',
+        document_type: documentType,
+        status: 'Processing',
+      })
+      .select('id')
+      .single()
+
+    if (mainDocError || !mainDoc) {
+      return {
+        data: null,
+        error: mainDocError || new Error('Falha ao criar o documento principal.'),
+      }
+    }
+
     const { data: doc, error: insertError } = await supabase
       .from('financial_documents' as any)
       .insert({
+        id: mainDoc.id, // Explicitly bind IDs for relational consistency
         org_id: orgId,
         valuation_id: valuationId,
         file_name: file.name,
@@ -127,7 +153,12 @@ export const documentService = {
       .single()
 
     if (insertError || !doc) {
-      return { data: null, error: insertError || new Error('Falha ao criar o documento.') }
+      // Error Handling: Rollback primary document creation if secondary fails
+      await supabase.from('documents').delete().eq('id', mainDoc.id)
+      return {
+        data: null,
+        error: insertError || new Error('Falha ao criar o documento financeiro.'),
+      }
     }
 
     try {
@@ -164,6 +195,15 @@ export const documentService = {
 
       if (updateError) throw updateError
 
+      await supabase
+        .from('documents')
+        .update({
+          status: 'Processed',
+          metadata: finalMetadata,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', doc.id)
+
       onProgress?.('Mapeando tabelas analíticas secundárias...')
       await persistStructuredData(orgId, doc.id, documentType, rowsData)
 
@@ -182,6 +222,10 @@ export const documentService = {
       console.error('Production extraction failed:', error)
       await supabase
         .from('financial_documents' as any)
+        .update({ status: 'Error', updated_at: new Date().toISOString() })
+        .eq('id', doc.id)
+      await supabase
+        .from('documents')
         .update({ status: 'Error', updated_at: new Date().toISOString() })
         .eq('id', doc.id)
 
@@ -207,6 +251,31 @@ export const documentService = {
       if (docError || !doc) throw new Error('Documento não encontrado na organização atual.')
       if (!doc.sharepoint_path)
         throw new Error('O documento não possui um caminho no SharePoint para ser baixado.')
+
+      // Ensure the document exists in `documents` to prevent FK errors when reprocessing legacy items
+      const { data: mainDocCheck } = await supabase
+        .from('documents')
+        .select('id')
+        .eq('id', docId)
+        .single()
+      if (!mainDocCheck) {
+        await supabase.from('documents').insert({
+          id: docId,
+          org_id: orgId,
+          user_id: userId,
+          title: doc.file_name,
+          filename: doc.file_name,
+          file_size: doc.file_size,
+          document_type: doc.document_type,
+          status: 'Processing',
+        })
+      } else {
+        await supabase.from('documents').update({ status: 'Processing' }).eq('id', docId)
+      }
+      await supabase
+        .from('financial_documents' as any)
+        .update({ status: 'Processing' })
+        .eq('id', docId)
 
       onProgress?.('Acessando Microsoft Graph API para baixar o arquivo...')
       const { data: sessionData } = await supabase.auth.getSession()
@@ -292,6 +361,15 @@ export const documentService = {
 
       if (updateError) throw updateError
 
+      await supabase
+        .from('documents')
+        .update({
+          status: 'Processed',
+          metadata: finalMetadata,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', doc.id)
+
       onProgress?.('Validando integridade em tabelas secundárias...')
       await persistStructuredData(orgId, doc.id, doc.document_type, rowsData)
 
@@ -312,6 +390,10 @@ export const documentService = {
         .from('financial_documents' as any)
         .update({ status: 'Error', updated_at: new Date().toISOString() })
         .eq('id', docId)
+      await supabase
+        .from('documents')
+        .update({ status: 'Error', updated_at: new Date().toISOString() })
+        .eq('id', docId)
 
       return { data: null, error: new Error(error.message || 'Erro durante o reprocessamento.') }
     }
@@ -330,6 +412,8 @@ export const documentService = {
       .from('financial_documents' as any)
       .delete()
       .eq('id', id)
+
+    await supabase.from('documents').delete().eq('id', id)
 
     if (error) return { error, spErrorMsg }
 
