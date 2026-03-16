@@ -364,17 +364,17 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                 )}
 
                 {previewRows.length === 0 ? (
-                  <div className="border border-white/10 rounded-md bg-card/50 p-4 space-y-2">
-                    <p className="text-sm font-medium text-amber-500">Revisão Manual Necessária</p>
-                    <p className="text-xs text-muted-foreground">
-                      O formato do documento não foi reconhecido automaticamente com os padrões
-                      estritos. Abaixo está o texto bruto extraído para revisão.
+                  <div className="border border-white/10 rounded-md bg-card/50 p-8 flex flex-col items-center justify-center text-center space-y-3">
+                    <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center">
+                      <AlertCircle className="w-6 h-6 text-red-500" />
+                    </div>
+                    <p className="text-base font-medium text-white">
+                      Nenhum dado contábil encontrado.
                     </p>
-                    <textarea
-                      className="w-full h-64 bg-black/50 border border-white/10 rounded-md p-3 text-xs font-mono text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
-                      readOnly
-                      value={parsedPreview.rawText || ''}
-                    />
+                    <p className="text-sm text-muted-foreground max-w-md">
+                      Por favor, verifique se o PDF possui texto selecionável. Documentos
+                      digitalizados como imagens não são suportados atualmente.
+                    </p>
                   </div>
                 ) : (
                   <div className="border border-white/10 rounded-md flex-1 overflow-hidden flex flex-col bg-card/50 max-h-[50vh]">
@@ -382,10 +382,14 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                       <Table>
                         <TableHeader className="sticky top-0 bg-background/95 backdrop-blur z-10 shadow-sm">
                           <TableRow className="hover:bg-transparent">
-                            <TableHead className="w-[120px]">Classificação</TableHead>
+                            <TableHead className="w-[120px]">Código de Classificação</TableHead>
                             <TableHead>Descrição da Conta</TableHead>
-                            <TableHead className="text-right w-[150px]">Valor Ano N</TableHead>
-                            <TableHead className="text-right w-[150px]">Valor Ano N-1</TableHead>
+                            <TableHead className="text-right w-[150px]">
+                              Valor Período Atual
+                            </TableHead>
+                            <TableHead className="text-right w-[150px]">
+                              Valor Período Anterior
+                            </TableHead>
                             <TableHead className="w-[50px]"></TableHead>
                           </TableRow>
                         </TableHeader>
@@ -393,7 +397,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                           {previewRows.map((row: any, i: number) => (
                             <TableRow key={i} className="border-white/5">
                               <TableCell className="font-medium text-xs text-white/90">
-                                {row.classification_code}
+                                {row.classification_code || '-'}
                               </TableCell>
                               <TableCell className="text-xs text-white/80">
                                 {row.description}
@@ -440,7 +444,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                   </Button>
                   <Button
                     onClick={handleConfirmSave}
-                    disabled={step === 'saving'}
+                    disabled={step === 'saving' || previewRows.length === 0}
                     className="gap-2"
                   >
                     <Check className="w-4 h-4" /> Confirmar e Gravar
