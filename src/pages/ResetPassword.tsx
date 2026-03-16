@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,6 +15,25 @@ export default function ResetPassword() {
   const { updatePassword } = useAuth()
   const { toast } = useToast()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  useEffect(() => {
+    // Handle error from URL hash (e.g., token expired or invalid)
+    const hash = location.hash || window.location.hash
+    if (hash) {
+      const params = new URLSearchParams(hash.substring(1))
+      const errorDesc = params.get('error_description')
+      if (errorDesc) {
+        toast({
+          title: 'Link Inválido',
+          description:
+            'O link de recuperação de senha é inválido ou expirou. Por favor, solicite um novo.',
+          variant: 'destructive',
+        })
+        navigate('/forgot-password')
+      }
+    }
+  }, [location, navigate, toast])
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,11 +60,15 @@ export default function ResetPassword() {
     try {
       const { error } = await updatePassword(password)
       if (error) {
-        toast({ title: 'Erro ao redefinir', description: error.message, variant: 'destructive' })
+        let msg = error.message
+        if (msg.includes('New password should be different')) {
+          msg = 'A nova senha deve ser diferente da atual.'
+        }
+        toast({ title: 'Erro ao redefinir', description: msg, variant: 'destructive' })
       } else {
         toast({
           title: 'Senha atualizada',
-          description: 'Sua senha foi redefinida com sucesso. Redirecionando...',
+          description: 'Senha alterada com sucesso! Você já pode realizar o login.',
         })
         setTimeout(() => {
           navigate('/login')

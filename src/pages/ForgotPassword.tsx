@@ -21,7 +21,11 @@ export default function ForgotPassword() {
     try {
       const { error } = await resetPassword(email)
       if (error) {
-        toast({ title: 'Erro', description: error.message, variant: 'destructive' })
+        let msg = error.message
+        if (msg.toLowerCase().includes('user not found')) {
+          msg = 'Não encontramos nenhuma conta vinculada a este e-mail.'
+        }
+        toast({ title: 'Erro ao enviar link', description: msg, variant: 'destructive' })
       } else {
         toast({
           title: 'Email enviado',
