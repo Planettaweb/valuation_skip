@@ -1,48 +1,10 @@
 import { supabase } from '@/lib/supabase/client'
-import { extractTextFromPDF, parseBalancoPatrimonialText } from '@/lib/pdf-parser'
-
-// Alias missing parsers to the existing one to resolve build errors
-const parseBalanceteText = parseBalancoPatrimonialText
-const parseDREText = parseBalancoPatrimonialText
-const parseFluxoCaixaText = parseBalancoPatrimonialText
-
-// ✅ NOVA FUNÇÃO: Extrai apenas a tabela (remove cabeçalho/rodapé)
-function extractTableOnly(fullText: string): string {
-  const lines = fullText.split('\n')
-
-  // Padrões que indicam INÍCIO da tabela
-  const tableStartPatterns = [
-    /^\s*(ATIVO|PASSIVO|RECEITA|DESPESA|SALDO|Conta|Código|Descricao|Description|Account|CONTAS)/i,
-    /^\s*[A-Z\s]{10,}[\s]{5,}[\d.,\-()]+/, // Linha com números
-  ]
-
-  // Padrões que indicam FIM da tabela (rodapé)
-  const tableEndPatterns = [
-    /^\s*(TOTAL GERAL|TOTAL|Assinado|Responsável|Data:|Carimbo|Assinatura|Preparado|Revisado)/i,
-    /^\s*_{5,}/, // Linhas de underscore (assinatura)
-  ]
-
-  let tableStart = 0
-  let tableEnd = lines.length
-
-  // Encontra início da tabela
-  for (let i = 0; i < lines.length; i++) {
-    if (tableStartPatterns.some((p) => p.test(lines[i]))) {
-      tableStart = i
-      break
-    }
-  }
-
-  // Encontra fim da tabela
-  for (let i = lines.length - 1; i > tableStart; i--) {
-    if (tableEndPatterns.some((p) => p.test(lines[i]))) {
-      tableEnd = i
-      break
-    }
-  }
-
-  return lines.slice(tableStart, tableEnd).join('\n')
-}
+import { extractTextFromPDF } from '@/lib/pdf-parser'
+import {
+  extractTableOnly,
+  processExtractedData,
+  persistStructuredData,
+} from '@/lib/extraction-utils'
 
 export const documentService = {
   async getDocuments(orgId: string, filters?: { clientId?: string }) {
@@ -167,10 +129,6 @@ export const documentService = {
     }
 
     try {
-      let rowsData: any[] = []
-      let metadataObj: any = null
-
-      // ✅ MUDANÇA 1: Valida PDF para TODOS os 4 tipos (não apenas Balanço)
       if (!['Balanço', 'Balancete', 'DRE', 'Fluxo de Caixa'].includes(documentType)) {
         throw new Error(`Tipo de documento não suportado: ${documentType}`)
       }
@@ -179,58 +137,16 @@ export const documentService = {
         throw new Error('Todos os documentos financeiros devem ser em formato PDF.')
       }
 
-      // ✅ MUDANÇA 2: Map de parsers para cada tipo
-      const parserMap: Record<string, (text: string) => any> = {
-        Balanço: parseBalancoPatrimonialText,
-        Balancete: parseBalanceteText,
-        DRE: parseDREText,
-        'Fluxo de Caixa': parseFluxoCaixaText,
-      }
-
       onProgress?.('Lendo arquivo PDF localmente (todas as páginas)...')
       let extractedText = await extractTextFromPDF(file)
 
-      // ✅ MUDANÇA 3: Extrai apenas a tabela
       onProgress?.('Removendo cabeçalho e rodapé...')
       extractedText = extractTableOnly(extractedText)
 
-      // ✅ MUDANÇA 4: Chama o parser apropriado
       onProgress?.('Analisando texto estruturado (Engine de NLP/Regex)...')
-      const parser = parserMap[documentType]
-      metadataObj = parser(extractedText)
-
-      // ✅ MUDANÇA 5: Validação genérica para todos os tipos
-      if (!metadataObj || !metadataObj.contas || metadataObj.contas.length === 0) {
-        throw new Error(
-          `Falha na extração: Nenhum dado contábil encontrado em ${documentType}. Verifique se o PDF está legível.`,
-        )
-      }
-
-      // ✅ MUDANÇA 6: Estrutura unificada para todos os tipos
-      rowsData = metadataObj.contas
-        .filter((c: any) => c.descricao && c.descricao.trim().length > 0)
-        .map((c: any) => ({
-          classification_code: c.classificacao || null,
-          description: c.descricao.trim(),
-          value:
-            typeof c.valor_exercicio_atual === 'number'
-              ? c.valor_exercicio_atual
-              : typeof c.valor === 'number'
-                ? c.valor
-                : typeof c.total === 'number'
-                  ? c.total
-                  : null,
-          period: metadataObj.cabecalho?.year_n || metadataObj.periodo || null,
-          nature: c.natureza || null,
-          document_type: documentType,
-        }))
-
-      if (rowsData.length === 0) {
-        throw new Error('Falha na extração: As linhas de dados extraídas são inválidas ou vazias.')
-      }
+      const { metadataObj, rowsData } = processExtractedData(extractedText, documentType)
 
       onProgress?.('Salvando metadados estruturados e concluindo...')
-
       const finalMetadata = metadataObj ? metadataObj : rowsData
 
       const { data: updatedDoc, error: updateError } = await supabase
@@ -246,20 +162,8 @@ export const documentService = {
 
       if (updateError) throw updateError
 
-      if (rowsData.length > 0) {
-        onProgress?.('Persistindo em tabelas analíticas secundárias...')
-        await supabase.from('financial_data' as any).insert(
-          rowsData.map((d, index) => ({
-            org_id: orgId,
-            document_id: doc.id,
-            row_number: index + 1,
-            account_name: d.description || 'Unknown',
-            value: d.value || 0,
-            period: d.period?.toString() || null,
-            document_type: d.document_type,
-          })),
-        )
-      }
+      onProgress?.('Persistindo em tabelas analíticas secundárias...')
+      await persistStructuredData(orgId, doc.id, documentType, rowsData)
 
       await supabase.from('audit_logs').insert({
         org_id: orgId,
@@ -324,28 +228,31 @@ export const documentService = {
       const blob = await res.blob()
       const file = new File([blob], doc.file_name, { type: blob.type || 'application/pdf' })
 
-      // Clean existing data to avoid duplicates
       onProgress?.('Removendo extração antiga...')
       await supabase
         .from('financial_data' as any)
         .delete()
         .eq('document_id', docId)
+      await supabase
+        .from('financial_balanco_patrimonial' as any)
+        .delete()
+        .eq('document_id', docId)
+      await supabase
+        .from('financial_balancete' as any)
+        .delete()
+        .eq('document_id', docId)
+      await supabase
+        .from('financial_dre' as any)
+        .delete()
+        .eq('document_id', docId)
+      await supabase
+        .from('financial_fluxo_caixa' as any)
+        .delete()
+        .eq('document_id', docId)
 
-      let rowsData: any[] = []
-      let metadataObj: any = null
-
-      // ✅ MUDANÇA 7: Suporta reprocessamento para TODOS os 4 tipos
       const supportedTypes = ['Balanço', 'Balancete', 'DRE', 'Fluxo de Caixa']
       if (!supportedTypes.includes(doc.document_type)) {
         throw new Error(`Reprocessamento não suportado para: ${doc.document_type}`)
-      }
-
-      // ✅ MUDANÇA 8: Map de parsers (igual ao uploadDocument)
-      const parserMap: Record<string, (text: string) => any> = {
-        Balanço: parseBalancoPatrimonialText,
-        Balancete: parseBalanceteText,
-        DRE: parseDREText,
-        'Fluxo de Caixa': parseFluxoCaixaText,
       }
 
       if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
@@ -355,44 +262,11 @@ export const documentService = {
       onProgress?.('Lendo arquivo PDF localmente (todas as páginas)...')
       let extractedText = await extractTextFromPDF(file)
 
-      // ✅ MUDANÇA 9: Extrai apenas a tabela
       onProgress?.('Removendo cabeçalho e rodapé...')
       extractedText = extractTableOnly(extractedText)
 
-      // ✅ MUDANÇA 10: Chama o parser apropriado
       onProgress?.('Analisando texto estruturado (Engine de NLP/Regex melhorada)...')
-      const parser = parserMap[doc.document_type]
-      metadataObj = parser(extractedText)
-
-      // ✅ MUDANÇA 11: Validação genérica
-      if (!metadataObj || !metadataObj.contas || metadataObj.contas.length === 0) {
-        throw new Error(
-          `Falha na extração: Nenhum dado encontrado em ${doc.document_type}. Verifique se o PDF está legível.`,
-        )
-      }
-
-      // ✅ MUDANÇA 12: Estrutura unificada (igual ao uploadDocument)
-      rowsData = metadataObj.contas
-        .filter((c: any) => c.descricao && c.descricao.trim().length > 0)
-        .map((c: any) => ({
-          classification_code: c.classificacao || null,
-          description: c.descricao.trim(),
-          value:
-            typeof c.valor_exercicio_atual === 'number'
-              ? c.valor_exercicio_atual
-              : typeof c.valor === 'number'
-                ? c.valor
-                : typeof c.total === 'number'
-                  ? c.total
-                  : null,
-          period: metadataObj.cabecalho?.year_n || metadataObj.periodo || null,
-          nature: c.natureza || null,
-          document_type: doc.document_type,
-        }))
-
-      if (rowsData.length === 0) {
-        throw new Error('Falha na extração: As linhas de dados extraídas são inválidas ou vazias.')
-      }
+      const { metadataObj, rowsData } = processExtractedData(extractedText, doc.document_type)
 
       onProgress?.('Salvando metadados estruturados e atualizando status...')
       const finalMetadata = metadataObj ? metadataObj : rowsData
@@ -410,21 +284,8 @@ export const documentService = {
 
       if (updateError) throw updateError
 
-      if (rowsData.length > 0) {
-        onProgress?.('Persistindo nas tabelas analíticas para os dashboards...')
-        const { error: insertErr } = await supabase.from('financial_data' as any).insert(
-          rowsData.map((d, index) => ({
-            org_id: orgId,
-            document_id: doc.id,
-            row_number: index + 1,
-            account_name: d.description || 'Unknown',
-            value: d.value || 0,
-            period: d.period?.toString() || null,
-            document_type: d.document_type,
-          })),
-        )
-        if (insertErr) throw insertErr
-      }
+      onProgress?.('Persistindo nas tabelas analíticas para os dashboards...')
+      await persistStructuredData(orgId, doc.id, doc.document_type, rowsData)
 
       await supabase.from('audit_logs').insert({
         org_id: orgId,
@@ -457,7 +318,6 @@ export const documentService = {
       .eq('id', id)
       .single()
 
-    // 1. Delete from DB to prioritize DB integrity (Cascades financial_data)
     const { error } = await supabase
       .from('financial_documents' as any)
       .delete()
@@ -465,7 +325,6 @@ export const documentService = {
 
     if (error) return { error, spErrorMsg }
 
-    // 2. Perform DELETE request to Microsoft Graph API
     if (doc?.sharepoint_path) {
       const { data, error: spError } = await supabase.functions.invoke(
         'sharepoint-api?action=delete',
