@@ -87,3 +87,7 @@
     @apply bg-card/60 border-white/5 shadow-[0_8px_30px_rgb(0,0,0,0.5)];
   }
 }
+
+#skip-badge {
+  display: none !important;
+}
