@@ -26,7 +26,11 @@ export default function Login() {
         let msg = error.message
         if (msg.toLowerCase().includes('invalid login credentials')) {
           msg = 'Email ou senha inválidos.'
-        } else if (msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('network')) {
+        } else if (
+          msg.toLowerCase().includes('fetch') ||
+          msg.toLowerCase().includes('network') ||
+          msg.toLowerCase().includes('timeout')
+        ) {
           msg = 'Ocorreu um erro ao conectar ao sistema. Tente novamente mais tarde.'
         } else {
           msg = 'Ocorreu um erro na autenticação. Verifique seus dados.'

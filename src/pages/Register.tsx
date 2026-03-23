@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase/client'
+import { Loader2 } from 'lucide-react'
 
 export default function Register() {
   const [orgName, setOrgName] = useState('')
@@ -22,26 +23,40 @@ export default function Register() {
     e.preventDefault()
     setLoading(true)
 
-    const { error } = await signUp(email, password, {
-      full_name: fullName,
-      org_name: orgName,
-    })
-
-    if (error) {
-      toast({ title: 'Erro ao Registrar', description: error.message, variant: 'destructive' })
-    } else {
-      // Trigger Edge Function with full details
-      supabase.functions
-        .invoke('notify-admin', { body: { email, orgName, fullName } })
-        .catch(console.error)
-
-      toast({
-        title: 'Conta Criada',
-        description: 'Você foi registrado com sucesso. Aguarde a aprovação do administrador.',
+    try {
+      const { error } = await signUp(email, password, {
+        full_name: fullName,
+        org_name: orgName,
       })
-      navigate('/login')
+
+      if (error) {
+        let msg = error.message
+        if (msg.toLowerCase().includes('timeout') || msg.includes('504')) {
+          msg =
+            'O servidor demorou muito para responder. A conta pode ter sido criada. Tente fazer login em instantes ou redefina sua senha.'
+        }
+        toast({ title: 'Erro ao Registrar', description: msg, variant: 'destructive' })
+      } else {
+        // Trigger Edge Function with full details
+        supabase.functions
+          .invoke('notify-admin', { body: { email, orgName, fullName } })
+          .catch(console.error)
+
+        toast({
+          title: 'Conta Criada',
+          description: 'Você foi registrado com sucesso. Aguarde a aprovação do administrador.',
+        })
+        navigate('/login')
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Erro de Conexão',
+        description: 'Ocorreu um erro inesperado ou falha de rede. Tente novamente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (
@@ -109,7 +124,13 @@ export default function Register() {
               disabled={loading}
               className="w-full bg-primary hover:bg-primary/90 text-white"
             >
-              {loading ? 'Registrando...' : 'Registrar Conta'}
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Registrando...
+                </>
+              ) : (
+                'Registrar Conta'
+              )}
             </Button>
 
             <div className="text-center text-sm text-muted-foreground pt-4">

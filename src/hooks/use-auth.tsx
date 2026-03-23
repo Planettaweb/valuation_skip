@@ -128,30 +128,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [])
 
   const signUp = async (email: string, password: string, meta: any) => {
-    return await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: meta },
-    })
+    try {
+      return await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: meta },
+      })
+    } catch (error: any) {
+      return { error }
+    }
   }
 
   const signIn = async (email: string, password: string) => {
-    return await supabase.auth.signInWithPassword({ email, password })
+    try {
+      return await supabase.auth.signInWithPassword({ email, password })
+    } catch (error: any) {
+      return { error }
+    }
   }
 
   const signOut = async () => {
     setUserProfile(null)
-    return await supabase.auth.signOut()
+    try {
+      return await supabase.auth.signOut()
+    } catch (error: any) {
+      return { error }
+    }
   }
 
   const resetPassword = async (email: string) => {
-    return await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    })
+    try {
+      return await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+    } catch (error: any) {
+      return { error }
+    }
   }
 
   const updatePassword = async (password: string) => {
-    return await supabase.auth.updateUser({ password })
+    try {
+      return await supabase.auth.updateUser({ password })
+    } catch (error: any) {
+      return { error }
+    }
   }
 
   return (
