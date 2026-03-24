@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Upload, Loader2, AlertCircle, Check, Trash2, Plus, Info } from 'lucide-react'
+import { Upload, Loader2, AlertCircle, Check, Trash2, Plus, Info, ListTree } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import {
   Dialog,
@@ -51,10 +51,13 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
   const [docType, setDocType] = useState('Balanço Patrimonial')
   const [clients, setClients] = useState<any[]>([])
   const [selectedClient, setSelectedClient] = useState(defaultClientId || '')
+  const [clientPlanoContas, setClientPlanoContas] = useState<any[]>([])
 
   const [step, setStep] = useState<'form' | 'processing' | 'preview' | 'saving'>('form')
   const [statusMessage, setStatusMessage] = useState('')
   const [diagnosticMsg, setDiagnosticMsg] = useState('')
+  const [mappingMode, setMappingMode] = useState<'none' | 'similarity' | 'generate'>('none')
+
   const [parsedPreview, setParsedPreview] = useState<{
     metadataObj: any
     rowsData: any[]
@@ -78,6 +81,14 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
       })
     }
   }, [isOpen, userProfile.org_id, defaultClientId])
+
+  useEffect(() => {
+    if (selectedClient && userProfile) {
+      clientService.getPlanoContas(selectedClient).then((res) => {
+        if (res.data) setClientPlanoContas(res.data)
+      })
+    }
+  }, [selectedClient, userProfile])
 
   const validateAndSetFile = (f?: File) => {
     if (!f) return
@@ -128,11 +139,17 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     setStatusMessage('Iniciando processamento e validação...')
     setDiagnosticMsg('')
     setShowNoise(false)
+    setMappingMode('none')
 
     try {
       const parsed = await documentService.parseDocumentLocal(file, docType, setStatusMessage)
+      const rowsWithMapping = (parsed.rowsData || []).map((r: any) => ({
+        ...r,
+        mapped_codigo: r.account_code || '',
+        mapped_descricao: r.description || '',
+      }))
       setParsedPreview(parsed)
-      setPreviewRows(parsed.rowsData || [])
+      setPreviewRows(rowsWithMapping)
       setNoiseRows(parsed.noise || [])
       if (parsed.diagnostic) setDiagnosticMsg(parsed.diagnostic)
       setStep('preview')
@@ -155,9 +172,34 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     setStep('saving')
     setStatusMessage('Iniciando gravação no SharePoint e Banco de Dados...')
 
+    const finalRows = previewRows.map((r) => {
+      if (mappingMode === 'similarity' || mappingMode === 'generate') {
+        return {
+          ...r,
+          account_code: r.mapped_codigo || r.account_code,
+          description: r.mapped_descricao || r.description,
+        }
+      }
+      return r
+    })
+
+    let newPlanoContas: any[] = []
+    if (mappingMode === 'generate') {
+      const mapUnique = new Map()
+      finalRows.forEach((r) => {
+        const cod = r.account_code || ''
+        const desc = r.description || ''
+        if (desc && desc !== 'Sem Descrição') {
+          mapUnique.set(`${cod}-${desc}`, { codigo: cod, descricao: desc })
+        }
+      })
+      newPlanoContas = Array.from(mapUnique.values())
+    }
+
     const payload = {
       metadataObj: parsedPreview?.metadataObj || {},
-      rowsData: previewRows,
+      rowsData: finalRows,
+      newPlanoContas,
     }
 
     const { error } = await documentService.saveParsedDocument(
@@ -192,6 +234,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     setNoiseRows([])
     setDiagnosticMsg('')
     setShowNoise(false)
+    setMappingMode('none')
   }
 
   const handleOpenChange = (open: boolean) => {
@@ -219,6 +262,8 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
         account_code: '',
         classification_code: '',
         description: '',
+        mapped_codigo: '',
+        mapped_descricao: '',
         value: 0,
         period: '',
         raw: {
@@ -258,10 +303,15 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
         let parsed = parseFloat(valStr.replace(/[^\d,-]/g, '').replace(',', '.')) || 0
         if (isNeg && parsed > 0) parsed = -parsed
 
+        const ac = cols.length >= 3 ? cols[0] : null
+        const desc = cols.length >= 3 ? cols.slice(1, -1).join(' ') : cols[0]
+
         newRows.push({
-          account_code: cols.length >= 3 ? cols[0] : null,
+          account_code: ac,
           classification_code: null,
-          description: cols.length >= 3 ? cols.slice(1, -1).join(' ') : cols[0],
+          description: desc,
+          mapped_codigo: ac,
+          mapped_descricao: desc,
           value: parsed,
           raw: {},
         })
@@ -284,6 +334,87 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     extractedTotal > 0 &&
     Math.abs(calculatedSum - extractedTotal) > 0.01
 
+  const MappingHeaders = () => (
+    <>
+      {mappingMode === 'similarity' && (
+        <TableHead className="w-[250px] border-x border-white/5 bg-primary/5 text-primary">
+          Mapear com Conta do Cliente
+        </TableHead>
+      )}
+      {mappingMode === 'generate' && (
+        <>
+          <TableHead className="w-[120px] border-l border-white/5 bg-emerald-500/5 text-emerald-500">
+            Novo Cód.
+          </TableHead>
+          <TableHead className="w-[200px] border-r border-white/5 bg-emerald-500/5 text-emerald-500">
+            Nova Descrição
+          </TableHead>
+        </>
+      )}
+    </>
+  )
+
+  const MappingCells = ({ row, i }: { row: any; i: number }) => (
+    <>
+      {mappingMode === 'similarity' && (
+        <TableCell className="p-2 border-x border-white/5 bg-primary/5">
+          <Select
+            value={row.mapped_plano_id || 'none'}
+            onValueChange={(val) => {
+              if (val === 'none') {
+                handleUpdateRow(i, 'mapped_plano_id', '')
+                handleUpdateRow(i, 'mapped_codigo', '')
+                handleUpdateRow(i, 'mapped_descricao', '')
+                return
+              }
+              const pc = clientPlanoContas.find((p) => p.id === val)
+              if (pc) {
+                handleUpdateRow(i, 'mapped_plano_id', pc.id)
+                handleUpdateRow(i, 'mapped_codigo', pc.codigo)
+                handleUpdateRow(i, 'mapped_descricao', pc.descricao)
+              }
+            }}
+          >
+            <SelectTrigger className="h-8 text-xs bg-background/50 border-white/10 w-full">
+              <SelectValue placeholder="Selecione a conta..." />
+            </SelectTrigger>
+            <SelectContent className="max-w-[300px]">
+              <SelectItem value="none" className="text-muted-foreground italic">
+                Nenhuma / Limpar
+              </SelectItem>
+              {clientPlanoContas.map((pc) => (
+                <SelectItem key={pc.id} value={pc.id} className="text-xs truncate">
+                  {pc.codigo ? `${pc.codigo} - ` : ''}
+                  {pc.descricao}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </TableCell>
+      )}
+      {mappingMode === 'generate' && (
+        <>
+          <TableCell className="p-2 border-l border-white/5 bg-emerald-500/5">
+            <Input
+              value={row.mapped_codigo ?? ''}
+              onChange={(e) => handleUpdateRow(i, 'mapped_codigo', e.target.value)}
+              placeholder="Cód."
+              className="h-8 text-xs bg-background/80 border-emerald-500/20"
+            />
+          </TableCell>
+          <TableCell className="p-2 border-r border-white/5 bg-emerald-500/5">
+            <Input
+              value={row.mapped_descricao ?? ''}
+              onChange={(e) => handleUpdateRow(i, 'mapped_descricao', e.target.value)}
+              placeholder="Nova descrição..."
+              className="h-8 text-xs bg-background/80 border-emerald-500/20"
+            />
+          </TableCell>
+        </>
+      )}
+    </>
+  )
+
   const renderTableHeaders = () => {
     if (docType === 'Balancete') {
       return (
@@ -291,6 +422,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
           <TableHead className="w-[100px]">Código</TableHead>
           <TableHead className="w-[120px]">Classificação</TableHead>
           <TableHead>Descrição da conta</TableHead>
+          <MappingHeaders />
           <TableHead className="text-right w-[120px]">Saldo Anterior</TableHead>
           <TableHead className="text-right w-[100px]">Débito</TableHead>
           <TableHead className="text-right w-[100px]">Crédito</TableHead>
@@ -305,6 +437,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
           <TableHead className="w-[100px]">Código</TableHead>
           <TableHead className="w-[120px]">Classificação</TableHead>
           <TableHead>Descrição</TableHead>
+          <MappingHeaders />
           <TableHead className="text-right w-[140px]">Ano Atual</TableHead>
           <TableHead className="text-right w-[140px]">Ano Anterior</TableHead>
           <TableHead className="w-[50px]"></TableHead>
@@ -315,6 +448,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
       return (
         <TableRow className="hover:bg-transparent">
           <TableHead>Descrição</TableHead>
+          <MappingHeaders />
           <TableHead className="text-right w-[140px]">Saldo</TableHead>
           <TableHead className="text-right w-[140px]">Soma</TableHead>
           <TableHead className="text-right w-[140px]">Total</TableHead>
@@ -326,6 +460,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
       return (
         <TableRow className="hover:bg-transparent">
           <TableHead>Descrição</TableHead>
+          <MappingHeaders />
           <TableHead className="w-[120px]">Mês</TableHead>
           <TableHead className="text-right w-[140px]">Valor Planejado</TableHead>
           <TableHead className="text-right w-[140px]">Valor Realizado</TableHead>
@@ -337,6 +472,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
       <TableRow className="hover:bg-transparent">
         <TableHead className="w-[140px]">Código Conta</TableHead>
         <TableHead>Descrição da Conta</TableHead>
+        <MappingHeaders />
         <TableHead className="text-right w-[160px]">Valor Atual</TableHead>
         <TableHead className="text-right w-[160px]">Valor Anterior</TableHead>
         <TableHead className="w-[50px]"></TableHead>
@@ -345,11 +481,12 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
   }
 
   const getColSpan = () => {
-    if (docType === 'Balancete') return 8
-    if (docType === 'Balanço' || docType === 'Balanço Patrimonial') return 6
-    if (docType === 'DRE') return 5
-    if (docType === 'Fluxo de Caixa') return 5
-    return 5
+    let base = 5
+    if (docType === 'Balancete') base = 8
+    if (docType === 'Balanço' || docType === 'Balanço Patrimonial') base = 6
+    if (mappingMode === 'similarity') base += 1
+    if (mappingMode === 'generate') base += 2
+    return base
   }
 
   return (
@@ -517,37 +654,74 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                   </Alert>
                 )}
 
-                <div className="flex items-center justify-between flex-wrap gap-4">
-                  <div className="flex items-center gap-4">
-                    <h3 className="text-base font-medium">Revisão Tabular - {docType}</h3>
-                    <div className="flex items-center space-x-2 bg-card/50 px-3 py-1.5 rounded-md border border-white/5">
-                      <Switch id="noise-mode" checked={showNoise} onCheckedChange={setShowNoise} />
-                      <Label htmlFor="noise-mode" className="text-xs cursor-pointer">
-                        Exibir {noiseRows.length} Linhas Filtradas (Ruído)
-                      </Label>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between flex-wrap gap-4 bg-card/50 p-3 rounded-lg border border-white/5">
+                  <div className="flex flex-col gap-2">
+                    <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+                      <ListTree className="w-4 h-4 text-primary" />
+                      Ação de Plano de Contas
+                    </h3>
+                    <div className="flex bg-background rounded-md border border-white/10 p-1 w-fit">
+                      <Button
+                        variant={mappingMode === 'none' ? 'secondary' : 'ghost'}
+                        size="sm"
+                        onClick={() => setMappingMode('none')}
+                        className="h-7 text-xs"
+                      >
+                        Manter Original
+                      </Button>
+                      <Button
+                        variant={mappingMode === 'similarity' ? 'secondary' : 'ghost'}
+                        size="sm"
+                        onClick={() => setMappingMode('similarity')}
+                        className="h-7 text-xs text-primary"
+                      >
+                        Ativar Similaridade
+                      </Button>
+                      <Button
+                        variant={mappingMode === 'generate' ? 'secondary' : 'ghost'}
+                        size="sm"
+                        onClick={() => setMappingMode('generate')}
+                        className="h-7 text-xs text-emerald-400"
+                      >
+                        Gerar Novo Plano
+                      </Button>
                     </div>
                   </div>
 
-                  <div className="flex gap-2 items-center">
-                    <span className="text-xs text-muted-foreground bg-accent/50 px-2 py-1 rounded">
-                      {previewRows.length} registros úteis
-                    </span>
-                    {!hasDiscrepancy && previewRows.length > 0 && extractedTotal > 0 ? (
-                      <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
-                        Soma Validada: {formatCurrency(calculatedSum)}
-                      </Badge>
-                    ) : hasDiscrepancy && previewRows.length > 0 ? (
-                      <Badge
-                        variant="destructive"
-                        className="bg-destructive/10 text-destructive border-destructive/20"
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="flex items-center space-x-2 bg-background px-3 py-1 rounded-md border border-white/5">
+                      <Switch id="noise-mode" checked={showNoise} onCheckedChange={setShowNoise} />
+                      <Label htmlFor="noise-mode" className="text-xs cursor-pointer">
+                        Exibir {noiseRows.length} Ruídos
+                      </Label>
+                    </div>
+
+                    <div className="flex gap-2 items-center">
+                      <span className="text-xs text-muted-foreground bg-accent/50 px-2 py-1 rounded">
+                        {previewRows.length} registros úteis
+                      </span>
+                      {!hasDiscrepancy && previewRows.length > 0 && extractedTotal > 0 ? (
+                        <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                          Soma Validada: {formatCurrency(calculatedSum)}
+                        </Badge>
+                      ) : hasDiscrepancy && previewRows.length > 0 ? (
+                        <Badge
+                          variant="destructive"
+                          className="bg-destructive/10 text-destructive border-destructive/20"
+                        >
+                          Divergência: {formatCurrency(calculatedSum)} vs{' '}
+                          {formatCurrency(extractedTotal)}
+                        </Badge>
+                      ) : null}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleAddRow}
+                        className="h-7 px-2"
                       >
-                        Divergência: {formatCurrency(calculatedSum)} vs{' '}
-                        {formatCurrency(extractedTotal)}
-                      </Badge>
-                    ) : null}
-                    <Button variant="outline" size="sm" onClick={handleAddRow} className="h-7 px-2">
-                      <Plus className="w-3 h-3 mr-1" /> Nova Linha
-                    </Button>
+                        <Plus className="w-3 h-3 mr-1" /> Nova Linha
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
@@ -604,6 +778,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                                     className="h-8 text-xs bg-background/50 border-white/10"
                                   />
                                 </TableCell>
+                                <MappingCells row={row} i={i} />
                                 <TableCell className="p-2">
                                   <Input
                                     type="number"
@@ -693,6 +868,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                                     className="h-8 text-xs bg-background/50 border-white/10"
                                   />
                                 </TableCell>
+                                <MappingCells row={row} i={i} />
                                 <TableCell className="p-2">
                                   <Input
                                     type="number"
@@ -732,6 +908,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                                     className="h-8 text-xs bg-background/50 border-white/10"
                                   />
                                 </TableCell>
+                                <MappingCells row={row} i={i} />
                                 <TableCell className="p-2">
                                   <Input
                                     type="number"
@@ -786,6 +963,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                                     className="h-8 text-xs bg-background/50 border-white/10"
                                   />
                                 </TableCell>
+                                <MappingCells row={row} i={i} />
                                 <TableCell className="p-2">
                                   <Input
                                     value={row.period || ''}

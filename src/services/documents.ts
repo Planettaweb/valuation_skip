@@ -115,7 +115,7 @@ export const documentService = {
     userId: string,
     clientId: string,
     documentType: string,
-    parsedData: { metadataObj: any; rowsData: any[] },
+    parsedData: { metadataObj: any; rowsData: any[]; newPlanoContas?: any[] },
     onProgress?: (msg: string) => void,
   ) {
     let sharepointPath: string | null = null
@@ -264,8 +264,21 @@ export const documentService = {
         })
         .eq('id', doc.id)
 
-      onProgress?.('Mapeando tabelas analíticas secundárias...')
+      onProgress?.('Validando integridade em tabelas secundárias...')
       await persistStructuredData(orgId, doc.id, documentType, parsedData.rowsData)
+
+      if (parsedData.newPlanoContas && parsedData.newPlanoContas.length > 0) {
+        onProgress?.('Gerando novo plano de contas do cliente...')
+        const inserts = parsedData.newPlanoContas.map((pc) => ({
+          org_id: orgId,
+          client_id: clientId,
+          codigo: pc.codigo,
+          descricao: pc.descricao,
+          ativo_inativo: true,
+        }))
+        const { error: pcError } = await supabase.from('plano_contas' as any).insert(inserts)
+        if (pcError) console.error('Erro ao gerar plano de contas:', pcError)
+      }
 
       await supabase.from('audit_logs').insert({
         org_id: orgId,

@@ -83,4 +83,14 @@ export const clientService = {
       .order('created_at', { ascending: false })
     return { data, error }
   },
+
+  async getPlanoContas(clientId: string) {
+    const { data, error } = await supabase
+      .from('plano_contas' as any)
+      .select('*')
+      .eq('client_id', clientId)
+      .eq('ativo_inativo', true)
+      .order('codigo', { ascending: true })
+    return { data, error }
+  },
 }
