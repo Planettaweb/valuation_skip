@@ -18,7 +18,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-import { PlanoConta } from '@/services/contabilidade'
+import { PlanoConta, Taxonomia } from '@/services/contabilidade'
 
 const schema = z.object({
   codigo: z
@@ -26,9 +26,9 @@ const schema = z.object({
     .min(1, 'Código é obrigatório')
     .regex(/^[a-zA-Z0-9.]+$/, 'Formato inválido (ex: 1.1.1)'),
   nome_conta: z.string().min(1, 'Nome é obrigatório').max(100, 'Máximo 100 caracteres'),
-  tipo: z.enum(['Ativo', 'Passivo', 'Patrimônio Líquido', 'Receita', 'Despesa']),
-  grupo: z.enum(['Circulante', 'Não Circulante', 'Operacional', 'Não Operacional']),
-  natureza: z.enum(['Devedora', 'Credora']),
+  tipo: z.string().min(1, 'Tipo é obrigatório'),
+  grupo: z.string().min(1, 'Grupo é obrigatório'),
+  natureza: z.string().min(1, 'Natureza é obrigatória'),
 })
 
 type FormData = z.infer<typeof schema>
@@ -37,19 +37,30 @@ interface Props {
   initialData?: PlanoConta
   onSubmit: (data: FormData) => void
   isLoading?: boolean
+  taxonomias?: Taxonomia[]
 }
 
-export function PlanoContaForm({ initialData, onSubmit, isLoading }: Props) {
+export function PlanoContaForm({ initialData, onSubmit, isLoading, taxonomias = [] }: Props) {
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       codigo: initialData?.codigo || '',
       nome_conta: initialData?.nome_conta || '',
-      tipo: (initialData?.tipo as any) || 'Ativo',
-      grupo: (initialData?.grupo as any) || 'Circulante',
-      natureza: (initialData?.natureza as any) || 'Devedora',
+      tipo: initialData?.tipo || '',
+      grupo: initialData?.grupo || '',
+      natureza: initialData?.natureza || '',
     },
   })
+
+  const tipos = taxonomias.filter((t) => t.categoria === 'TIPO').map((t) => t.descricao)
+  const grupos = taxonomias.filter((t) => t.categoria === 'GRUPO').map((t) => t.descricao)
+  const naturezas = taxonomias.filter((t) => t.categoria === 'NATUREZA').map((t) => t.descricao)
+
+  // Ensure initial data values exist in options to avoid select being blank
+  if (initialData?.tipo && !tipos.includes(initialData.tipo)) tipos.push(initialData.tipo)
+  if (initialData?.grupo && !grupos.includes(initialData.grupo)) grupos.push(initialData.grupo)
+  if (initialData?.natureza && !naturezas.includes(initialData.natureza))
+    naturezas.push(initialData.natureza)
 
   return (
     <Form {...form}>
@@ -93,11 +104,11 @@ export function PlanoContaForm({ initialData, onSubmit, isLoading }: Props) {
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="Ativo">Ativo</SelectItem>
-                  <SelectItem value="Passivo">Passivo</SelectItem>
-                  <SelectItem value="Patrimônio Líquido">Patrimônio Líquido</SelectItem>
-                  <SelectItem value="Receita">Receita</SelectItem>
-                  <SelectItem value="Despesa">Despesa</SelectItem>
+                  {tipos.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -117,10 +128,11 @@ export function PlanoContaForm({ initialData, onSubmit, isLoading }: Props) {
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="Circulante">Circulante</SelectItem>
-                  <SelectItem value="Não Circulante">Não Circulante</SelectItem>
-                  <SelectItem value="Operacional">Operacional</SelectItem>
-                  <SelectItem value="Não Operacional">Não Operacional</SelectItem>
+                  {grupos.map((g) => (
+                    <SelectItem key={g} value={g}>
+                      {g}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -140,8 +152,11 @@ export function PlanoContaForm({ initialData, onSubmit, isLoading }: Props) {
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="Devedora">Devedora</SelectItem>
-                  <SelectItem value="Credora">Credora</SelectItem>
+                  {naturezas.map((n) => (
+                    <SelectItem key={n} value={n}>
+                      {n}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <FormMessage />

@@ -5,6 +5,15 @@ export type PlanoConta = Database['public']['Tables']['plano_contas']['Row']
 export type TipoDocumento = Database['public']['Tables']['tipos_documentos']['Row']
 export type DocumentoContaMapping = Database['public']['Tables']['documento_conta_mapping']['Row']
 
+export type Taxonomia = {
+  id: string
+  org_id: string
+  categoria: string
+  descricao: string
+  ativo: boolean
+  created_at: string
+}
+
 export const contabilidadeService = {
   async getPlanoContas(
     orgId: string,
@@ -79,6 +88,37 @@ export const contabilidadeService = {
       )
 
     const { error } = await supabase.from('plano_contas').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  async getTaxonomias(orgId: string) {
+    const { data, error } = await supabase
+      .from('plano_contas_taxonomia' as any)
+      .select('*')
+      .eq('org_id', orgId)
+      .eq('ativo', true)
+      .order('descricao')
+
+    // Ignore error if table doesn't exist yet
+    if (error && error.code !== '42P01') throw error
+    return (data || []) as Taxonomia[]
+  },
+
+  async createTaxonomia(orgId: string, categoria: string, descricao: string) {
+    const { data, error } = await supabase
+      .from('plano_contas_taxonomia' as any)
+      .insert({ org_id: orgId, categoria, descricao, ativo: true })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async deleteTaxonomia(id: string) {
+    const { error } = await supabase
+      .from('plano_contas_taxonomia' as any)
+      .delete()
+      .eq('id', id)
     if (error) throw error
   },
 

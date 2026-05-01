@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '@/hooks/use-auth'
-import { contabilidadeService, PlanoConta } from '@/services/contabilidade'
+import { contabilidadeService, PlanoConta, Taxonomia } from '@/services/contabilidade'
+import { TaxonomiaManager } from '@/components/contabilidade/TaxonomiaManager'
+import { Settings2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -50,14 +52,21 @@ export default function PlanoContas() {
   const [natureza, setNatureza] = useState('Todos')
 
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isTaxonomiaModalOpen, setIsTaxonomiaModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<PlanoConta | undefined>()
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [taxonomias, setTaxonomias] = useState<Taxonomia[]>([])
 
   const loadData = async () => {
     if (!userProfile?.org_id) return
     try {
       setLoading(true)
       setError(null)
+
+      const taxRes = await contabilidadeService.getTaxonomias(userProfile.org_id)
+      setTaxonomias(taxRes)
+
       const res = await contabilidadeService.getPlanoContas(
         userProfile.org_id,
         page,
@@ -166,6 +175,9 @@ export default function PlanoContas() {
           <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
             <Upload className="w-4 h-4 mr-2" /> Importar CSV
           </Button>
+          <Button variant="outline" onClick={() => setIsTaxonomiaModalOpen(true)}>
+            <Settings2 className="w-4 h-4 mr-2" /> Categorias
+          </Button>
           <Button
             onClick={() => {
               setEditingItem(undefined)
@@ -193,11 +205,13 @@ export default function PlanoContas() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="Todos">Todos os Tipos</SelectItem>
-            <SelectItem value="Ativo">Ativo</SelectItem>
-            <SelectItem value="Passivo">Passivo</SelectItem>
-            <SelectItem value="Patrimônio Líquido">Patrimônio Líquido</SelectItem>
-            <SelectItem value="Receita">Receita</SelectItem>
-            <SelectItem value="Despesa">Despesa</SelectItem>
+            {taxonomias
+              .filter((t) => t.categoria === 'TIPO')
+              .map((t) => (
+                <SelectItem key={t.id} value={t.descricao}>
+                  {t.descricao}
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
         <Select value={grupo} onValueChange={setGrupo}>
@@ -206,10 +220,13 @@ export default function PlanoContas() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="Todos">Todos os Grupos</SelectItem>
-            <SelectItem value="Circulante">Circulante</SelectItem>
-            <SelectItem value="Não Circulante">Não Circulante</SelectItem>
-            <SelectItem value="Operacional">Operacional</SelectItem>
-            <SelectItem value="Não Operacional">Não Operacional</SelectItem>
+            {taxonomias
+              .filter((t) => t.categoria === 'GRUPO')
+              .map((t) => (
+                <SelectItem key={t.id} value={t.descricao}>
+                  {t.descricao}
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
         <Select value={natureza} onValueChange={setNatureza}>
@@ -218,8 +235,13 @@ export default function PlanoContas() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="Todos">Todas as Naturezas</SelectItem>
-            <SelectItem value="Devedora">Devedora</SelectItem>
-            <SelectItem value="Credora">Credora</SelectItem>
+            {taxonomias
+              .filter((t) => t.categoria === 'NATUREZA')
+              .map((t) => (
+                <SelectItem key={t.id} value={t.descricao}>
+                  {t.descricao}
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
       </div>
@@ -338,7 +360,22 @@ export default function PlanoContas() {
           <DialogHeader>
             <DialogTitle>{editingItem ? 'Editar Conta' : 'Nova Conta'}</DialogTitle>
           </DialogHeader>
-          <PlanoContaForm initialData={editingItem} onSubmit={handleSubmit} />
+          <PlanoContaForm
+            initialData={editingItem}
+            onSubmit={handleSubmit}
+            taxonomias={taxonomias}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isTaxonomiaModalOpen} onOpenChange={setIsTaxonomiaModalOpen}>
+        <DialogContent className="max-w-2xl h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Gerenciar Categorias (Tipos, Grupos, Natureza)</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            <TaxonomiaManager taxonomias={taxonomias} onUpdate={loadData} />
+          </div>
         </DialogContent>
       </Dialog>
     </div>
