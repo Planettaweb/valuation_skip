@@ -90,6 +90,28 @@ export default function MatrizRelacionamento() {
     }
   }
 
+  const handleColumnToggle = async (docId: string, checked: boolean) => {
+    if (!userProfile?.org_id) return
+    try {
+      setSaving(true)
+      const contasIds = filteredContas.map((c) => c.id)
+
+      const newMappings = { ...mappings }
+      filteredContas.forEach((c) => {
+        newMappings[`${docId}_${c.id}`] = checked
+      })
+      setMappings(newMappings)
+
+      await contabilidadeService.batchUpdateMappings(userProfile.org_id, docId, contasIds, checked)
+      toast({ title: `Coluna ${checked ? 'marcada' : 'desmarcada'} com sucesso` })
+    } catch (err: any) {
+      toast({ title: 'Erro ao atualizar coluna', description: err.message, variant: 'destructive' })
+      loadData()
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleBatch = async (isAdd: boolean) => {
     if (!userProfile?.org_id) return
     if (
@@ -179,14 +201,31 @@ export default function MatrizRelacionamento() {
                 <TableHead className="sticky left-0 z-20 bg-muted/80 backdrop-blur-sm border-r min-w-[300px]">
                   Conta
                 </TableHead>
-                {docs.map((d) => (
-                  <TableHead
-                    key={d.id}
-                    className="text-center min-w-[120px] bg-muted/80 backdrop-blur-sm"
-                  >
-                    {d.descricao}
-                  </TableHead>
-                ))}
+                {docs.map((d) => {
+                  const isAllChecked =
+                    filteredContas.length > 0 &&
+                    filteredContas.every((c) => mappings[`${d.id}_${c.id}`])
+                  const isSomeChecked = filteredContas.some((c) => mappings[`${d.id}_${c.id}`])
+                  return (
+                    <TableHead
+                      key={d.id}
+                      className="text-center min-w-[120px] bg-muted/80 backdrop-blur-sm"
+                    >
+                      <div className="flex flex-col items-center gap-2 justify-center py-2">
+                        <span>{d.descricao}</span>
+                        <Checkbox
+                          checked={isAllChecked ? true : isSomeChecked ? 'indeterminate' : false}
+                          onCheckedChange={(checked) => {
+                            if (checked === 'indeterminate') return
+                            handleColumnToggle(d.id, checked as boolean)
+                          }}
+                          disabled={loading || saving || filteredContas.length === 0}
+                          title="Selecionar toda a coluna"
+                        />
+                      </div>
+                    </TableHead>
+                  )
+                })}
               </TableRow>
             </TableHeader>
             <TableBody>

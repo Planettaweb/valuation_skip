@@ -125,6 +125,15 @@ export default function PlanoContas() {
     }
   }
 
+  const handleUpdateOrdem = async (id: string, ordem: number) => {
+    try {
+      await contabilidadeService.updatePlanoConta(id, { ordem } as any)
+      loadData()
+    } catch (err: any) {
+      toast({ title: 'Erro ao atualizar ordem', description: err.message, variant: 'destructive' })
+    }
+  }
+
   const handleDelete = async (id: string) => {
     if (!confirm('Deseja realmente excluir esta conta?')) return
     try {
@@ -284,6 +293,7 @@ export default function PlanoContas() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-24">Ordem</TableHead>
                   <TableHead>Código</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Descrição</TableHead>
@@ -296,6 +306,22 @@ export default function PlanoContas() {
               <TableBody>
                 {data.map((item) => (
                   <TableRow key={item.id} className="animate-fade-in-up">
+                    <TableCell>
+                      <Input
+                        type="number"
+                        className="w-16 h-8 text-center"
+                        defaultValue={item.ordem || 0}
+                        onBlur={(e) => {
+                          const val = parseInt(e.target.value)
+                          if (!isNaN(val) && val !== (item.ordem || 0)) {
+                            handleUpdateOrdem(item.id, val)
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') e.currentTarget.blur()
+                        }}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">{item.codigo}</TableCell>
                     <TableCell>{item.nome_conta}</TableCell>
                     <TableCell

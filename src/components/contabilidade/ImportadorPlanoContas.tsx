@@ -52,6 +52,7 @@ const DB_FIELDS = [
   { id: 'tipo', label: 'Tipo', required: false },
   { id: 'grupo', label: 'Grupo', required: false },
   { id: 'natureza', label: 'Natureza', required: false },
+  { id: 'ordem', label: 'Ordem', required: false },
 ]
 
 export function parseCSV(text: string): string[][] {

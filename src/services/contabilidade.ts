@@ -1,7 +1,9 @@
 import { supabase } from '@/lib/supabase/client'
 import { Database } from '@/lib/supabase/types'
 
-export type PlanoConta = Database['public']['Tables']['plano_contas']['Row']
+export type PlanoConta = Database['public']['Tables']['plano_contas']['Row'] & {
+  ordem?: number | null
+}
 export type TipoDocumento = Database['public']['Tables']['tipos_documentos']['Row']
 export type DocumentoContaMapping = Database['public']['Tables']['documento_conta_mapping']['Row']
 
@@ -48,7 +50,10 @@ export const contabilidadeService = {
     const from = (page - 1) * pageSize
     const to = from + pageSize - 1
 
-    const { data, count, error } = await query.order('codigo', { ascending: true }).range(from, to)
+    const { data, count, error } = await query
+      .order('ordem' as any, { ascending: true, nullsFirst: false })
+      .order('codigo', { ascending: true })
+      .range(from, to)
     if (error) throw error
     return { data, count }
   },
@@ -58,29 +63,34 @@ export const contabilidadeService = {
       .from('plano_contas')
       .select('*')
       .eq('org_id', orgId)
+      .order('ordem' as any, { ascending: true, nullsFirst: false })
       .order('codigo', { ascending: true })
     if (error) throw error
-    return data
+    return data as PlanoConta[]
   },
 
   async createPlanoConta(
     conta: Omit<
       Database['public']['Tables']['plano_contas']['Insert'],
       'id' | 'created_at' | 'updated_at'
-    >,
+    > & { ordem?: number },
   ) {
-    const { data, error } = await supabase.from('plano_contas').insert(conta).select().single()
+    const { data, error } = await supabase
+      .from('plano_contas')
+      .insert(conta as any)
+      .select()
+      .single()
     if (error) throw error
     return data
   },
 
   async updatePlanoConta(
     id: string,
-    conta: Partial<Database['public']['Tables']['plano_contas']['Update']>,
+    conta: Partial<Database['public']['Tables']['plano_contas']['Update']> & { ordem?: number },
   ) {
     const { data, error } = await supabase
       .from('plano_contas')
-      .update(conta)
+      .update(conta as any)
       .eq('id', id)
       .select()
       .single()

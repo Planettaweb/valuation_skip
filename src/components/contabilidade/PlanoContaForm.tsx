@@ -31,6 +31,7 @@ const schema = z.object({
   tipo: z.string().min(1, 'Tipo é obrigatório'),
   grupo: z.string().min(1, 'Grupo é obrigatório'),
   natureza: z.string().min(1, 'Natureza é obrigatória'),
+  ordem: z.coerce.number().optional().default(0),
 })
 
 type FormData = z.infer<typeof schema>
@@ -62,6 +63,7 @@ export function PlanoContaForm({
       tipo: initialData?.tipo || '',
       grupo: initialData?.grupo || '',
       natureza: initialData?.natureza || '',
+      ordem: initialData?.ordem || 0,
     },
   })
 
@@ -102,6 +104,19 @@ export function PlanoContaForm({
                   ))}
                 </SelectContent>
               </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="ordem"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Ordem (Classificação)</FormLabel>
+              <FormControl>
+                <Input type="number" placeholder="Ex: 1" {...field} />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
