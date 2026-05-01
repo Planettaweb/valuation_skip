@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '@/hooks/use-auth'
 import { contabilidadeService, PlanoConta, Taxonomia } from '@/services/contabilidade'
 import { TaxonomiaManager } from '@/components/contabilidade/TaxonomiaManager'
@@ -34,6 +34,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination'
+import { ImportadorPlanoContas } from '@/components/contabilidade/ImportadorPlanoContas'
 
 export default function PlanoContas() {
   const { userProfile } = useAuth()
@@ -56,8 +57,8 @@ export default function PlanoContas() {
   const [clients, setClients] = useState<{ id: string; client_name: string }[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isTaxonomiaModalOpen, setIsTaxonomiaModalOpen] = useState(false)
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<PlanoConta | undefined>()
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [taxonomias, setTaxonomias] = useState<Taxonomia[]>([])
 
@@ -112,6 +113,7 @@ export default function PlanoContas() {
           ...formData,
           org_id: userProfile!.org_id,
           ativo: true,
+          client_id: formData.client_id || (client !== 'Todos' ? client : null),
         })
         toast({ title: 'Conta criada com sucesso' })
       }
@@ -150,68 +152,6 @@ export default function PlanoContas() {
     }
   }
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = async (evt) => {
-      try {
-        const text = evt.target?.result as string
-        const lines = text.split('\n').filter((l) => l.trim())
-        if (lines.length === 0) return
-
-        const separator = lines[0].includes(';') ? ';' : ','
-        const headers = lines[0]
-          .split(separator)
-          .map((h) => h.trim().toLowerCase().replace(/^"|"$/g, ''))
-
-        const cIdx = headers.findIndex((h) => h.includes('codigo') || h.includes('código'))
-        const nIdx = headers.findIndex((h) => h.includes('nome') || h.includes('conta'))
-        const dIdx = headers.findIndex((h) => h.includes('descri'))
-        const tIdx = headers.findIndex((h) => h.includes('tipo'))
-        const gIdx = headers.findIndex((h) => h.includes('grupo'))
-        const natIdx = headers.findIndex((h) => h.includes('natureza'))
-
-        let imported = 0
-        for (const rowLine of lines.slice(1)) {
-          const row = rowLine.split(separator).map((s) => s.trim().replace(/^"|"$/g, ''))
-
-          const codigo = cIdx >= 0 ? row[cIdx] : row[0]
-          const nome = nIdx >= 0 ? row[nIdx] : row[1]
-          const desc = dIdx >= 0 ? row[dIdx] : ''
-          const t = tIdx >= 0 ? row[tIdx] : row[2]
-          const g = gIdx >= 0 ? row[gIdx] : row[3]
-          const nat = natIdx >= 0 ? row[natIdx] : row[4]
-
-          if (codigo && nome) {
-            await contabilidadeService.createPlanoConta({
-              org_id: userProfile!.org_id,
-              client_id: client !== 'Todos' ? client : null,
-              codigo,
-              nome_conta: nome,
-              descricao: desc,
-              tipo: t,
-              grupo: g,
-              natureza: nat,
-              ativo: true,
-            })
-            imported++
-          }
-        }
-        toast({ title: 'Sucesso', description: `${imported} contas importadas.` })
-        loadData()
-      } catch (err: any) {
-        toast({
-          title: 'Erro',
-          description: 'Falha ao importar: ' + err.message,
-          variant: 'destructive',
-        })
-      }
-    }
-    reader.readAsText(file)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }
-
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto animate-fade-in">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -220,14 +160,7 @@ export default function PlanoContas() {
           <Button variant="destructive" onClick={() => setIsClearAllModalOpen(true)}>
             <Trash2 className="w-4 h-4 mr-2" /> Excluir Tudo
           </Button>
-          <input
-            type="file"
-            accept=".csv"
-            className="hidden"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-          />
-          <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+          <Button variant="outline" onClick={() => setIsImportModalOpen(true)}>
             <Upload className="w-4 h-4 mr-2" /> Importar CSV
           </Button>
           <Button variant="outline" onClick={() => setIsTaxonomiaModalOpen(true)}>
@@ -352,6 +285,7 @@ export default function PlanoContas() {
                 <TableRow>
                   <TableHead>Código</TableHead>
                   <TableHead>Nome</TableHead>
+                  <TableHead>Descrição</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Grupo</TableHead>
                   <TableHead>Natureza</TableHead>
@@ -363,6 +297,12 @@ export default function PlanoContas() {
                   <TableRow key={item.id} className="animate-fade-in-up">
                     <TableCell className="font-medium">{item.codigo}</TableCell>
                     <TableCell>{item.nome_conta}</TableCell>
+                    <TableCell
+                      className="max-w-[200px] truncate text-muted-foreground"
+                      title={item.descricao || ''}
+                    >
+                      {item.descricao || '-'}
+                    </TableCell>
                     <TableCell>{item.tipo}</TableCell>
                     <TableCell>{item.grupo}</TableCell>
                     <TableCell>{item.natureza}</TableCell>
@@ -423,6 +363,7 @@ export default function PlanoContas() {
         </>
       )}
 
+      {/* Clear All Modal */}
       <Dialog
         open={isClearAllModalOpen}
         onOpenChange={(open) => {
@@ -465,6 +406,7 @@ export default function PlanoContas() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit/Create Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -480,6 +422,7 @@ export default function PlanoContas() {
         </DialogContent>
       </Dialog>
 
+      {/* Taxonomia Modal */}
       <Dialog open={isTaxonomiaModalOpen} onOpenChange={setIsTaxonomiaModalOpen}>
         <DialogContent className="max-w-2xl h-[80vh] flex flex-col">
           <DialogHeader>
@@ -488,6 +431,28 @@ export default function PlanoContas() {
           <div className="flex-1 overflow-hidden">
             <TaxonomiaManager taxonomias={taxonomias} onUpdate={loadData} />
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Advanced Import Modal */}
+      <Dialog
+        open={isImportModalOpen}
+        onOpenChange={(open) => {
+          if (!open) setIsImportModalOpen(false)
+        }}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Importação Avançada de Plano de Contas</DialogTitle>
+          </DialogHeader>
+          <ImportadorPlanoContas
+            clientId={client !== 'Todos' ? client : null}
+            onComplete={() => {
+              setIsImportModalOpen(false)
+              loadData()
+            }}
+            onCancel={() => setIsImportModalOpen(false)}
+          />
         </DialogContent>
       </Dialog>
     </div>
