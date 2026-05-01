@@ -141,6 +141,7 @@ export function ImportadorPlanoContas({
 
           // Limpeza de caracteres de controle (BOM e não imprimíveis)
           text = text.replace(/^\uFEFF/, '')
+          // eslint-disable-next-line no-control-regex
           text = text.replace(
             new RegExp('[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F-\\u009F]', 'g'),
             '',
