@@ -48,10 +48,12 @@ export default function PlanoContas() {
   const pageSize = 20
 
   const [search, setSearch] = useState('')
+  const [client, setClient] = useState('Todos')
   const [tipo, setTipo] = useState('Todos')
   const [grupo, setGrupo] = useState('Todos')
   const [natureza, setNatureza] = useState('Todos')
 
+  const [clients, setClients] = useState<{ id: string; client_name: string }[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isTaxonomiaModalOpen, setIsTaxonomiaModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<PlanoConta | undefined>()
@@ -69,8 +71,13 @@ export default function PlanoContas() {
       setLoading(true)
       setError(null)
 
-      const taxRes = await contabilidadeService.getTaxonomias(userProfile.org_id)
+      const [taxRes, clientsRes] = await Promise.all([
+        contabilidadeService.getTaxonomias(userProfile.org_id),
+        contabilidadeService.getClients(userProfile.org_id),
+      ])
+
       setTaxonomias(taxRes)
+      setClients(clientsRes)
 
       const res = await contabilidadeService.getPlanoContas(
         userProfile.org_id,
@@ -80,6 +87,7 @@ export default function PlanoContas() {
         tipo,
         grupo,
         natureza,
+        client,
       )
       setData(res.data || [])
       setTotalPages(Math.ceil((res.count || 0) / pageSize) || 1)
@@ -92,7 +100,7 @@ export default function PlanoContas() {
 
   useEffect(() => {
     loadData()
-  }, [userProfile?.org_id, page, search, tipo, grupo, natureza])
+  }, [userProfile?.org_id, page, search, tipo, grupo, natureza, client])
 
   const handleSubmit = async (formData: any) => {
     try {
@@ -150,16 +158,38 @@ export default function PlanoContas() {
       try {
         const text = evt.target?.result as string
         const lines = text.split('\n').filter((l) => l.trim())
+        if (lines.length === 0) return
+
+        const separator = lines[0].includes(';') ? ';' : ','
+        const headers = lines[0]
+          .split(separator)
+          .map((h) => h.trim().toLowerCase().replace(/^"|"$/g, ''))
+
+        const cIdx = headers.findIndex((h) => h.includes('codigo') || h.includes('código'))
+        const nIdx = headers.findIndex((h) => h.includes('nome') || h.includes('conta'))
+        const dIdx = headers.findIndex((h) => h.includes('descri'))
+        const tIdx = headers.findIndex((h) => h.includes('tipo'))
+        const gIdx = headers.findIndex((h) => h.includes('grupo'))
+        const natIdx = headers.findIndex((h) => h.includes('natureza'))
+
         let imported = 0
-        for (const row of lines.slice(1)) {
-          const [codigo, nome, t, g, nat] = row
-            .split(';')
-            .map((s) => s.trim().replace(/^"|"$/g, ''))
+        for (const rowLine of lines.slice(1)) {
+          const row = rowLine.split(separator).map((s) => s.trim().replace(/^"|"$/g, ''))
+
+          const codigo = cIdx >= 0 ? row[cIdx] : row[0]
+          const nome = nIdx >= 0 ? row[nIdx] : row[1]
+          const desc = dIdx >= 0 ? row[dIdx] : ''
+          const t = tIdx >= 0 ? row[tIdx] : row[2]
+          const g = gIdx >= 0 ? row[gIdx] : row[3]
+          const nat = natIdx >= 0 ? row[natIdx] : row[4]
+
           if (codigo && nome) {
             await contabilidadeService.createPlanoConta({
               org_id: userProfile!.org_id,
+              client_id: client !== 'Todos' ? client : null,
               codigo,
               nome_conta: nome,
+              descricao: desc,
               tipo: t,
               grupo: g,
               natureza: nat,
@@ -214,16 +244,29 @@ export default function PlanoContas() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
         <div className="relative">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar código ou nome..."
+            placeholder="Buscar..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
           />
         </div>
+        <Select value={client} onValueChange={setClient}>
+          <SelectTrigger>
+            <SelectValue placeholder="Cliente" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Todos">Todos os Clientes</SelectItem>
+            {clients.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.client_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={tipo} onValueChange={setTipo}>
           <SelectTrigger>
             <SelectValue placeholder="Tipo" />
@@ -431,6 +474,8 @@ export default function PlanoContas() {
             initialData={editingItem}
             onSubmit={handleSubmit}
             taxonomias={taxonomias}
+            clients={clients}
+            defaultClientId={client !== 'Todos' ? client : undefined}
           />
         </DialogContent>
       </Dialog>

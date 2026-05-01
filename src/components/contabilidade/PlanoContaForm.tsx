@@ -21,11 +21,13 @@ import {
 import { PlanoConta, Taxonomia } from '@/services/contabilidade'
 
 const schema = z.object({
+  client_id: z.string().optional().nullable(),
   codigo: z
     .string()
     .min(1, 'Código é obrigatório')
     .regex(/^[a-zA-Z0-9.]+$/, 'Formato inválido (ex: 1.1.1)'),
   nome_conta: z.string().min(1, 'Nome é obrigatório').max(100, 'Máximo 100 caracteres'),
+  descricao: z.string().optional(),
   tipo: z.string().min(1, 'Tipo é obrigatório'),
   grupo: z.string().min(1, 'Grupo é obrigatório'),
   natureza: z.string().min(1, 'Natureza é obrigatória'),
@@ -38,14 +40,25 @@ interface Props {
   onSubmit: (data: FormData) => void
   isLoading?: boolean
   taxonomias?: Taxonomia[]
+  clients?: { id: string; client_name: string }[]
+  defaultClientId?: string
 }
 
-export function PlanoContaForm({ initialData, onSubmit, isLoading, taxonomias = [] }: Props) {
+export function PlanoContaForm({
+  initialData,
+  onSubmit,
+  isLoading,
+  taxonomias = [],
+  clients = [],
+  defaultClientId,
+}: Props) {
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
+      client_id: initialData?.client_id || defaultClientId || '',
       codigo: initialData?.codigo || '',
       nome_conta: initialData?.nome_conta || '',
+      descricao: initialData?.descricao || '',
       tipo: initialData?.tipo || '',
       grupo: initialData?.grupo || '',
       natureza: initialData?.natureza || '',
@@ -67,6 +80,34 @@ export function PlanoContaForm({ initialData, onSubmit, isLoading, taxonomias = 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
+          name="client_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Cliente Ativo (Opcional)</FormLabel>
+              <Select
+                onValueChange={(val) => field.onChange(val === 'none' ? null : val)}
+                value={field.value || 'none'}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um cliente..." />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum (Uso Geral)</SelectItem>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.client_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
           name="codigo"
           render={({ field }) => (
             <FormItem>
@@ -86,6 +127,19 @@ export function PlanoContaForm({ initialData, onSubmit, isLoading, taxonomias = 
               <FormLabel>Nome da Conta</FormLabel>
               <FormControl>
                 <Input placeholder="Ex: Caixa" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="descricao"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Descrição</FormLabel>
+              <FormControl>
+                <Input placeholder="Descreva o que significa o nome da conta" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

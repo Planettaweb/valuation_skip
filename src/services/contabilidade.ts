@@ -15,6 +15,16 @@ export type Taxonomia = {
 }
 
 export const contabilidadeService = {
+  async getClients(orgId: string) {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('id, client_name')
+      .eq('org_id', orgId)
+      .order('client_name')
+    if (error) throw error
+    return data || []
+  },
+
   async getPlanoContas(
     orgId: string,
     page: number,
@@ -23,6 +33,7 @@ export const contabilidadeService = {
     tipo: string,
     grupo: string,
     natureza: string,
+    client: string = 'Todos',
   ) {
     let query = supabase.from('plano_contas').select('*', { count: 'exact' }).eq('org_id', orgId)
 
@@ -32,6 +43,7 @@ export const contabilidadeService = {
     if (tipo && tipo !== 'Todos') query = query.eq('tipo', tipo)
     if (grupo && grupo !== 'Todos') query = query.eq('grupo', grupo)
     if (natureza && natureza !== 'Todos') query = query.eq('natureza', natureza)
+    if (client && client !== 'Todos') query = query.eq('client_id', client)
 
     const from = (page - 1) * pageSize
     const to = from + pageSize - 1
