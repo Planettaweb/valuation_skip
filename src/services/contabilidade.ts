@@ -103,8 +103,16 @@ export const contabilidadeService = {
     if (error) throw error
   },
 
-  async deleteAllPlanoContas(orgId: string) {
-    const { error } = await supabase.from('plano_contas').delete().eq('org_id', orgId)
+  async deleteAllPlanoContas(orgId: string, clientId: string = 'Todos') {
+    let query = supabase.from('plano_contas').delete().eq('org_id', orgId)
+
+    if (clientId === 'Sem Cliente') {
+      query = query.is('client_id', null)
+    } else if (clientId !== 'Todos') {
+      query = query.eq('client_id', clientId)
+    }
+
+    const { error } = await query
     if (error) throw error
   },
 

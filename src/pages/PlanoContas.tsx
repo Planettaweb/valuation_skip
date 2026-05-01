@@ -65,6 +65,7 @@ export default function PlanoContas() {
   const [isClearAllModalOpen, setIsClearAllModalOpen] = useState(false)
   const [clearConfirmText, setClearConfirmText] = useState('')
   const [isClearing, setIsClearing] = useState(false)
+  const [clientToDelete, setClientToDelete] = useState('Todos')
 
   const loadData = async () => {
     if (!userProfile?.org_id) return
@@ -139,7 +140,7 @@ export default function PlanoContas() {
     if (!userProfile?.org_id) return
     try {
       setIsClearing(true)
-      await contabilidadeService.deleteAllPlanoContas(userProfile.org_id)
+      await contabilidadeService.deleteAllPlanoContas(userProfile.org_id, clientToDelete)
       toast({ title: 'Plano de Contas excluído com sucesso' })
       setIsClearAllModalOpen(false)
       setClearConfirmText('')
@@ -369,6 +370,7 @@ export default function PlanoContas() {
         onOpenChange={(open) => {
           setIsClearAllModalOpen(open)
           if (!open) setClearConfirmText('')
+          if (open) setClientToDelete(client !== 'Todos' ? client : 'Todos')
         }}
       >
         <DialogContent>
@@ -378,9 +380,28 @@ export default function PlanoContas() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Selecione o escopo da exclusão</Label>
+              <Select value={clientToDelete} onValueChange={setClientToDelete}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Todos">Todos os Clientes da Organização</SelectItem>
+                  <SelectItem value="Sem Cliente">Nenhum (Geral da Organização)</SelectItem>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.client_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <p className="text-sm text-muted-foreground">
-              Esta ação é <strong>irreversível</strong>. Todas as contas serão excluídas e os
-              vínculos existentes na Matriz de Relacionamento serão removidos em cascata.
+              Esta ação é <strong>irreversível</strong>. Todas as contas do escopo selecionado serão
+              excluídas e os vínculos existentes na Matriz de Relacionamento serão removidos em
+              cascata.
             </p>
             <div className="space-y-2">
               <Label>Digite EXCLUIR para confirmar</Label>
@@ -446,7 +467,8 @@ export default function PlanoContas() {
             <DialogTitle>Importação Avançada de Plano de Contas</DialogTitle>
           </DialogHeader>
           <ImportadorPlanoContas
-            clientId={client !== 'Todos' ? client : null}
+            clients={clients}
+            initialClientId={client !== 'Todos' ? client : null}
             onComplete={() => {
               setIsImportModalOpen(false)
               loadData()

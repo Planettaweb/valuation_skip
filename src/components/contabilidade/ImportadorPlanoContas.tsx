@@ -36,9 +36,11 @@ import {
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Label } from '@/components/ui/label'
 
 interface ImportadorProps {
-  clientId: string | null
+  clients: { id: string; client_name: string }[]
+  initialClientId: string | null
   onComplete: () => void
   onCancel: () => void
 }
@@ -81,7 +83,12 @@ export function parseCSV(text: string): string[][] {
   })
 }
 
-export function ImportadorPlanoContas({ clientId, onComplete, onCancel }: ImportadorProps) {
+export function ImportadorPlanoContas({
+  clients,
+  initialClientId,
+  onComplete,
+  onCancel,
+}: ImportadorProps) {
   const { userProfile } = useAuth()
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -90,6 +97,7 @@ export function ImportadorPlanoContas({ clientId, onComplete, onCancel }: Import
   const [rawLines, setRawLines] = useState<string[][]>([])
   const [headers, setHeaders] = useState<string[]>([])
   const [mapping, setMapping] = useState<Record<string, string>>({})
+  const [selectedClient, setSelectedClient] = useState<string | null>(initialClientId)
   const [isValidated, setIsValidated] = useState(false)
   const [isLoadingFile, setIsLoadingFile] = useState(false)
 
@@ -197,7 +205,7 @@ export function ImportadorPlanoContas({ clientId, onComplete, onCancel }: Import
       const row = dataLines[i]
       const payload: any = {
         org_id: userProfile!.org_id,
-        client_id: clientId,
+        client_id: selectedClient,
         ativo: true,
       }
 
@@ -258,6 +266,27 @@ export function ImportadorPlanoContas({ clientId, onComplete, onCancel }: Import
             O arquivo deve conter cabeçalhos na primeira linha. Extrairemos as colunas
             automaticamente para o mapeamento.
           </p>
+
+          <div className="w-full max-w-sm mb-6 text-left space-y-2">
+            <Label>Cliente Destino da Importação</Label>
+            <Select
+              value={selectedClient || 'nenhum'}
+              onValueChange={(val) => setSelectedClient(val === 'nenhum' ? null : val)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o Cliente" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nenhum">Nenhum (Geral da Organização)</SelectItem>
+                {clients.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.client_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <input
             type="file"
             accept=".csv"
