@@ -130,11 +130,22 @@ export function ImportadorPlanoContas({
       setTimeout(() => {
         // Simulate slight delay for skeleton UX
         try {
-          const text = evt.target?.result as string
+          const buffer = evt.target?.result as ArrayBuffer
+          let text = new TextDecoder('utf-8').decode(buffer)
+
+          // Se encontrou o caractere de substituição do UTF-8, o arquivo provavelmente é ISO-8859-1 (Latin1)
+          if (text.includes('')) {
+            text = new TextDecoder('iso-8859-1').decode(buffer)
+          }
+
+          // Limpeza de caracteres de controle (BOM e não imprimíveis)
+          text = text.replace(/^\uFEFF/, '')
+          text = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '')
+
           const parsed = parseCSV(text)
           if (parsed.length < 2) throw new Error('Arquivo vazio ou sem dados.')
 
-          const fileHeaders = parsed[0]
+          const fileHeaders = parsed[0].map((h) => h.trim().replace(/^["']|["']$/g, ''))
           setRawLines(parsed)
           setHeaders(fileHeaders)
 
@@ -157,7 +168,7 @@ export function ImportadorPlanoContas({
         }
       }, 500)
     }
-    reader.readAsText(file)
+    reader.readAsArrayBuffer(file)
   }
 
   const handleValidate = () => {
