@@ -9,6 +9,9 @@ import {
   ShieldCheck,
   Building2,
   Key,
+  BookOpen,
+  FileText,
+  Network,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import {
@@ -81,6 +84,56 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        <Collapsible defaultOpen className="group/contabilidade">
+          <SidebarGroup>
+            <SidebarGroupLabel asChild>
+              <CollapsibleTrigger className="flex items-center w-full hover:bg-sidebar-accent p-2 rounded-md transition-colors cursor-pointer text-sidebar-foreground/70 hover:text-sidebar-foreground mt-2">
+                Contabilidade
+                <ChevronDown className="ml-auto w-4 h-4 transition-transform group-data-[state=open]/contabilidade:rotate-180" />
+              </CollapsibleTrigger>
+            </SidebarGroupLabel>
+            <CollapsibleContent>
+              <SidebarGroupContent>
+                <SidebarMenu className="gap-2 px-2 mt-2">
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location.pathname === '/plano-contas'}>
+                      <Link
+                        to="/plano-contas"
+                        className="hover:bg-primary/10 hover:text-primary transition-colors"
+                      >
+                        <BookOpen className="w-4 h-4" /> <span>Plano de Contas</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location.pathname === '/tipos-documentos'}>
+                      <Link
+                        to="/tipos-documentos"
+                        className="hover:bg-primary/10 hover:text-primary transition-colors"
+                      >
+                        <FileText className="w-4 h-4" /> <span>Tipos de Documentos</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location.pathname === '/matriz-relacionamento'}
+                    >
+                      <Link
+                        to="/matriz-relacionamento"
+                        className="hover:bg-primary/10 hover:text-primary transition-colors"
+                      >
+                        <Network className="w-4 h-4" /> <span>Matriz de Relacionamento</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
 
         {isAdmin && (
           <Collapsible defaultOpen className="group/admin">

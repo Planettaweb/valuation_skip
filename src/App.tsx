@@ -22,6 +22,9 @@ import Roles from './pages/Roles'
 import Permissions from './pages/Permissions'
 import Profile from './pages/Profile'
 import Settings from './pages/Settings'
+import PlanoContas from './pages/PlanoContas'
+import TiposDocumentos from './pages/TiposDocumentos'
+import MatrizRelacionamento from './pages/MatrizRelacionamento'
 import NotFound from './pages/NotFound'
 
 // Protected Route Wrapper
@@ -119,6 +122,9 @@ const AppRoutes = () => (
       <Route path="/clients" element={<Clients />} />
       <Route path="/clients/:clientId" element={<ClientDetails />} />
       <Route path="/documents" element={<Documents />} />
+      <Route path="/plano-contas" element={<PlanoContas />} />
+      <Route path="/tipos-documentos" element={<TiposDocumentos />} />
+      <Route path="/matriz-relacionamento" element={<MatrizRelacionamento />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/settings" element={<Settings />} />
 
