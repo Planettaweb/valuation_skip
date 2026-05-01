@@ -91,6 +91,11 @@ export const contabilidadeService = {
     if (error) throw error
   },
 
+  async deleteAllPlanoContas(orgId: string) {
+    const { error } = await supabase.from('plano_contas').delete().eq('org_id', orgId)
+    if (error) throw error
+  },
+
   async getTaxonomias(orgId: string) {
     const { data, error } = await supabase
       .from('plano_contas_taxonomia' as any)

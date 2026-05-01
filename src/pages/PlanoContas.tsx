@@ -25,6 +25,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { PlanoContaForm } from '@/components/contabilidade/PlanoContaForm'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Search, Plus, Upload, Trash2, Edit2, AlertCircle } from 'lucide-react'
+import { Label } from '@/components/ui/label'
 import {
   Pagination,
   PaginationContent,
@@ -57,6 +58,10 @@ export default function PlanoContas() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [taxonomias, setTaxonomias] = useState<Taxonomia[]>([])
+
+  const [isClearAllModalOpen, setIsClearAllModalOpen] = useState(false)
+  const [clearConfirmText, setClearConfirmText] = useState('')
+  const [isClearing, setIsClearing] = useState(false)
 
   const loadData = async () => {
     if (!userProfile?.org_id) return
@@ -120,6 +125,23 @@ export default function PlanoContas() {
     }
   }
 
+  const handleDeleteAll = async () => {
+    if (!userProfile?.org_id) return
+    try {
+      setIsClearing(true)
+      await contabilidadeService.deleteAllPlanoContas(userProfile.org_id)
+      toast({ title: 'Plano de Contas excluído com sucesso' })
+      setIsClearAllModalOpen(false)
+      setClearConfirmText('')
+      setPage(1)
+      loadData()
+    } catch (err: any) {
+      toast({ title: 'Erro ao excluir', description: err.message, variant: 'destructive' })
+    } finally {
+      setIsClearing(false)
+    }
+  }
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -164,7 +186,10 @@ export default function PlanoContas() {
     <div className="p-6 space-y-6 max-w-6xl mx-auto animate-fade-in">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-3xl font-bold tracking-tight">Plano de Contas</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="destructive" onClick={() => setIsClearAllModalOpen(true)}>
+            <Trash2 className="w-4 h-4 mr-2" /> Excluir Tudo
+          </Button>
           <input
             type="file"
             accept=".csv"
@@ -354,6 +379,48 @@ export default function PlanoContas() {
           )}
         </>
       )}
+
+      <Dialog
+        open={isClearAllModalOpen}
+        onOpenChange={(open) => {
+          setIsClearAllModalOpen(open)
+          if (!open) setClearConfirmText('')
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-500 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5" /> Limpar Plano de Contas
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Esta ação é <strong>irreversível</strong>. Todas as contas serão excluídas e os
+              vínculos existentes na Matriz de Relacionamento serão removidos em cascata.
+            </p>
+            <div className="space-y-2">
+              <Label>Digite EXCLUIR para confirmar</Label>
+              <Input
+                value={clearConfirmText}
+                onChange={(e) => setClearConfirmText(e.target.value)}
+                placeholder="EXCLUIR"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsClearAllModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={clearConfirmText !== 'EXCLUIR' || isClearing}
+              onClick={handleDeleteAll}
+            >
+              {isClearing ? 'Excluindo...' : 'Confirmar Exclusão'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
