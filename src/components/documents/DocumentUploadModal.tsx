@@ -149,16 +149,9 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
       setStep('mapping')
       try {
         const rawData = await documentService.extractRawStructuredData(file)
-        let bestRow: any[] = []
-        let maxCols = 0
-        for (let i = 0; i < Math.min(rawData.length, 10); i++) {
-          const cols =
-            rawData[i]?.filter((c: any) => typeof c === 'string' && c.trim().length > 0) || []
-          if (cols.length > maxCols) {
-            maxCols = cols.length
-            bestRow = rawData[i]
-          }
-        }
+
+        // Padrão Plano de Contas: sempre usar a primeira linha (índice 0) como cabeçalho
+        const bestRow: any[] = rawData.length > 0 ? rawData[0] : []
 
         const headers = bestRow.map((c, i) => ({
           name: c ? String(c).trim() : `Coluna ${i + 1}`,

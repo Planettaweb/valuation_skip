@@ -291,22 +291,28 @@ export function parseMappedData(
 
     // Detect if this is a header row by checking if string matches common header words
     let isHeader = false
-    const strCols = cols.map((c) =>
-      String(c || '')
-        .trim()
-        .toLowerCase(),
-    )
-    if (
-      strCols.some(
-        (c) =>
-          c === 'descrição' ||
-          c === 'valor' ||
-          c === 'código' ||
-          c.includes('saldo') ||
-          c.includes('description'),
-      )
-    ) {
+
+    // Sempre pula a primeira linha pois definimos que é o cabeçalho (padrão Plano de Contas)
+    if (i === 0) {
       isHeader = true
+    } else {
+      const strCols = cols.map((c) =>
+        String(c || '')
+          .trim()
+          .toLowerCase(),
+      )
+      if (
+        strCols.some(
+          (c) =>
+            c === 'descrição' ||
+            c === 'valor' ||
+            c === 'código' ||
+            c.includes('saldo') ||
+            c.includes('description'),
+        )
+      ) {
+        isHeader = true
+      }
     }
 
     if (isHeader) {
