@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -84,9 +84,9 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>
 }
 
-const ClientIdRedirect = () => {
-  const { clientId } = useParams()
-  return <Navigate to={`/app/clients/${clientId}`} replace />
+const LegacyRedirect = () => {
+  const location = useLocation()
+  return <Navigate to={`/app${location.pathname}${location.search}${location.hash}`} replace />
 }
 
 const AppRoutes = () => (
@@ -147,22 +147,18 @@ const AppRoutes = () => (
     </Route>
 
     {/* Legacy Route Redirects */}
-    <Route path="/clients" element={<Navigate to="/app/clients" replace />} />
-    <Route path="/clients/:clientId" element={<ClientIdRedirect />} />
-    <Route path="/documents" element={<Navigate to="/app/documents" replace />} />
-    <Route path="/plano-contas" element={<Navigate to="/app/plano-contas" replace />} />
-    <Route path="/tipos-documentos" element={<Navigate to="/app/tipos-documentos" replace />} />
-    <Route
-      path="/matriz-relacionamento"
-      element={<Navigate to="/app/matriz-relacionamento" replace />}
-    />
-    <Route path="/profile" element={<Navigate to="/app/profile" replace />} />
-    <Route path="/settings" element={<Navigate to="/app/settings" replace />} />
-    <Route path="/users" element={<Navigate to="/app/users" replace />} />
-    <Route path="/organizations" element={<Navigate to="/app/organizations" replace />} />
-    <Route path="/roles" element={<Navigate to="/app/roles" replace />} />
-    <Route path="/permissions" element={<Navigate to="/app/permissions" replace />} />
-    <Route path="/dashboard" element={<Navigate to="/app" replace />} />
+    <Route path="/clients/*" element={<LegacyRedirect />} />
+    <Route path="/documents/*" element={<LegacyRedirect />} />
+    <Route path="/plano-contas/*" element={<LegacyRedirect />} />
+    <Route path="/tipos-documentos/*" element={<LegacyRedirect />} />
+    <Route path="/matriz-relacionamento/*" element={<LegacyRedirect />} />
+    <Route path="/profile/*" element={<LegacyRedirect />} />
+    <Route path="/settings/*" element={<LegacyRedirect />} />
+    <Route path="/users/*" element={<LegacyRedirect />} />
+    <Route path="/organizations/*" element={<LegacyRedirect />} />
+    <Route path="/roles/*" element={<LegacyRedirect />} />
+    <Route path="/permissions/*" element={<LegacyRedirect />} />
+    <Route path="/dashboard/*" element={<Navigate to="/app" replace />} />
 
     <Route path="*" element={<NotFound />} />
   </Routes>
