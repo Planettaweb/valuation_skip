@@ -26,6 +26,7 @@ import PlanoContas from './pages/PlanoContas'
 import TiposDocumentos from './pages/TiposDocumentos'
 import MatrizRelacionamento from './pages/MatrizRelacionamento'
 import NotFound from './pages/NotFound'
+import LandingPage from './pages/LandingPage'
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -79,7 +80,7 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
       </div>
     )
   }
-  if (userProfile) return <Navigate to="/" replace />
+  if (userProfile) return <Navigate to="/app" replace />
   return <>{children}</>
 }
 
@@ -111,29 +112,32 @@ const AppRoutes = () => (
     />
     <Route path="/reset-password" element={<ResetPassword />} />
 
+    <Route path="/" element={<LandingPage />} />
+
     <Route
+      path="/app"
       element={
         <ProtectedRoute>
           <Layout />
         </ProtectedRoute>
       }
     >
-      <Route path="/" element={<Index />} />
-      <Route path="/clients" element={<Clients />} />
-      <Route path="/clients/:clientId" element={<ClientDetails />} />
-      <Route path="/documents" element={<Documents />} />
-      <Route path="/plano-contas" element={<PlanoContas />} />
-      <Route path="/tipos-documentos" element={<TiposDocumentos />} />
-      <Route path="/matriz-relacionamento" element={<MatrizRelacionamento />} />
-      <Route path="/profile" element={<Profile />} />
-      <Route path="/settings" element={<Settings />} />
+      <Route index element={<Index />} />
+      <Route path="clients" element={<Clients />} />
+      <Route path="clients/:clientId" element={<ClientDetails />} />
+      <Route path="documents" element={<Documents />} />
+      <Route path="plano-contas" element={<PlanoContas />} />
+      <Route path="tipos-documentos" element={<TiposDocumentos />} />
+      <Route path="matriz-relacionamento" element={<MatrizRelacionamento />} />
+      <Route path="profile" element={<Profile />} />
+      <Route path="settings" element={<Settings />} />
 
       {/* Admin Module Routes */}
       <Route element={<AdminRoute />}>
-        <Route path="/users" element={<Users />} />
-        <Route path="/organizations" element={<Organizations />} />
-        <Route path="/roles" element={<Roles />} />
-        <Route path="/permissions" element={<Permissions />} />
+        <Route path="users" element={<Users />} />
+        <Route path="organizations" element={<Organizations />} />
+        <Route path="roles" element={<Roles />} />
+        <Route path="permissions" element={<Permissions />} />
       </Route>
     </Route>
 
