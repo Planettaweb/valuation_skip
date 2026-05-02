@@ -277,6 +277,106 @@ export function parseStructuredData(rows: any[][], documentType: string) {
   return { rowsData, noise }
 }
 
+export function parseMappedData(
+  rows: any[][],
+  mapping: Record<string, number>,
+  documentType: string,
+) {
+  const rowsData: any[] = []
+  const noise: any[] = []
+
+  for (let i = 0; i < rows.length; i++) {
+    const cols = rows[i]
+    if (!cols || !Array.isArray(cols) || cols.length === 0 || cols.every((c) => !c)) continue
+
+    // Detect if this is a header row by checking if string matches common header words
+    let isHeader = false
+    const strCols = cols.map((c) =>
+      String(c || '')
+        .trim()
+        .toLowerCase(),
+    )
+    if (
+      strCols.some(
+        (c) =>
+          c === 'descrição' ||
+          c === 'valor' ||
+          c === 'código' ||
+          c.includes('saldo') ||
+          c.includes('description'),
+      )
+    ) {
+      isHeader = true
+    }
+
+    if (isHeader) {
+      noise.push({ linha_original: cols.join(' | ') })
+      continue
+    }
+
+    const account_code =
+      mapping['account_code'] >= 0 ? String(cols[mapping['account_code']] || '').trim() : null
+    const classification_code =
+      mapping['classification_code'] >= 0
+        ? String(cols[mapping['classification_code']] || '').trim()
+        : null
+    const description =
+      mapping['description'] >= 0 ? String(cols[mapping['description']] || '').trim() : ''
+    const period = mapping['period'] >= 0 ? String(cols[mapping['period']] || '').trim() : null
+
+    let raw: any = {}
+    let value = null
+
+    if (documentType === 'Balancete') {
+      raw.previous_balance =
+        mapping['previous_balance'] >= 0
+          ? parseValueStr(String(cols[mapping['previous_balance']]))
+          : null
+      raw.debit = mapping['debit'] >= 0 ? parseValueStr(String(cols[mapping['debit']])) : null
+      raw.credit = mapping['credit'] >= 0 ? parseValueStr(String(cols[mapping['credit']])) : null
+      value =
+        mapping['current_balance'] >= 0
+          ? parseValueStr(String(cols[mapping['current_balance']]))
+          : null
+    } else if (documentType === 'Balanço' || documentType === 'Balanço Patrimonial') {
+      value =
+        mapping['value_year_n'] >= 0 ? parseValueStr(String(cols[mapping['value_year_n']])) : null
+      raw.valor_exercicio_anterior =
+        mapping['value_year_n_minus_1'] >= 0
+          ? parseValueStr(String(cols[mapping['value_year_n_minus_1']]))
+          : null
+    } else if (documentType === 'DRE') {
+      value = mapping['balance'] >= 0 ? parseValueStr(String(cols[mapping['balance']])) : null
+      raw.sum = mapping['sum'] >= 0 ? parseValueStr(String(cols[mapping['sum']])) : null
+      raw.total = mapping['total'] >= 0 ? parseValueStr(String(cols[mapping['total']])) : null
+      if (value === null) value = raw.total || raw.sum
+    } else if (documentType === 'Fluxo de Caixa') {
+      raw.planned_value =
+        mapping['planned_value'] >= 0 ? parseValueStr(String(cols[mapping['planned_value']])) : null
+      value =
+        mapping['realized_value'] >= 0
+          ? parseValueStr(String(cols[mapping['realized_value']]))
+          : null
+    }
+
+    if (description || value !== null) {
+      rowsData.push({
+        account_code,
+        classification_code,
+        description: description || 'Sem Descrição',
+        value,
+        period,
+        document_type: documentType,
+        raw,
+      })
+    } else {
+      noise.push({ linha_original: cols.join(' | ') })
+    }
+  }
+
+  return { rowsData, noise }
+}
+
 export function parseCSV(text: string, documentType: string) {
   const lines = text.split('\n')
   const data = lines.map((l) => l.split(/[,;\t]/).map((c) => c.trim()))

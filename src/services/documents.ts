@@ -6,6 +6,7 @@ import {
   persistStructuredData,
   parseCSV,
   parseStructuredData,
+  parseMappedData,
 } from '@/lib/extraction-utils'
 
 export const documentService = {
@@ -48,7 +49,12 @@ export const documentService = {
     throw new Error('Formato não suportado para extração estruturada (apenas .csv ou .xlsx).')
   },
 
-  async parseDocumentLocal(file: File, documentType: string, onProgress?: (msg: string) => void) {
+  async parseDocumentLocal(
+    file: File,
+    documentType: string,
+    onProgress?: (msg: string) => void,
+    mappingData?: Record<string, number>,
+  ) {
     if (
       !['Balanço', 'Balanço Patrimonial', 'Balancete', 'DRE', 'Fluxo de Caixa'].includes(
         documentType,
@@ -60,10 +66,12 @@ export const documentService = {
     const isStructured = file.name.endsWith('.csv') || file.name.endsWith('.xlsx')
 
     if (isStructured) {
-      onProgress?.('Lendo arquivo estruturado...')
+      onProgress?.('Lendo arquivo estruturado e aplicando mapeamento...')
       let rowsData: any[] = []
       let noise: any[] = []
       let diagnostic = ''
+
+      let jsonData: any[][] = []
 
       if (file.name.endsWith('.xlsx')) {
         try {
@@ -72,25 +80,31 @@ export const documentService = {
           const workbook = XLSX.read(arrayBuffer, { type: 'array' })
           const firstSheetName = workbook.SheetNames[0]
           const firstSheet = workbook.Sheets[firstSheetName]
-          const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 })
-          const res = parseStructuredData(jsonData as any[][], documentType)
-          rowsData = res.rowsData
-          noise = res.noise
+          jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][]
         } catch (err: any) {
           console.error('XLSX parse error:', err)
-          diagnostic =
-            'Não foi possível processar a planilha XLSX automaticamente. O arquivo pode estar protegido. Por favor, insira os dados no modo manual.'
+          diagnostic = 'Não foi possível processar a planilha XLSX automaticamente.'
         }
       } else {
         const text = await file.text()
-        const res = parseCSV(text, documentType)
-        rowsData = res.rowsData
-        noise = res.noise
+        jsonData = text.split('\n').map((l) => l.split(/[,;\t]/).map((c) => c.trim()))
+      }
+
+      if (jsonData.length > 0) {
+        if (mappingData && Object.keys(mappingData).length > 0) {
+          const res = parseMappedData(jsonData, mappingData, documentType)
+          rowsData = res.rowsData
+          noise = res.noise
+        } else {
+          const res = parseStructuredData(jsonData, documentType)
+          rowsData = res.rowsData
+          noise = res.noise
+        }
       }
 
       if (rowsData.length === 0 && !diagnostic) {
         diagnostic =
-          'Não foi possível encontrar um padrão contábil legível no arquivo. Os cabeçalhos podem estar ausentes ou não reconhecidos.'
+          'Não foi possível encontrar um padrão contábil legível no arquivo. Verifique o mapeamento.'
       }
 
       const calculatedSum = rowsData.reduce((acc, c) => acc + (c.value || 0), 0)

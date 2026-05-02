@@ -53,10 +53,16 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
   const [selectedClient, setSelectedClient] = useState(defaultClientId || '')
   const [clientPlanoContas, setClientPlanoContas] = useState<any[]>([])
 
-  const [step, setStep] = useState<'form' | 'processing' | 'preview' | 'saving'>('form')
+  const [step, setStep] = useState<'form' | 'mapping' | 'processing' | 'preview' | 'saving'>('form')
   const [statusMessage, setStatusMessage] = useState('')
   const [diagnosticMsg, setDiagnosticMsg] = useState('')
   const [mappingMode, setMappingMode] = useState<'none' | 'similarity' | 'generate'>('none')
+
+  const [fileHeaders, setFileHeaders] = useState<{ name: string; index: number }[]>([])
+  const [expectedFields, setExpectedFields] = useState<
+    { key: string; label: string; required: boolean }[]
+  >([])
+  const [fieldMapping, setFieldMapping] = useState<Record<string, number>>({})
 
   const [parsedPreview, setParsedPreview] = useState<{
     metadataObj: any
@@ -133,7 +139,91 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     validateAndSetFile(e.dataTransfer.files?.[0])
   }
 
-  const handleProcessPreview = async () => {
+  const handleAnalyzeFile = async () => {
+    if (!file || !selectedClient) return
+
+    const nameLower = file.name.toLowerCase()
+    const isStructured = nameLower.endsWith('.csv') || nameLower.endsWith('.xlsx')
+
+    if (isStructured) {
+      setStep('mapping')
+      try {
+        const rawData = await documentService.extractRawStructuredData(file)
+        let bestRow: any[] = []
+        let maxCols = 0
+        for (let i = 0; i < Math.min(rawData.length, 10); i++) {
+          const cols =
+            rawData[i]?.filter((c: any) => typeof c === 'string' && c.trim().length > 0) || []
+          if (cols.length > maxCols) {
+            maxCols = cols.length
+            bestRow = rawData[i]
+          }
+        }
+
+        const headers = bestRow.map((c, i) => ({
+          name: c ? String(c).trim() : `Coluna ${i + 1}`,
+          index: i,
+        }))
+        setFileHeaders(headers)
+
+        let expected: any[] = []
+        if (docType === 'Balancete') {
+          expected = [
+            { key: 'account_code', label: 'Código da Conta', required: false },
+            { key: 'classification_code', label: 'Classificação', required: false },
+            { key: 'description', label: 'Descrição da Conta', required: true },
+            { key: 'previous_balance', label: 'Saldo Anterior', required: false },
+            { key: 'debit', label: 'Débito', required: false },
+            { key: 'credit', label: 'Crédito', required: false },
+            { key: 'current_balance', label: 'Saldo Atual', required: true },
+          ]
+        } else if (docType === 'Balanço' || docType === 'Balanço Patrimonial') {
+          expected = [
+            { key: 'account_code', label: 'Código', required: false },
+            { key: 'classification_code', label: 'Classificação', required: false },
+            { key: 'description', label: 'Descrição', required: true },
+            { key: 'value_year_n', label: 'Ano Atual', required: true },
+            { key: 'value_year_n_minus_1', label: 'Ano Anterior', required: false },
+          ]
+        } else if (docType === 'DRE') {
+          expected = [
+            { key: 'description', label: 'Descrição', required: true },
+            { key: 'balance', label: 'Saldo', required: true },
+            { key: 'sum', label: 'Soma', required: false },
+            { key: 'total', label: 'Total', required: false },
+          ]
+        } else if (docType === 'Fluxo de Caixa') {
+          expected = [
+            { key: 'description', label: 'Descrição', required: true },
+            { key: 'period', label: 'Mês/Período', required: false },
+            { key: 'planned_value', label: 'Valor Planejado', required: false },
+            { key: 'realized_value', label: 'Valor Realizado', required: true },
+          ]
+        }
+        setExpectedFields(expected)
+
+        const initialMapping: Record<string, number> = {}
+        expected.forEach((f) => {
+          const exact = headers.find((h) => h.name.toLowerCase() === f.label.toLowerCase())
+          if (exact) initialMapping[f.key] = exact.index
+          else {
+            const partial = headers.find((h) =>
+              h.name.toLowerCase().includes(f.label.toLowerCase().split(' ')[0]),
+            )
+            if (partial) initialMapping[f.key] = partial.index
+          }
+        })
+        setFieldMapping(initialMapping)
+      } catch (err: any) {
+        toast({ title: 'Erro ao ler arquivo', description: err.message, variant: 'destructive' })
+        setStep('form')
+      }
+    } else {
+      handleProcessPreview()
+    }
+  }
+
+  const handleProcessPreview = async (mappingData?: Record<string, number>) => {
     if (!file || !selectedClient) return
     setStep('processing')
     setStatusMessage('Iniciando processamento e validação...')
@@ -142,7 +232,12 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     setMappingMode('none')
 
     try {
-      const parsed = await documentService.parseDocumentLocal(file, docType, setStatusMessage)
+      const parsed = await documentService.parseDocumentLocal(
+        file,
+        docType,
+        setStatusMessage,
+        mappingData,
+      )
       const rowsWithMapping = (parsed.rowsData || []).map((r: any) => ({
         ...r,
         mapped_codigo: r.account_code || '',
@@ -235,6 +330,9 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     setDiagnosticMsg('')
     setShowNoise(false)
     setMappingMode('none')
+    setFileHeaders([])
+    setExpectedFields([])
+    setFieldMapping({})
   }
 
   const handleOpenChange = (open: boolean) => {
@@ -612,12 +710,87 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                 </div>
 
                 <Button
-                  onClick={handleProcessPreview}
+                  onClick={handleAnalyzeFile}
                   disabled={!file || !selectedClient}
                   className="w-full mt-2"
                 >
                   Extrair e Validar Dados
                 </Button>
+              </div>
+            )}
+
+            {step === 'mapping' && (
+              <div className="flex flex-col gap-4 animate-in fade-in zoom-in-95">
+                <Alert className="bg-primary/10 border-primary/20 text-primary">
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Mapeamento de Colunas</AlertTitle>
+                  <AlertDescription>
+                    Identificamos as colunas do seu arquivo. Vincule-as aos campos esperados para{' '}
+                    {docType}.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="border border-white/10 rounded-md overflow-hidden bg-card/50">
+                  <Table>
+                    <TableHeader className="bg-background/95">
+                      <TableRow>
+                        <TableHead>Campo Esperado</TableHead>
+                        <TableHead>Coluna do Arquivo</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {expectedFields.map((field) => (
+                        <TableRow key={field.key}>
+                          <TableCell className="font-medium">
+                            {field.label}
+                            {field.required && <span className="text-red-400 ml-1">*</span>}
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={fieldMapping[field.key]?.toString() || 'none'}
+                              onValueChange={(val) => {
+                                setFieldMapping((prev) => ({
+                                  ...prev,
+                                  [field.key]: val === 'none' ? -1 : parseInt(val),
+                                }))
+                              }}
+                            >
+                              <SelectTrigger className="h-8 bg-background/50 border-white/10">
+                                <SelectValue placeholder="Selecione a coluna..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none" className="text-muted-foreground italic">
+                                  Ignorar / Não Mapear
+                                </SelectItem>
+                                {fileHeaders.map((h) => (
+                                  <SelectItem key={h.index} value={h.index.toString()}>
+                                    {h.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="flex gap-2 justify-end mt-2">
+                  <Button variant="outline" onClick={() => setStep('form')}>
+                    Voltar
+                  </Button>
+                  <Button
+                    onClick={() => handleProcessPreview(fieldMapping)}
+                    disabled={expectedFields.some(
+                      (f) =>
+                        f.required &&
+                        (fieldMapping[f.key] === undefined || fieldMapping[f.key] === -1),
+                    )}
+                  >
+                    Extrair Valores
+                  </Button>
+                </div>
               </div>
             )}
 
