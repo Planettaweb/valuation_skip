@@ -384,8 +384,45 @@ export function parseMappedData(
 }
 
 export function parseCSV(text: string, documentType: string) {
-  const lines = text.split('\n')
-  const data = lines.map((l) => l.split(/[,;\t]/).map((c) => c.trim()))
+  const lines = text.split(/\r?\n/).filter((l) => l.trim() !== '')
+  if (!lines.length) return { rowsData: [], noise: [] }
+
+  // Detecção automática de separador
+  let separator = ','
+  if (lines.length > 0) {
+    const firstLine = lines[0]
+    const commaCount = (firstLine.match(/,/g) || []).length
+    const semiCount = (firstLine.match(/;/g) || []).length
+    const tabCount = (firstLine.match(/\t/g) || []).length
+
+    if (tabCount > commaCount && tabCount > semiCount) separator = '\t'
+    else if (semiCount > commaCount) separator = ';'
+  }
+
+  const data = lines.map((line) => {
+    const row = []
+    let cell = ''
+    let inQuotes = false
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          cell += '"'
+          i++
+        } else {
+          inQuotes = !inQuotes
+        }
+      } else if (char === separator && !inQuotes) {
+        row.push(cell.trim())
+        cell = ''
+      } else {
+        cell += char
+      }
+    }
+    row.push(cell.trim())
+    return row
+  })
+
   return parseStructuredData(data, documentType)
 }
 

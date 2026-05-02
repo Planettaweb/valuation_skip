@@ -96,7 +96,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     }
   }, [selectedClient, userProfile])
 
-  const validateAndSetFile = (f?: File) => {
+  const validateAndSetFile = async (f?: File) => {
     if (!f) return
     const nameLower = f.name.toLowerCase()
     if (
@@ -119,7 +119,31 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
       })
       return
     }
-    setFile(f)
+
+    if (nameLower.endsWith('.csv')) {
+      try {
+        const buffer = await f.arrayBuffer()
+        let text = new TextDecoder('utf-8').decode(buffer)
+
+        // Se encontrou o caractere de substituição do UTF-8, o arquivo provavelmente é ISO-8859-1 (Latin1)
+        if (text.includes('')) {
+          text = new TextDecoder('iso-8859-1').decode(buffer)
+        }
+
+        // Limpeza de caracteres de controle (BOM e não imprimíveis)
+        text = text.replace(/^\uFEFF/, '')
+        // eslint-disable-next-line no-control-regex
+        text = text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '')
+
+        const newFile = new File([text], f.name, { type: 'text/csv;charset=utf-8' })
+        setFile(newFile)
+      } catch (err) {
+        console.error('Erro ao converter codificação do CSV:', err)
+        setFile(f)
+      }
+    } else {
+      setFile(f)
+    }
   }
 
   const handleDragOver = (e: React.DragEvent) => {
