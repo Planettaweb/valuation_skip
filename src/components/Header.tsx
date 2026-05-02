@@ -55,10 +55,10 @@ export function Header() {
               <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-border" />
               <DropdownMenuItem asChild className="cursor-pointer">
-                <Link to="/profile">Perfil</Link>
+                <Link to="/app/profile">Perfil</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild className="cursor-pointer">
-                <Link to="/settings">Configurações</Link>
+                <Link to="/app/settings">Configurações</Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-border" />
               <DropdownMenuItem

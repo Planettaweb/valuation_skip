@@ -53,17 +53,23 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu className="gap-2 px-2">
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location.pathname === '/'}>
-                  <Link to="/" className="hover:bg-primary/10 hover:text-primary transition-colors">
+                <SidebarMenuButton
+                  asChild
+                  isActive={location.pathname === '/app' || location.pathname === '/app/'}
+                >
+                  <Link
+                    to="/app"
+                    className="hover:bg-primary/10 hover:text-primary transition-colors"
+                  >
                     <LayoutDashboard className="w-4 h-4" /> <span>Painel (Início)</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location.pathname.startsWith('/clients')}>
+                <SidebarMenuButton asChild isActive={location.pathname.startsWith('/app/clients')}>
                   <Link
-                    to="/clients"
+                    to="/app/clients"
                     className="hover:bg-primary/10 hover:text-primary transition-colors"
                   >
                     <Users className="w-4 h-4" /> <span>Clientes</span>
@@ -72,9 +78,9 @@ export function AppSidebar() {
               </SidebarMenuItem>
 
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location.pathname === '/documents'}>
+                <SidebarMenuButton asChild isActive={location.pathname === '/app/documents'}>
                   <Link
-                    to="/documents"
+                    to="/app/documents"
                     className="hover:bg-primary/10 hover:text-primary transition-colors"
                   >
                     <Folder className="w-4 h-4" /> <span>Repositório de Arquivos</span>
@@ -97,9 +103,9 @@ export function AppSidebar() {
               <SidebarGroupContent>
                 <SidebarMenu className="gap-2 px-2 mt-2">
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location.pathname === '/plano-contas'}>
+                    <SidebarMenuButton asChild isActive={location.pathname === '/app/plano-contas'}>
                       <Link
-                        to="/plano-contas"
+                        to="/app/plano-contas"
                         className="hover:bg-primary/10 hover:text-primary transition-colors"
                       >
                         <BookOpen className="w-4 h-4" /> <span>Plano de Contas</span>
@@ -107,9 +113,12 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={location.pathname === '/tipos-documentos'}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location.pathname === '/app/tipos-documentos'}
+                    >
                       <Link
-                        to="/tipos-documentos"
+                        to="/app/tipos-documentos"
                         className="hover:bg-primary/10 hover:text-primary transition-colors"
                       >
                         <FileText className="w-4 h-4" /> <span>Tipos de Documentos</span>
@@ -119,10 +128,10 @@ export function AppSidebar() {
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
-                      isActive={location.pathname === '/matriz-relacionamento'}
+                      isActive={location.pathname === '/app/matriz-relacionamento'}
                     >
                       <Link
-                        to="/matriz-relacionamento"
+                        to="/app/matriz-relacionamento"
                         className="hover:bg-primary/10 hover:text-primary transition-colors"
                       >
                         <Network className="w-4 h-4" /> <span>Matriz de Relacionamento</span>
@@ -148,9 +157,9 @@ export function AppSidebar() {
                 <SidebarGroupContent>
                   <SidebarMenu className="gap-2 px-2 mt-2">
                     <SidebarMenuItem>
-                      <SidebarMenuButton asChild isActive={location.pathname === '/users'}>
+                      <SidebarMenuButton asChild isActive={location.pathname === '/app/users'}>
                         <Link
-                          to="/users"
+                          to="/app/users"
                           className="hover:bg-primary/10 hover:text-primary transition-colors"
                         >
                           <Users className="w-4 h-4" /> <span>Usuários</span>
@@ -158,9 +167,12 @@ export function AppSidebar() {
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
-                      <SidebarMenuButton asChild isActive={location.pathname === '/organizations'}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={location.pathname === '/app/organizations'}
+                      >
                         <Link
-                          to="/organizations"
+                          to="/app/organizations"
                           className="hover:bg-primary/10 hover:text-primary transition-colors"
                         >
                           <Building2 className="w-4 h-4" /> <span>Organizações</span>
@@ -168,9 +180,9 @@ export function AppSidebar() {
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
-                      <SidebarMenuButton asChild isActive={location.pathname === '/roles'}>
+                      <SidebarMenuButton asChild isActive={location.pathname === '/app/roles'}>
                         <Link
-                          to="/roles"
+                          to="/app/roles"
                           className="hover:bg-primary/10 hover:text-primary transition-colors"
                         >
                           <ShieldCheck className="w-4 h-4" /> <span>Perfis (RBAC)</span>
@@ -178,9 +190,12 @@ export function AppSidebar() {
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
-                      <SidebarMenuButton asChild isActive={location.pathname === '/permissions'}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={location.pathname === '/app/permissions'}
+                      >
                         <Link
-                          to="/permissions"
+                          to="/app/permissions"
                           className="hover:bg-primary/10 hover:text-primary transition-colors"
                         >
                           <Key className="w-4 h-4" /> <span>Permissões</span>
@@ -198,9 +213,9 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu className="gap-2 px-2">
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location.pathname === '/settings'}>
+                <SidebarMenuButton asChild isActive={location.pathname === '/app/settings'}>
                   <Link
-                    to="/settings"
+                    to="/app/settings"
                     className="hover:bg-primary/10 hover:text-primary transition-colors"
                   >
                     <Settings className="w-4 h-4" /> <span>Configurações</span>
