@@ -90,7 +90,9 @@ export function OrbitalEcosystem() {
 
       {/* Floating Badges */}
       <div className="absolute top-[60%] left-[20%] border border-primary/40 bg-primary/10 px-3 py-1.5 rounded-lg backdrop-blur-md animate-pulse-glow">
-        <span className="text-[10px] font-bold text-primary tracking-widest">NEXUS Orbital 2.0</span>
+        <span className="text-[10px] font-bold text-primary tracking-widest">
+          NEXUS Orbital 2.0
+        </span>
       </div>
     </div>
   )
