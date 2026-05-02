@@ -28,7 +28,7 @@ export default function LandingPage() {
               <LineChart className="w-5 h-5 text-white" />
             </div>
             <span className="font-bold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-300">
-              Nexus M&A 2.0
+              Nexus Orbital 2.0
             </span>
           </div>
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
@@ -131,7 +131,7 @@ export default function LandingPage() {
                 Avaliamos o passado para projetar o seu futuro
               </h2>
               <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
-                Sua empresa ainda toma decisões baseada em intuição? O Nexus M&A 2.0 substitui a
+                Sua empresa ainda toma decisões baseada em intuição? O Nexus Orbital 2.0 substitui a
                 cegueira financeira por previsibilidade absoluta.
               </p>
             </div>
@@ -391,7 +391,7 @@ export default function LandingPage() {
               <span className="text-foreground font-medium">
                 contador focado em gestão, consultor financeiro ou assessor de M&A
               </span>
-              ? Utilize o Nexus M&A 2.0 como ferramenta{' '}
+              ? Utilize o Nexus Orbital 2.0 como ferramenta{' '}
               <span className="text-foreground font-medium">white-label</span> para agregar um valor
               extraordinário às suas entregas, fidelizar clientes e escalar sua própria receita.
             </p>
@@ -412,7 +412,7 @@ export default function LandingPage() {
               <div className="w-8 h-8 rounded bg-primary/20 flex items-center justify-center">
                 <LineChart className="w-4 h-4 text-primary" />
               </div>
-              <span className="font-bold tracking-tight">Nexus M&A 2.0</span>
+              <span className="font-bold tracking-tight">Nexus Orbital 2.0</span>
             </div>
             <div className="flex gap-6 text-sm text-muted-foreground font-medium">
               <a href="#solucao" className="hover:text-foreground transition-colors">
@@ -431,7 +431,7 @@ export default function LandingPage() {
           </div>
           <div className="text-center md:text-left text-sm text-muted-foreground/60 border-t border-white/5 pt-8">
             <p>
-              © {new Date().getFullYear()} Átiman / Nexus M&A. Todos os direitos reservados.
+              © {new Date().getFullYear()} Átiman / Nexus Orbital. Todos os direitos reservados.
               Transformando finanças corporativas.
             </p>
           </div>

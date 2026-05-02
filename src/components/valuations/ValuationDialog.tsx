@@ -71,7 +71,7 @@ export function ValuationDialog({ open, onOpenChange, onSave, initialData }: Pro
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Valuation">Valuation</SelectItem>
-                <SelectItem value="M&A">M&A</SelectItem>
+                <SelectItem value="M&A">Orbital</SelectItem>
               </SelectContent>
             </Select>
           </div>

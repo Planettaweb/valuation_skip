@@ -1996,7 +1996,7 @@ export const Constants = {
 //   FOREIGN KEY valuations_org_id_fkey: FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE
 //   PRIMARY KEY valuations_pkey: PRIMARY KEY (id)
 //   CHECK valuations_status_check: CHECK ((status = ANY (ARRAY['Em Andamento'::text, 'Concluído'::text])))
-//   CHECK valuations_valuation_type_check: CHECK ((valuation_type = ANY (ARRAY['Valuation'::text, 'M&A'::text])))
+//   CHECK valuations_valuation_type_check: CHECK ((valuation_type = ANY (ARRAY['Valuation'::text, 'Orbital'::text])))
 
 // --- ROW LEVEL SECURITY POLICIES ---
 // Table: audit_logs
