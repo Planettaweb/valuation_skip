@@ -32,6 +32,22 @@ export const documentService = {
     return { data: mapped, error }
   },
 
+  async extractRawStructuredData(file: File) {
+    if (file.name.endsWith('.xlsx')) {
+      const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.0/package/xlsx.mjs')
+      const arrayBuffer = await file.arrayBuffer()
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' })
+      const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {
+        header: 1,
+      })
+      return jsonData as any[][]
+    } else if (file.name.endsWith('.csv')) {
+      const text = await file.text()
+      return text.split('\n').map((l) => l.split(/[,;\t]/).map((c) => c.trim()))
+    }
+    throw new Error('Formato não suportado para extração estruturada (apenas .csv ou .xlsx).')
+  },
+
   async parseDocumentLocal(file: File, documentType: string, onProgress?: (msg: string) => void) {
     if (
       !['Balanço', 'Balanço Patrimonial', 'Balancete', 'DRE', 'Fluxo de Caixa'].includes(
@@ -116,7 +132,7 @@ export const documentService = {
     clientId: string,
     documentType: string,
     parsedData: { metadataObj: any; rowsData: any[]; newPlanoContas?: any[] },
-    onProgress?: (msg: string) => void,
+    onProgress?: (msg: string, stats?: any) => void,
   ) {
     let sharepointPath: string | null = null
     let valuationId: string | null = null
@@ -264,8 +280,16 @@ export const documentService = {
         })
         .eq('id', doc.id)
 
-      onProgress?.('Validando integridade em tabelas secundárias...')
-      await persistStructuredData(orgId, doc.id, documentType, parsedData.rowsData)
+      onProgress?.('Validando integridade em tabelas secundárias...', {
+        processed: 0,
+        total: parsedData.rowsData.length,
+      })
+      await persistStructuredData(orgId, doc.id, documentType, parsedData.rowsData, (proc, tot) => {
+        onProgress?.(`Salvando dados estruturados... (${proc}/${tot})`, {
+          processed: proc,
+          total: tot,
+        })
+      })
 
       if (parsedData.newPlanoContas && parsedData.newPlanoContas.length > 0) {
         onProgress?.('Gerando novo plano de contas do cliente...')

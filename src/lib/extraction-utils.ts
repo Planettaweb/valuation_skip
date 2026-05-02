@@ -391,6 +391,7 @@ export async function persistStructuredData(
   docId: string,
   documentType: string,
   rowsData: any[],
+  onProgress?: (processed: number, total: number) => void,
 ) {
   if (rowsData.length === 0) return
 
@@ -404,88 +405,101 @@ export async function persistStructuredData(
     return isNeg && parsed > 0 ? -parsed : Math.abs(parsed) * (isNeg ? -1 : 1)
   }
 
-  const { error: dataError } = await supabase.from('financial_data' as any).insert(
-    rowsData.map((d, index) => ({
-      org_id: orgId,
-      document_id: docId,
-      row_number: index + 1,
-      account_name: d.description,
-      value: toNum(d.value),
-      period: d.period?.toString() || null,
-    })),
-  )
-  if (dataError) console.error('Error inserting into financial_data:', dataError)
+  const BATCH_SIZE = 250
+  let processed = 0
+  const total = rowsData.length
 
-  const { error: rowsError } = await supabase.from('document_rows').insert(
-    rowsData.map((d, index) => ({
-      org_id: orgId,
-      document_id: docId,
-      row_index: index + 1,
-      data: d,
-    })),
-  )
-  if (rowsError) console.error('Error inserting into document_rows:', rowsError)
+  for (let i = 0; i < total; i += BATCH_SIZE) {
+    const batch = rowsData.slice(i, i + BATCH_SIZE)
 
-  try {
-    if (documentType === 'Balanço' || documentType === 'Balanço Patrimonial') {
-      const { error } = await supabase.from('financial_balanco_patrimonial' as any).insert(
-        rowsData.map((d) => ({
-          org_id: orgId,
-          document_id: docId,
-          account_code: d.account_code,
-          classification_code: d.classification_code,
-          description: d.description,
-          value_year_n: toNum(d.value),
-          value_year_n_minus_1: toNum(d.raw?.valor_exercicio_anterior),
-          nature_year_n: d.nature,
-          nature_year_n_minus_1: d.raw?.natureza_exercicio_anterior || null,
-          year_n: d.period ? parseInt(d.period) : null,
-        })),
+    const { error: dataError } = await supabase.from('financial_data' as any).insert(
+      batch.map((d, index) => ({
+        org_id: orgId,
+        document_id: docId,
+        row_number: i + index + 1,
+        account_name: d.description,
+        value: toNum(d.value),
+        period: d.period?.toString() || null,
+      })),
+    )
+    if (dataError) console.error('Error inserting into financial_data:', dataError)
+
+    const { error: rowsError } = await supabase.from('document_rows').insert(
+      batch.map((d, index) => ({
+        org_id: orgId,
+        document_id: docId,
+        row_index: i + index + 1,
+        data: d,
+      })),
+    )
+    if (rowsError) console.error('Error inserting into document_rows:', rowsError)
+
+    try {
+      if (documentType === 'Balanço' || documentType === 'Balanço Patrimonial') {
+        const { error } = await supabase.from('financial_balanco_patrimonial' as any).insert(
+          batch.map((d) => ({
+            org_id: orgId,
+            document_id: docId,
+            account_code: d.account_code,
+            classification_code: d.classification_code,
+            description: d.description,
+            value_year_n: toNum(d.value),
+            value_year_n_minus_1: toNum(d.raw?.valor_exercicio_anterior),
+            nature_year_n: d.nature,
+            nature_year_n_minus_1: d.raw?.natureza_exercicio_anterior || null,
+            year_n: d.period ? parseInt(d.period) : null,
+          })),
+        )
+        if (error) throw error
+      } else if (documentType === 'Balancete') {
+        const { error } = await supabase.from('financial_balancete' as any).insert(
+          batch.map((d) => ({
+            org_id: orgId,
+            document_id: docId,
+            account_code: d.account_code,
+            classification_code: d.classification_code,
+            account_description: d.description,
+            previous_balance: toNum(d.raw?.previous_balance),
+            debit: toNum(d.raw?.debit),
+            credit: toNum(d.raw?.credit),
+            current_balance: toNum(d.value),
+          })),
+        )
+        if (error) throw error
+      } else if (documentType === 'DRE') {
+        const { error } = await supabase.from('financial_dre' as any).insert(
+          batch.map((d) => ({
+            org_id: orgId,
+            document_id: docId,
+            description: d.description,
+            balance: toNum(d.value),
+            sum: toNum(d.raw?.sum),
+            total: toNum(d.raw?.total || d.value),
+          })),
+        )
+        if (error) throw error
+      } else if (documentType === 'Fluxo de Caixa') {
+        const { error } = await supabase.from('financial_fluxo_caixa' as any).insert(
+          batch.map((d) => ({
+            org_id: orgId,
+            document_id: docId,
+            description: d.description,
+            value: toNum(d.value),
+            planned_value: toNum(d.raw?.planned_value),
+            realized_value: toNum(d.value),
+            period: d.period?.toString() || null,
+          })),
+        )
+        if (error) throw error
+      }
+    } catch (err: any) {
+      console.error('Error inserting into specific analytical tables:', err)
+      throw new Error(
+        'Falha ao persistir dados estruturados nas tabelas analíticas: ' + err.message,
       )
-      if (error) throw error
-    } else if (documentType === 'Balancete') {
-      const { error } = await supabase.from('financial_balancete' as any).insert(
-        rowsData.map((d) => ({
-          org_id: orgId,
-          document_id: docId,
-          account_code: d.account_code,
-          classification_code: d.classification_code,
-          account_description: d.description,
-          previous_balance: toNum(d.raw?.previous_balance),
-          debit: toNum(d.raw?.debit),
-          credit: toNum(d.raw?.credit),
-          current_balance: toNum(d.value),
-        })),
-      )
-      if (error) throw error
-    } else if (documentType === 'DRE') {
-      const { error } = await supabase.from('financial_dre' as any).insert(
-        rowsData.map((d) => ({
-          org_id: orgId,
-          document_id: docId,
-          description: d.description,
-          balance: toNum(d.value),
-          sum: toNum(d.raw?.sum),
-          total: toNum(d.raw?.total || d.value),
-        })),
-      )
-      if (error) throw error
-    } else if (documentType === 'Fluxo de Caixa') {
-      const { error } = await supabase.from('financial_fluxo_caixa' as any).insert(
-        rowsData.map((d) => ({
-          org_id: orgId,
-          document_id: docId,
-          description: d.description,
-          value: toNum(d.value),
-          planned_value: toNum(d.raw?.planned_value),
-          realized_value: toNum(d.value),
-          period: d.period?.toString() || null,
-        })),
-      )
-      if (error) throw error
     }
-  } catch (err: any) {
-    console.error('Error inserting into specific analytical tables:', err)
-    throw new Error('Falha ao persistir dados estruturados nas tabelas analíticas: ' + err.message)
+
+    processed += batch.length
+    if (onProgress) onProgress(processed, total)
   }
 }
