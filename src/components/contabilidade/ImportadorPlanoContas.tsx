@@ -141,7 +141,7 @@ export function ImportadorPlanoContas({
 
           // Limpeza de caracteres de controle (BOM e não imprimíveis)
           text = text.replace(/^\uFEFF/, '')
-          text = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '')
+          text = text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '')
 
           const parsed = parseCSV(text)
           if (parsed.length < 2) throw new Error('Arquivo vazio ou sem dados.')
