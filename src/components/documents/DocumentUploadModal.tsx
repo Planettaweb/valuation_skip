@@ -1,6 +1,25 @@
 import { useState, useEffect } from 'react'
-import { Upload, Loader2, AlertCircle, Check, Trash2, Plus, Info, ListTree } from 'lucide-react'
+import {
+  Upload,
+  Loader2,
+  AlertCircle,
+  Check,
+  Trash2,
+  Plus,
+  Info,
+  ListTree,
+  ChevronsUpDown,
+} from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import {
   Dialog,
   DialogContent,
@@ -538,46 +557,88 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     </>
   )
 
-  const MappingCells = ({ row, i }: { row: any; i: number }) => (
-    <>
-      {mappingMode === 'similarity' && (
-        <TableCell className="p-2 border-x border-white/5 bg-primary/5">
-          <Select
-            value={row.mapped_plano_id || 'none'}
-            onValueChange={(val) => {
-              if (val === 'none') {
-                handleUpdateRow(i, 'mapped_plano_id', '')
-                handleUpdateRow(i, 'mapped_codigo', '')
-                handleUpdateRow(i, 'mapped_descricao', '')
-                return
-              }
-              const pc = clientPlanoContas.find((p) => p.id === val)
-              if (pc) {
-                handleUpdateRow(i, 'mapped_plano_id', pc.id)
-                handleUpdateRow(i, 'mapped_codigo', pc.codigo)
-                handleUpdateRow(i, 'mapped_descricao', pc.nome_conta || pc.descricao)
-              }
-            }}
-          >
-            <SelectTrigger className="h-8 text-xs bg-background/50 border-white/10 w-full">
-              <SelectValue placeholder="Selecione a conta..." />
-            </SelectTrigger>
-            <SelectContent className="max-w-[300px]">
-              <SelectItem value="none" className="text-muted-foreground italic">
-                Nenhuma / Limpar
-              </SelectItem>
-              {clientPlanoContas.map((pc) => (
-                <SelectItem key={pc.id} value={pc.id} className="text-xs truncate">
-                  {pc.codigo ? `${pc.codigo} - ` : ''}
-                  {pc.nome_conta || pc.descricao}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </TableCell>
-      )}
-    </>
-  )
+  const MappingCells = ({ row, i }: { row: any; i: number }) => {
+    const [open, setOpen] = useState(false)
+    return (
+      <>
+        {mappingMode === 'similarity' && (
+          <TableCell className="p-2 border-x border-white/5 bg-primary/5">
+            <Popover open={open} onOpenChange={setOpen} modal={true}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={open}
+                  className="h-8 text-xs bg-background/50 border-white/10 w-full justify-between font-normal px-2 truncate"
+                  title={row.mapped_descricao || 'Selecione a conta...'}
+                >
+                  <span className="truncate flex-1 text-left">
+                    {row.mapped_plano_id && row.mapped_plano_id !== 'none'
+                      ? (() => {
+                          const pc = clientPlanoContas.find((p) => p.id === row.mapped_plano_id)
+                          return pc
+                            ? `${pc.codigo ? pc.codigo + ' - ' : ''}${pc.nome_conta || pc.descricao}`
+                            : 'Selecione a conta...'
+                        })()
+                      : 'Selecione a conta...'}
+                  </span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[350px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar conta..." className="text-xs h-8" />
+                  <CommandList className="max-h-[250px]">
+                    <CommandEmpty className="text-xs p-2">Nenhuma conta encontrada.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value="none Nenhuma Limpar"
+                        onSelect={() => {
+                          handleUpdateRow(i, 'mapped_plano_id', '')
+                          handleUpdateRow(i, 'mapped_codigo', '')
+                          handleUpdateRow(i, 'mapped_descricao', '')
+                          setOpen(false)
+                        }}
+                        className="text-xs text-muted-foreground italic cursor-pointer"
+                      >
+                        Nenhuma / Limpar
+                      </CommandItem>
+                      {clientPlanoContas.map((pc) => (
+                        <CommandItem
+                          key={pc.id}
+                          value={`${pc.id} ${pc.codigo || ''} ${pc.nome_conta || pc.descricao || ''}`}
+                          onSelect={() => {
+                            handleUpdateRow(i, 'mapped_plano_id', pc.id)
+                            handleUpdateRow(i, 'mapped_codigo', pc.codigo)
+                            handleUpdateRow(i, 'mapped_descricao', pc.nome_conta || pc.descricao)
+                            setOpen(false)
+                          }}
+                          className="text-xs cursor-pointer"
+                        >
+                          <Check
+                            className={cn(
+                              'mr-2 h-3 w-3 shrink-0',
+                              row.mapped_plano_id === pc.id
+                                ? 'opacity-100 text-primary'
+                                : 'opacity-0',
+                            )}
+                          />
+                          <span className="truncate">
+                            {pc.codigo ? `${pc.codigo} - ` : ''}
+                            {pc.nome_conta || pc.descricao}
+                          </span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </TableCell>
+        )}
+      </>
+    )
+  }
 
   const renderTableHeaders = () => {
     if (docType === 'Balancete') {

@@ -104,24 +104,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      if (session?.user) {
+      if (event === 'SIGNED_OUT') {
+        setSession(null)
+        setUser(null)
+        setUserProfile(null)
+        setLoading(false)
+        return
+      }
+
+      if (session) {
+        setSession(session)
+        setUser(session.user)
         fetchProfile(session.user.id)
-      } else {
+      } else if (event === 'INITIAL_SESSION') {
+        setSession(null)
+        setUser(null)
         setUserProfile(null)
         setLoading(false)
       }
     })
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        fetchProfile(session.user.id)
-      } else {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error || !session) {
+        setSession(null)
+        setUser(null)
+        setUserProfile(null)
         setLoading(false)
+        return
       }
+      setSession(session)
+      setUser(session.user)
+      fetchProfile(session.user.id)
     })
 
     return () => subscription.unsubscribe()
