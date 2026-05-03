@@ -402,86 +402,85 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
   }
 
   const handlePaste = (
-      e: React.ClipboardEvent<HTMLDivElement>,
-      step: string,
-      previewRows: any[],
-      setPreviewRows: (rows: any[]) => void,
-      toast: (opts: any) => void,
-    ): void => {
-      if (step !== 'preview') return
-      const text = e.clipboardData.getData('Text')
-      if (!text) return
+    e: React.ClipboardEvent<HTMLDivElement>,
+    step: string,
+    previewRows: any[],
+    setPreviewRows: (rows: any[]) => void,
+    toast: (opts: any) => void,
+  ): void => {
+    if (step !== 'preview') return
+    const text = e.clipboardData.getData('Text')
+    if (!text) return
 
-      const lines = text.split('\n')
-      const newRows: any[] = []
+    const lines = text.split('\n')
+    const newRows: any[] = []
 
-      for (const line of lines) {
-        if (!line.trim()) continue
+    for (const line of lines) {
+      if (!line.trim()) continue
 
-        // Primeiro: quebra normal
-        let cols = line
-          .split('\t')
-          .map((c: string) => c.trim())
-          .filter(Boolean)
+      // Primeiro: quebra normal
+      let cols = line
+        .split('\t')
+        .map((c: string) => c.trim())
+        .filter(Boolean)
 
-        if (cols.length < 2) continue
+      if (cols.length < 2) continue
 
-        // ---------------------------------------------
-        // RECONSTRUÇÃO DE VALORES DECIMAIS QUEBRADOS
-        // Igual ao parseCSV
-        // ---------------------------------------------
-        const merged: string[] = []
-        for (let i = 0; i < cols.length; i++) {
-          const curr = cols[i]
-          const prev = merged.length > 0 ? merged[merged.length - 1] : ''
+      // ---------------------------------------------
+      // RECONSTRUÇÃO DE VALORES DECIMAIS QUEBRADOS
+      // Igual ao parseCSV
+      // ---------------------------------------------
+      const merged: string[] = []
+      for (let i = 0; i < cols.length; i++) {
+        const curr = cols[i]
+        const prev = merged.length > 0 ? merged[merged.length - 1] : ''
 
-          const cleanCurr = curr.replace(/['"]/g, '').trim()
-          const cleanPrev = prev.replace(/['"]/g, '').trim()
+        const cleanCurr = curr.replace(/['"]/g, '').trim()
+        const cleanPrev = prev.replace(/['"]/g, '').trim()
 
-          const isCents = /^\d{1,2}\)?$/.test(cleanCurr)
-          const isMainNumber =
-            /^-?\(?[\d.]+\)?$/.test(cleanPrev) && !/^0\d+$/.test(cleanPrev)
+        const isCents = /^\d{1,2}\)?$/.test(cleanCurr)
+        const isMainNumber = /^-?\(?[\d.]+\)?$/.test(cleanPrev) && !/^0\d+$/.test(cleanPrev)
 
-          if (i > 0 && isCents && isMainNumber) {
-            merged[merged.length - 1] = prev + ',' + curr
-          } else {
-            merged.push(curr)
-          }
-        }
-
-        cols = merged
-        // ---------------------------------------------
-
-        const valueStr = cols[cols.length - 1]
-        let account_code: string | null = null
-        let description: string
-
-        if (cols.length >= 3) {
-          account_code = cols[0]
-          description = cols.slice(1, -1).join(' ')
+        if (i > 0 && isCents && isMainNumber) {
+          merged[merged.length - 1] = prev + ',' + curr
         } else {
-          description = cols[0]
+          merged.push(curr)
         }
-
-        const value = parseValueStr(valueStr)
-
-        newRows.push({
-          account_code: account_code,
-          classification_code: null,
-          description: description,
-          mapped_codigo: account_code,
-          mapped_descricao: description,
-          value: value || 0,
-          raw: {},
-        })
       }
 
-      if (newRows.length > 0) {
-        e.preventDefault()
-        setPreviewRows([...previewRows, ...newRows])
-        toast({ title: 'Dados Colados', description: `${newRows.length} linhas adicionadas.` })
+      cols = merged
+      // ---------------------------------------------
+
+      const valueStr = cols[cols.length - 1]
+      let account_code: string | null = null
+      let description: string
+
+      if (cols.length >= 3) {
+        account_code = cols[0]
+        description = cols.slice(1, -1).join(' ')
+      } else {
+        description = cols[0]
       }
+
+      const value = parseValueStr(valueStr)
+
+      newRows.push({
+        account_code: account_code,
+        classification_code: null,
+        description: description,
+        mapped_codigo: account_code,
+        mapped_descricao: description,
+        value: value || 0,
+        raw: {},
+      })
     }
+
+    if (newRows.length > 0) {
+      e.preventDefault()
+      setPreviewRows([...previewRows, ...newRows])
+      toast({ title: 'Dados Colados', description: `${newRows.length} linhas adicionadas.` })
+    }
+  }
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
