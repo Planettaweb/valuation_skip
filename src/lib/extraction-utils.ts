@@ -405,7 +405,7 @@ export function parseMappedData(
   return { rowsData, noise }
 }
 
-export function parseCSV(text: string, documentType: string) {
+export function parseCSVRaw(text: string): string[][] {
   let commaCount = 0
   let semicolonCount = 0
   let inQuotes = false
@@ -452,8 +452,12 @@ export function parseCSV(text: string, documentType: string) {
     row.push(cell.trim())
     rowsData.push(row)
   }
+  return rowsData
+}
+
+export function parseCSV(text: string, documentType: string) {
+  const rowsData = parseCSVRaw(text)
   return parseStructuredData(rowsData, documentType)
->>>>>>> bdc24453620e372a44cf2b77c757bb05add639d1
 }
 
 export function extractArrayFromMetadata(metadata: any): any[] {

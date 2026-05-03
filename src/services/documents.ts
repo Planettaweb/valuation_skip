@@ -5,6 +5,7 @@ import {
   processExtractedData,
   persistStructuredData,
   parseCSV,
+  parseCSVRaw,
   parseStructuredData,
   parseMappedData,
 } from '@/lib/extraction-utils'
@@ -43,10 +44,8 @@ export const documentService = {
       })
       return jsonData as any[][]
     } else if (file.name.endsWith('.csv')) {
-      // const text = await file.text()
-      // return text.split('\n').map((l) => l.split(/[,;\t]/).map((c) => c.trim()))
       const text = await file.text()
-      return parseCSV(text, 'csv').rowsData
+      return parseCSVRaw(text)
     }
     throw new Error('Formato não suportado para extração estruturada (apenas .csv ou .xlsx).')
   },
@@ -89,7 +88,7 @@ export const documentService = {
         }
       } else {
         const text = await file.text()
-        jsonData = text.split('\n').map((l) => l.split(/[,;\t]/).map((c) => c.trim()))
+        jsonData = parseCSVRaw(text)
       }
 
       if (jsonData.length > 0) {
