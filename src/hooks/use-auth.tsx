@@ -110,10 +110,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!mounted) return
 
       if (event === 'SIGNED_OUT') {
-        setSession(null)
-        setUser(null)
-        setUserProfile(null)
-        setLoading(false)
+        // Double check session to prevent accidental drops on network latency or reflows
+        supabase.auth.getSession().then(({ data }) => {
+          if (!data.session) {
+            setSession(null)
+            setUser(null)
+            setUserProfile(null)
+            setLoading(false)
+          }
+        })
         return
       }
 

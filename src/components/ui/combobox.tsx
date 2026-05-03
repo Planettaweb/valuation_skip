@@ -41,6 +41,7 @@ export function Combobox({
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const [localValue, setLocalValue] = React.useState(value)
+  const [isPending, startTransition] = React.useTransition()
 
   // Sync local state with parent value to keep it updated if modified externally
   React.useEffect(() => {
@@ -59,28 +60,47 @@ export function Combobox({
       setLocalValue(selectedValue)
       setOpen(false)
 
-      // Dispara a atualização real para o pai (Supabase API, etc) em seguida.
-      // O setTimeout previne conflitos de ciclo de vida (Forced reflow / Blocking Render)
-      // ao permitir que a animação de fechamento do Popover inicie antes da chamada pesada.
-      setTimeout(() => {
+      // Dispara a atualização real para o pai (Supabase API, etc) usando startTransition
+      // Isso empurra re-renders pesados pro final da fila, eliminando o erro de Forced reflow (500ms+)
+      startTransition(() => {
         onChange(selectedValue)
-      }, 0)
+      })
     },
     [onChange],
   )
+
+  // Memoize command items to prevent unnecessary re-renders of the entire list on each keystroke
+  const commandItems = React.useMemo(() => {
+    return options.map((option) => (
+      <CommandItem
+        key={option.value}
+        value={`${option.label} ${option.value}`}
+        onSelect={() => handleSelect(option.value)}
+        className="cursor-pointer"
+      >
+        <Check
+          className={cn(
+            'mr-2 h-4 w-4 shrink-0',
+            localValue === option.value ? 'opacity-100' : 'opacity-0',
+          )}
+        />
+        <span className="truncate">{option.label}</span>
+      </CommandItem>
+    ))
+  }, [options, localValue, handleSelect])
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          type="button" // Essencial para não submeter forms acidentalmente e causar reload/logout
+          type="button"
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          disabled={disabled}
+          disabled={disabled || isPending}
           className={cn('w-full justify-between font-normal', className)}
           onClick={(e) => {
-            // Previne bubbling que poderia causar comportamentos inesperados
+            e.preventDefault()
             e.stopPropagation()
           }}
         >
@@ -93,25 +113,7 @@ export function Combobox({
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
-            <CommandGroup>
-              {options.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  // Injetamos label + value no valor do CommandItem para permitir busca por ambos
-                  value={`${option.label} ${option.value}`}
-                  onSelect={() => handleSelect(option.value)}
-                  className="cursor-pointer"
-                >
-                  <Check
-                    className={cn(
-                      'mr-2 h-4 w-4 shrink-0',
-                      localValue === option.value ? 'opacity-100' : 'opacity-0',
-                    )}
-                  />
-                  <span className="truncate">{option.label}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
+            <CommandGroup>{commandItems}</CommandGroup>
           </CommandList>
         </Command>
       </PopoverContent>

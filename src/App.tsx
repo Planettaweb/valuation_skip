@@ -39,15 +39,16 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let timer: NodeJS.Timeout
     if (!loading) {
-      // Adiciona um pequeno delay antes de considerar o estado final de autenticação vazio,
-      // prevenindo quedas abruptas (redirecionamentos indesejados) durante interações rápidas na UI
-      // ou recarregamentos de sessão em background.
-      timer = setTimeout(() => setIsChecking(false), 200)
+      // Grace period estendido para 1000ms. Durante processamento pesado (reflows)
+      // a thread principal trava e delays artificiais previnem ejetar o usuário acidentalmente.
+      timer = setTimeout(() => setIsChecking(false), 1000)
     }
     return () => clearTimeout(timer)
   }, [loading])
 
-  if (loading || isChecking) {
+  // Retemos a renderização dos filhos caso já tenhamos o usuário e ocorra uma checagem em background
+  // Isso previne que a UI pisque ou seja desmontada perdendo estado local de formulários e combos
+  if (loading || (isChecking && !user)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -55,7 +56,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     )
   }
 
-  if (!user) {
+  if (!user && !loading && !isChecking) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useMemo, useTransition } from 'react'
 import { useAuth } from '@/hooks/use-auth'
 import { contabilidadeService, PlanoConta, TipoDocumento } from '@/services/contabilidade'
 import { useToast } from '@/hooks/use-toast'
@@ -15,6 +15,53 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Search, AlertCircle, Loader2, CheckSquare, Square } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
+import { memo } from 'react'
+
+// Utilizando Memoização extrema nas linhas para evitar que o clique em um checkbox
+// cause um Forced Reflow em 10.000 checkboxes simultaneamente.
+const MemoizedRow = memo(
+  ({ conta, docs, mappings, onToggle, disabled }: any) => {
+    return (
+      <TableRow className="hover:bg-muted/50 transition-colors">
+        <TableCell className="sticky left-0 z-10 bg-card border-r font-medium">
+          <div className="flex flex-col">
+            <span>{conta.codigo}</span>
+            <span
+              className="text-xs text-muted-foreground truncate max-w-[250px]"
+              title={conta.nome_conta}
+            >
+              {conta.nome_conta}
+            </span>
+          </div>
+        </TableCell>
+        {docs.map((d: any) => {
+          const key = `${d.id}_${conta.id}`
+          const isChecked = !!mappings[key]
+          return (
+            <TableCell key={key} className="text-center">
+              <Checkbox
+                checked={isChecked}
+                onCheckedChange={(checked) => onToggle(d.id, conta.id, checked as boolean)}
+                disabled={disabled}
+                className="data-[state=checked]:bg-primary"
+              />
+            </TableCell>
+          )
+        })}
+      </TableRow>
+    )
+  },
+  (prev, next) => {
+    if (prev.disabled !== next.disabled) return false
+    if (prev.docs.length !== next.docs.length) return false
+    // Apenas re-renderiza se o mapeamento desta linha específica tiver mudado
+    for (const d of next.docs) {
+      const key = `${d.id}_${next.conta.id}`
+      if (!!prev.mappings[key] !== !!next.mappings[key]) return false
+    }
+    return true
+  },
+)
 
 export default function MatrizRelacionamento() {
   const { userProfile } = useAuth()
@@ -28,9 +75,23 @@ export default function MatrizRelacionamento() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const [search, setSearch] = useState('')
+  // Transições permitem que cliques sejam responsivos enquanto dados renderizam
+  const [isPending, startTransition] = useTransition()
 
-  const loadData = async () => {
+  const [search, setSearch] = useState('')
+  const [deferredSearch, setDeferredSearch] = useState('')
+
+  // Otimização da Busca via Debounce + Transition
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      startTransition(() => {
+        setDeferredSearch(search)
+      })
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  const loadData = useCallback(async () => {
     if (!userProfile?.org_id) return
     try {
       setLoading(true)
@@ -40,121 +101,162 @@ export default function MatrizRelacionamento() {
         contabilidadeService.getMappings(userProfile.org_id),
       ])
 
-      setContas(contasData || [])
-      setDocs(docsData || [])
+      startTransition(() => {
+        setContas(contasData || [])
+        setDocs(docsData || [])
 
-      const initialMap: Record<string, boolean> = {}
-      mapsData?.forEach((m) => {
-        initialMap[`${m.id_documento}_${m.id_conta}`] = true
+        const initialMap: Record<string, boolean> = {}
+        mapsData?.forEach((m) => {
+          initialMap[`${m.id_documento}_${m.id_conta}`] = true
+        })
+        setMappings(initialMap)
+        setError(null)
       })
-      setMappings(initialMap)
-      setError(null)
     } catch (err: any) {
       setError(err.message)
     } finally {
       setLoading(false)
     }
-  }
+  }, [userProfile?.org_id])
 
   useEffect(() => {
     loadData()
-  }, [userProfile?.org_id])
+  }, [loadData])
 
-  const filteredContas = contas.filter(
-    (c) =>
-      search === '' ||
-      c.codigo?.toLowerCase().includes(search.toLowerCase()) ||
-      c.nome_conta?.toLowerCase().includes(search.toLowerCase()),
+  const filteredContas = useMemo(() => {
+    return contas.filter(
+      (c) =>
+        deferredSearch === '' ||
+        c.codigo?.toLowerCase().includes(deferredSearch.toLowerCase()) ||
+        c.nome_conta?.toLowerCase().includes(deferredSearch.toLowerCase()),
+    )
+  }, [contas, deferredSearch])
+
+  const handleToggle = useCallback(
+    async (docId: string, contaId: string, checked: boolean) => {
+      const key = `${docId}_${contaId}`
+
+      startTransition(() => {
+        setMappings((m) => ({ ...m, [key]: checked }))
+      })
+
+      try {
+        if (checked) {
+          await contabilidadeService.addMapping({
+            org_id: userProfile!.org_id,
+            id_documento: docId,
+            id_conta: contaId,
+            ordem: 0,
+          })
+        } else {
+          await contabilidadeService.removeMapping(userProfile!.org_id, docId, contaId)
+        }
+      } catch (err: any) {
+        startTransition(() => {
+          setMappings((m) => ({ ...m, [key]: !checked }))
+        })
+        toast({ title: 'Erro ao salvar', description: err.message, variant: 'destructive' })
+      }
+    },
+    [userProfile, toast],
   )
 
-  const handleToggle = async (docId: string, contaId: string, checked: boolean) => {
-    const key = `${docId}_${contaId}`
-    const prev = { ...mappings }
+  const handleColumnToggle = useCallback(
+    async (docId: string, checked: boolean) => {
+      if (!userProfile?.org_id) return
+      try {
+        setSaving(true)
+        const contasIds = filteredContas.map((c) => c.id)
 
-    setMappings((m) => ({ ...m, [key]: checked }))
-
-    try {
-      if (checked) {
-        await contabilidadeService.addMapping({
-          org_id: userProfile!.org_id,
-          id_documento: docId,
-          id_conta: contaId,
-          ordem: 0,
+        startTransition(() => {
+          setMappings((prev) => {
+            const newMappings = { ...prev }
+            filteredContas.forEach((c) => {
+              newMappings[`${docId}_${c.id}`] = checked
+            })
+            return newMappings
+          })
         })
-      } else {
-        await contabilidadeService.removeMapping(userProfile!.org_id, docId, contaId)
+
+        await contabilidadeService.batchUpdateMappings(
+          userProfile.org_id,
+          docId,
+          contasIds,
+          checked,
+        )
+        toast({ title: `Coluna ${checked ? 'marcada' : 'desmarcada'} com sucesso` })
+      } catch (err: any) {
+        toast({
+          title: 'Erro ao atualizar coluna',
+          description: err.message,
+          variant: 'destructive',
+        })
+        loadData()
+      } finally {
+        setSaving(false)
       }
-    } catch (err: any) {
-      setMappings(prev)
-      toast({ title: 'Erro ao salvar', description: err.message, variant: 'destructive' })
-    }
-  }
+    },
+    [userProfile, filteredContas, toast, loadData],
+  )
 
-  const handleColumnToggle = async (docId: string, checked: boolean) => {
-    if (!userProfile?.org_id) return
-    try {
-      setSaving(true)
-      const contasIds = filteredContas.map((c) => c.id)
-
-      const newMappings = { ...mappings }
-      filteredContas.forEach((c) => {
-        newMappings[`${docId}_${c.id}`] = checked
-      })
-      setMappings(newMappings)
-
-      await contabilidadeService.batchUpdateMappings(userProfile.org_id, docId, contasIds, checked)
-      toast({ title: `Coluna ${checked ? 'marcada' : 'desmarcada'} com sucesso` })
-    } catch (err: any) {
-      toast({ title: 'Erro ao atualizar coluna', description: err.message, variant: 'destructive' })
-      loadData()
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleBatch = async (isAdd: boolean) => {
-    if (!userProfile?.org_id) return
-    if (
-      !confirm(
-        `Deseja realmente ${isAdd ? 'marcar' : 'desmarcar'} todas as contas visíveis para todos os documentos?`,
+  const handleBatch = useCallback(
+    async (isAdd: boolean) => {
+      if (!userProfile?.org_id) return
+      if (
+        !confirm(
+          `Deseja realmente ${isAdd ? 'marcar' : 'desmarcar'} todas as contas visíveis para todos os documentos?`,
+        )
       )
-    )
-      return
+        return
 
-    try {
-      setSaving(true)
-      const contasIds = filteredContas.map((c) => c.id)
+      try {
+        setSaving(true)
+        const contasIds = filteredContas.map((c) => c.id)
 
-      const newMappings = { ...mappings }
-      docs.forEach((d) => {
-        filteredContas.forEach((c) => {
-          newMappings[`${d.id}_${c.id}`] = isAdd
+        startTransition(() => {
+          setMappings((prev) => {
+            const newMappings = { ...prev }
+            docs.forEach((d) => {
+              filteredContas.forEach((c) => {
+                newMappings[`${d.id}_${c.id}`] = isAdd
+              })
+            })
+            return newMappings
+          })
         })
-      })
-      setMappings(newMappings)
 
-      for (const d of docs) {
-        await contabilidadeService.batchUpdateMappings(userProfile.org_id, d.id, contasIds, isAdd)
+        for (const d of docs) {
+          await contabilidadeService.batchUpdateMappings(userProfile.org_id, d.id, contasIds, isAdd)
+        }
+        toast({ title: 'Alterações salvas com sucesso' })
+      } catch (err: any) {
+        toast({
+          title: 'Erro na operação em lote',
+          description: err.message,
+          variant: 'destructive',
+        })
+        loadData()
+      } finally {
+        setSaving(false)
       }
-      toast({ title: 'Alterações salvas com sucesso' })
-    } catch (err: any) {
-      toast({ title: 'Erro na operação em lote', description: err.message, variant: 'destructive' })
-      loadData()
-    } finally {
-      setSaving(false)
-    }
-  }
+    },
+    [userProfile, filteredContas, docs, toast, loadData],
+  )
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto animate-fade-in">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-3xl font-bold tracking-tight">Matriz de Relacionamento</h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => handleBatch(false)} disabled={loading || saving}>
+          <Button
+            variant="outline"
+            onClick={() => handleBatch(false)}
+            disabled={loading || saving || isPending}
+          >
             <Square className="w-4 h-4 mr-2" /> Desmarcar Tudo
           </Button>
-          <Button onClick={() => handleBatch(true)} disabled={loading || saving}>
-            {saving ? (
+          <Button onClick={() => handleBatch(true)} disabled={loading || saving || isPending}>
+            {saving || isPending ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
               <CheckSquare className="w-4 h-4 mr-2" />
@@ -170,8 +272,11 @@ export default function MatrizRelacionamento() {
           placeholder="Buscar conta por código ou nome..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
+          className="pl-9 pr-10"
         />
+        {isPending && search !== deferredSearch && (
+          <Loader2 className="absolute right-3 top-3 h-4 w-4 text-muted-foreground animate-spin" />
+        )}
       </div>
 
       {loading ? (
@@ -194,11 +299,11 @@ export default function MatrizRelacionamento() {
           <p>Você precisa cadastrar planos de contas e tipos de documentos para usar a matriz.</p>
         </div>
       ) : (
-        <div className="border rounded-md overflow-x-auto bg-card shadow-sm">
+        <div className="border rounded-md overflow-x-auto bg-card shadow-sm max-h-[70vh] overflow-y-auto">
           <Table className="relative w-full">
-            <TableHeader>
+            <TableHeader className="sticky top-0 z-30">
               <TableRow>
-                <TableHead className="sticky left-0 z-20 bg-muted/80 backdrop-blur-sm border-r min-w-[300px]">
+                <TableHead className="sticky left-0 z-40 bg-muted border-r border-b min-w-[300px]">
                   Conta
                 </TableHead>
                 {docs.map((d) => {
@@ -207,19 +312,18 @@ export default function MatrizRelacionamento() {
                     filteredContas.every((c) => mappings[`${d.id}_${c.id}`])
                   const isSomeChecked = filteredContas.some((c) => mappings[`${d.id}_${c.id}`])
                   return (
-                    <TableHead
-                      key={d.id}
-                      className="text-center min-w-[120px] bg-muted/80 backdrop-blur-sm"
-                    >
+                    <TableHead key={d.id} className="text-center min-w-[120px] bg-muted border-b">
                       <div className="flex flex-col items-center gap-2 justify-center py-2">
-                        <span>{d.descricao}</span>
+                        <span className="truncate max-w-[100px]" title={d.descricao}>
+                          {d.descricao}
+                        </span>
                         <Checkbox
                           checked={isAllChecked ? true : isSomeChecked ? 'indeterminate' : false}
                           onCheckedChange={(checked) => {
                             if (checked === 'indeterminate') return
                             handleColumnToggle(d.id, checked as boolean)
                           }}
-                          disabled={loading || saving || filteredContas.length === 0}
+                          disabled={saving || isPending || filteredContas.length === 0}
                           title="Selecionar toda a coluna"
                         />
                       </div>
@@ -230,32 +334,14 @@ export default function MatrizRelacionamento() {
             </TableHeader>
             <TableBody>
               {filteredContas.map((c) => (
-                <TableRow
+                <MemoizedRow
                   key={c.id}
-                  className="animate-fade-in-up hover:bg-muted/50 transition-colors"
-                >
-                  <TableCell className="sticky left-0 z-10 bg-card border-r font-medium">
-                    <div className="flex flex-col">
-                      <span>{c.codigo}</span>
-                      <span className="text-xs text-muted-foreground">{c.nome_conta}</span>
-                    </div>
-                  </TableCell>
-                  {docs.map((d) => {
-                    const key = `${d.id}_${c.id}`
-                    const isChecked = !!mappings[key]
-                    return (
-                      <TableCell key={key} className="text-center">
-                        <Checkbox
-                          checked={isChecked}
-                          onCheckedChange={(checked) =>
-                            handleToggle(d.id, c.id, checked as boolean)
-                          }
-                          className="data-[state=checked]:bg-primary"
-                        />
-                      </TableCell>
-                    )
-                  })}
-                </TableRow>
+                  conta={c}
+                  docs={docs}
+                  mappings={mappings}
+                  onToggle={handleToggle}
+                  disabled={saving || isPending}
+                />
               ))}
             </TableBody>
           </Table>
