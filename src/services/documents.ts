@@ -43,8 +43,10 @@ export const documentService = {
       })
       return jsonData as any[][]
     } else if (file.name.endsWith('.csv')) {
+      // const text = await file.text()
+      // return text.split('\n').map((l) => l.split(/[,;\t]/).map((c) => c.trim()))
       const text = await file.text()
-      return text.split('\n').map((l) => l.split(/[,;\t]/).map((c) => c.trim()))
+      return parseCSV(text, 'csv').rowsData
     }
     throw new Error('Formato não suportado para extração estruturada (apenas .csv ou .xlsx).')
   },
