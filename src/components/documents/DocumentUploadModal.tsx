@@ -400,7 +400,11 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     setPreviewRows(newRows)
   }
 
-  // CÓDIGO DEPOIS (corrigido e refatorado)
+  const parseLine = (line: string, delimiter: string): string[] => {
+    const cols: string[] = []
+    let current = ''
+    let inQuotes = false
+    let i = 0
 
   const parseNumberPortuguese = (valStr: string): number => {
     let sign = 1
@@ -413,6 +417,9 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
       numStr = numStr.slice(1)
       sign = -1
     }
+    cols.push(current.trim())
+    return cols.filter(Boolean)
+  }
 
     // Remove separador de milhares (ponto)
     numStr = numStr.replace(/\\./g, '')
