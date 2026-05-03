@@ -437,6 +437,7 @@ export function parseCSV(text: string, documentType: string) {
     const row = []
     let cell = ''
     let inQuotes = false
+    
     for (let i = 0; i < line.length; i++) {
       const char = line[i]
       if (char === '"') {
@@ -455,25 +456,20 @@ export function parseCSV(text: string, documentType: string) {
     }
     row.push(cell.trim())
 
-    // Heurística de reconstrução de decimais em CSV mal formatado separado por vírgula
+    // reconstrução de decimais quebrados por vírgula
     if (separator === ',') {
       const mergedRow = []
       for (let i = 0; i < row.length; i++) {
-        const currentCell = row[i]
-        const prevCell = mergedRow.length > 0 ? mergedRow[mergedRow.length - 1] : ''
+        const current = row[i].replace(/['"]/g, '').trim()
+        const previous = mergedRow.length > 0 ? mergedRow[mergedRow.length - 1].replace(/['"]/g, '').trim() : ''
 
-        let cleanPrev = prevCell.replace(/['"]/g, '').trim()
-        let cleanCurr = currentCell.replace(/['"]/g, '').trim()
+        const isCents = /^\d{1,2}\)?$/.test(current)
+        const isMainNumber = /^-?\(?[\d.]+\)?$/.test(previous) && !/^0\d+$/.test(previous)
 
-        // Se a célula atual for 1 ou 2 dígitos (opcionalmente fechando parênteses)
-        // e a anterior parecer um número inteiro (com pontos de milhar, negativo, parênteses)
-        const isCurrCents = /^\d{1,2}\)?$/.test(cleanCurr)
-        const isPrevNum = /^-?\(?[\d.]+\)?$/.test(cleanPrev) && !/^0\d+$/.test(cleanPrev)
-
-        if (i > 0 && isCurrCents && isPrevNum) {
-          mergedRow[mergedRow.length - 1] = prevCell + ',' + currentCell
+        if (i > 0 && isCents && isMainNumber) {
+          mergedRow[mergedRow.length - 1] = previous + ',' + current
         } else {
-          mergedRow.push(currentCell)
+          mergedRow.push(row[i])
         }
       }
       return mergedRow
