@@ -403,62 +403,71 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
   // CÓDIGO DEPOIS (corrigido e refatorado)
 
   const parseNumberPortuguese = (valStr: string): number => {
-    let sign = 1;
-    let numStr = valStr.trim();
+    let sign = 1
+    let numStr = valStr.trim()
 
     if (numStr.startsWith('(') && numStr.endsWith(')')) {
-      numStr = numStr.slice(1, -1);
-      sign = -1;
+      numStr = numStr.slice(1, -1)
+      sign = -1
     } else if (numStr.startsWith('-')) {
-      numStr = numStr.slice(1);
-      sign = -1;
+      numStr = numStr.slice(1)
+      sign = -1
     }
 
     // Remove separador de milhares (ponto)
-    numStr = numStr.replace(/\\./g, '');
+    numStr = numStr.replace(/\\./g, '')
     // Converte vírgula decimal para ponto
-    numStr = numStr.replace(',', '.');
+    numStr = numStr.replace(',', '.')
     // Remove qualquer outro caractere inválido
-    numStr = numStr.replace(/[^\\d.-]/g, '');
+    numStr = numStr.replace(/[^\\d.-]/g, '')
 
-    const parsed = parseFloat(numStr) || 0;
-    return sign * parsed;
-  };
+    const parsed = parseFloat(numStr) || 0
+    return sign * parsed
+  }
 
   type ParsedCSV = {
-    account_code: string | null;
-    description: string;
-    valueStr: string;
-  };
+    account_code: string | null
+    description: string
+    valueStr: string
+  }
 
   const parseCSVPortuguese = (line: string): ParsedCSV | null => {
-    const cols = line.split('\t').map((c: string) => c.trim()).filter(Boolean);
-    if (cols.length < 2) return null;
+    const cols = line
+      .split('\t')
+      .map((c: string) => c.trim())
+      .filter(Boolean)
+    if (cols.length < 2) return null
 
-    const valueStr = cols[cols.length - 1];
-    let account_code: string | null = null;
-    let description: string;
+    const valueStr = cols[cols.length - 1]
+    let account_code: string | null = null
+    let description: string
 
     if (cols.length >= 3) {
-      account_code = cols[0];
-      description = cols.slice(1, -1).join(' ');
+      account_code = cols[0]
+      description = cols.slice(1, -1).join(' ')
     } else {
-      description = cols[0];
+      description = cols[0]
     }
 
-    return { account_code, description, valueStr };
-  };
+    return { account_code, description, valueStr }
+  }
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>, step: string, previewRows: any[], setPreviewRows: (rows: any[]) => void, toast: (opts: any) => void): void => {
-    if (step !== 'preview') return;
-    const text = e.clipboardData.getData('Text');
-    if (!text) return;
-    const lines = text.split('\n');
-    const newRows: any[] = [];
+  const handlePaste = (
+    e: React.ClipboardEvent<HTMLDivElement>,
+    step: string,
+    previewRows: any[],
+    setPreviewRows: (rows: any[]) => void,
+    toast: (opts: any) => void,
+  ): void => {
+    if (step !== 'preview') return
+    const text = e.clipboardData.getData('Text')
+    if (!text) return
+    const lines = text.split('\n')
+    const newRows: any[] = []
     for (const line of lines) {
-      const parsed = parseCSVPortuguese(line);
-      if (!parsed) continue;
-      const value = parseNumberPortuguese(parsed.valueStr);
+      const parsed = parseCSVPortuguese(line)
+      if (!parsed) continue
+      const value = parseNumberPortuguese(parsed.valueStr)
       newRows.push({
         account_code: parsed.account_code,
         classification_code: null,
@@ -467,15 +476,14 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
         mapped_descricao: parsed.description,
         value,
         raw: {},
-      });
+      })
     }
     if (newRows.length > 0) {
-      e.preventDefault();
-      setPreviewRows([...previewRows, ...newRows]);
-      toast({ title: 'Dados Colados', description: `${newRows.length} linhas adicionadas.` });
+      e.preventDefault()
+      setPreviewRows([...previewRows, ...newRows])
+      toast({ title: 'Dados Colados', description: `${newRows.length} linhas adicionadas.` })
     }
-  };
-
+  }
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
