@@ -411,46 +411,37 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
       if (step !== 'preview') return
       const text = e.clipboardData.getData('Text')
       if (!text) return
-
       const lines = text.split('\n')
       const newRows: any[] = []
 
       for (const line of lines) {
         if (!line.trim()) continue
 
-        // Primeiro: quebra normal
-        let cols = line
+        // 🔥 RECONSTRUÇÃO DE DECIMAIS (igual à heurística do parseCSV)
+        const rawCols = line
           .split('\t')
           .map((c: string) => c.trim())
           .filter(Boolean)
 
-        if (cols.length < 2) continue
-
-        // ---------------------------------------------
-        // RECONSTRUÇÃO DE VALORES DECIMAIS QUEBRADOS
-        // Igual ao parseCSV
-        // ---------------------------------------------
-        const merged: string[] = []
-        for (let i = 0; i < cols.length; i++) {
-          const curr = cols[i]
-          const prev = merged.length > 0 ? merged[merged.length - 1] : ''
+        const cols: string[] = []
+        for (let i = 0; i < rawCols.length; i++) {
+          const curr = rawCols[i]
+          const prev = cols.length > 0 ? cols[cols.length - 1] : ''
 
           const cleanCurr = curr.replace(/['"]/g, '').trim()
           const cleanPrev = prev.replace(/['"]/g, '').trim()
 
           const isCents = /^\d{1,2}\)?$/.test(cleanCurr)
-          const isMainNumber =
-            /^-?\(?[\d.]+\)?$/.test(cleanPrev) && !/^0\d+$/.test(cleanPrev)
+          const isMain = /^-?\(?[\d.]+\)?$/.test(cleanPrev) && !/^0\d+$/.test(cleanPrev)
 
-          if (i > 0 && isCents && isMainNumber) {
-            merged[merged.length - 1] = prev + ',' + curr
+          if (i > 0 && isCents && isMain) {
+            cols[cols.length - 1] = prev + ',' + curr
           } else {
-            merged.push(curr)
+            cols.push(curr)
           }
         }
 
-        cols = merged
-        // ---------------------------------------------
+        if (cols.length < 2) continue
 
         const valueStr = cols[cols.length - 1]
         let account_code: string | null = null
