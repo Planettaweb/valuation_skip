@@ -14,11 +14,11 @@ export const documentService = {
   async getDocuments(orgId: string, filters?: { clientId?: string }) {
     let query = supabase
       .from('financial_documents' as any)
-      .select('*, valuations!inner(client_id, valuation_name, clients!inner(client_name))')
+      .select('*, valuations!left(valuation_name), clients!left(client_name)')
       .eq('org_id', orgId)
 
     if (filters?.clientId) {
-      query = query.eq('valuations.client_id', filters.clientId)
+      query = query.eq('client_id', filters.clientId)
     }
 
     const { data, error } = await query.order('created_at', { ascending: false })
@@ -26,9 +26,8 @@ export const documentService = {
     const mapped = data?.map((d: any) => ({
       ...d,
       filename: d.file_name,
-      client_name: d.valuations?.clients?.client_name,
+      client_name: d.clients?.client_name,
       valuation_name: d.valuations?.valuation_name,
-      client_id: d.valuations?.client_id,
     }))
 
     return { data: mapped, error }
@@ -229,6 +228,7 @@ export const documentService = {
       .insert({
         org_id: orgId,
         user_id: userId,
+        client_id: clientId,
         title: file.name,
         filename: file.name,
         file_size: file.size,
@@ -251,6 +251,7 @@ export const documentService = {
       .insert({
         id: mainDoc.id,
         org_id: orgId,
+        client_id: clientId,
         valuation_id: valuationId,
         file_name: file.name,
         file_size: file.size,
@@ -305,6 +306,20 @@ export const documentService = {
           total: tot,
         })
       })
+
+      const tables = [
+        'financial_balancete',
+        'financial_balanco_patrimonial',
+        'financial_data',
+        'financial_dre',
+        'financial_fluxo_caixa',
+      ]
+      for (const table of tables) {
+        await supabase
+          .from(table as any)
+          .update({ client_id: clientId })
+          .eq('document_id', doc.id)
+      }
 
       if (parsedData.newPlanoContas && parsedData.newPlanoContas.length > 0) {
         onProgress?.('Gerando novo plano de contas do cliente...')
@@ -522,6 +537,22 @@ export const documentService = {
 
       onProgress?.('Validando integridade em tabelas secundárias...')
       await persistStructuredData(orgId, doc.id, doc.document_type, parsedData.rowsData)
+
+      if (doc.client_id) {
+        const tables = [
+          'financial_balancete',
+          'financial_balanco_patrimonial',
+          'financial_data',
+          'financial_dre',
+          'financial_fluxo_caixa',
+        ]
+        for (const table of tables) {
+          await supabase
+            .from(table as any)
+            .update({ client_id: doc.client_id })
+            .eq('document_id', doc.id)
+        }
+      }
 
       await supabase.from('audit_logs').insert({
         org_id: orgId,
