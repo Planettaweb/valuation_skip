@@ -58,7 +58,30 @@ const DB_FIELDS = [
 export function parseCSV(text: string): string[][] {
   const lines = text.split(/\r?\n/).filter((l) => l.trim() !== '')
   if (!lines.length) return []
-  const separator = lines[0].includes(';') ? ';' : ','
+
+  let separator = ','
+  if (lines.length > 0) {
+    const firstLine = lines[0]
+    const countChar = (str: string, char: string) => {
+      let count = 0
+      let inQuotes = false
+      for (let i = 0; i < str.length; i++) {
+        if (str[i] === '"') inQuotes = !inQuotes
+        else if (str[i] === char && !inQuotes) count++
+      }
+      return count
+    }
+
+    const commaCount = countChar(firstLine, ',')
+    const semiCount = countChar(firstLine, ';')
+    const tabCount = countChar(firstLine, '\t')
+
+    if (tabCount > 0 && tabCount >= commaCount && tabCount >= semiCount) separator = '\t'
+    else if (semiCount > 0) separator = ';'
+    else if (commaCount > 0) separator = ','
+    else if (firstLine.includes(';')) separator = ';'
+  }
+
   return lines.map((line) => {
     const row = []
     let cell = ''
@@ -80,6 +103,27 @@ export function parseCSV(text: string): string[][] {
       }
     }
     row.push(cell.trim())
+
+    if (separator === ',') {
+      const mergedRow = []
+      for (let i = 0; i < row.length; i++) {
+        const currentCell = row[i]
+        const prevCell = mergedRow.length > 0 ? mergedRow[mergedRow.length - 1] : ''
+
+        if (
+          i > 0 &&
+          /^\d{1,2}$/.test(currentCell) &&
+          /^-?[\d.]+$/.test(prevCell) &&
+          !/^0\d+$/.test(prevCell)
+        ) {
+          mergedRow[mergedRow.length - 1] = prevCell + ',' + currentCell
+        } else {
+          mergedRow.push(currentCell)
+        }
+      }
+      return mergedRow
+    }
+
     return row
   })
 }

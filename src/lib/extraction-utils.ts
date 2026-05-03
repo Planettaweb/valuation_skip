@@ -391,12 +391,24 @@ export function parseCSV(text: string, documentType: string) {
   let separator = ','
   if (lines.length > 0) {
     const firstLine = lines[0]
-    const commaCount = (firstLine.match(/,/g) || []).length
-    const semiCount = (firstLine.match(/;/g) || []).length
-    const tabCount = (firstLine.match(/\t/g) || []).length
+    const countChar = (str: string, char: string) => {
+      let count = 0
+      let inQuotes = false
+      for (let i = 0; i < str.length; i++) {
+        if (str[i] === '"') inQuotes = !inQuotes
+        else if (str[i] === char && !inQuotes) count++
+      }
+      return count
+    }
 
-    if (tabCount > commaCount && tabCount > semiCount) separator = '\t'
-    else if (semiCount > commaCount) separator = ';'
+    const commaCount = countChar(firstLine, ',')
+    const semiCount = countChar(firstLine, ';')
+    const tabCount = countChar(firstLine, '\t')
+
+    if (tabCount > 0 && tabCount >= commaCount && tabCount >= semiCount) separator = '\t'
+    else if (semiCount > 0) separator = ';'
+    else if (commaCount > 0) separator = ','
+    else if (firstLine.includes(';')) separator = ';'
   }
 
   const data = lines.map((line) => {
@@ -420,6 +432,29 @@ export function parseCSV(text: string, documentType: string) {
       }
     }
     row.push(cell.trim())
+
+    // Heurística de reconstrução de decimais em CSV mal formatado separado por vírgula
+    if (separator === ',') {
+      const mergedRow = []
+      for (let i = 0; i < row.length; i++) {
+        const currentCell = row[i]
+        const prevCell = mergedRow.length > 0 ? mergedRow[mergedRow.length - 1] : ''
+
+        // Se a célula atual for 1 ou 2 dígitos e a anterior parecer um número inteiro
+        if (
+          i > 0 &&
+          /^\d{1,2}$/.test(currentCell) &&
+          /^-?[\d.]+$/.test(prevCell) &&
+          !/^0\d+$/.test(prevCell)
+        ) {
+          mergedRow[mergedRow.length - 1] = prevCell + ',' + currentCell
+        } else {
+          mergedRow.push(currentCell)
+        }
+      }
+      return mergedRow
+    }
+
     return row
   })
 
