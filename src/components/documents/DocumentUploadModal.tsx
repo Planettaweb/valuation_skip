@@ -400,82 +400,71 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     setPreviewRows(newRows)
   }
 
-  // CÓDIGO DEPOIS (corrigido e refatorado)
+  const parseLine = (line: string, delimiter: string): string[] => {
+    const cols: string[] = []
+    let current = ''
+    let inQuotes = false
+    let i = 0
 
-  const parseNumberPortuguese = (valStr: string): number => {
-    let sign = 1;
-    let numStr = valStr.trim();
+    while (i < line.length) {
+      const char = line[i]
 
-    if (numStr.startsWith('(') && numStr.endsWith(')')) {
-      numStr = numStr.slice(1, -1);
-      sign = -1;
-    } else if (numStr.startsWith('-')) {
-      numStr = numStr.slice(1);
-      sign = -1;
+      if (char === '"') {
+        inQuotes = !inQuotes
+      } else if (char === delimiter && !inQuotes) {
+        cols.push(current.trim())
+        current = ''
+        i++
+        continue
+      } else {
+        current += char
+      }
+      i++
     }
+    cols.push(current.trim())
+    return cols.filter(Boolean)
+  }
 
-    // Remove separador de milhares (ponto)
-    numStr = numStr.replace(/\\./g, '');
-    // Converte vírgula decimal para ponto
-    numStr = numStr.replace(',', '.');
-    // Remove qualquer outro caractere inválido
-    numStr = numStr.replace(/[^\\d.-]/g, '');
+  const detectDelimiter = (firstLine: string): string => {
+    const commaCount = (firstLine.match(/,/g) || []).length
+    const semiCount = (firstLine.match(/;/g) || []).length
+    return semiCount > commaCount ? ';' : ','
+  }
 
-    const parsed = parseFloat(numStr) || 0;
-    return sign * parsed;
-  };
 
-  type ParsedCSV = {
-    account_code: string | null;
-    description: string;
-    valueStr: string;
-  };
-
-  const parseCSVPortuguese = (line: string): ParsedCSV | null => {
-    const cols = line.split('\t').map((c: string) => c.trim()).filter(Boolean);
-    if (cols.length < 2) return null;
-
-    const valueStr = cols[cols.length - 1];
-    let account_code: string | null = null;
-    let description: string;
-
-    if (cols.length >= 3) {
-      account_code = cols[0];
-      description = cols.slice(1, -1).join(' ');
-    } else {
-      description = cols[0];
-    }
-
-    return { account_code, description, valueStr };
-  };
-
-  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>, step: string, previewRows: any[], setPreviewRows: (rows: any[]) => void, toast: (opts: any) => void): void => {
-    if (step !== 'preview') return;
-    const text = e.clipboardData.getData('Text');
-    if (!text) return;
-    const lines = text.split('\n');
-    const newRows: any[] = [];
+  const handlePaste = (e: React.ClipboardEvent) => {
+    if (step !== 'preview') return
+    const text = e.clipboardData.getData('Text')
+    if (!text) return
+    const lines = text.split('\n')
+    const delimiter = detectDelimiter(lines[0] || '')
+    const newRows = []
     for (const line of lines) {
-      const parsed = parseCSVPortuguese(line);
-      if (!parsed) continue;
-      const value = parseNumberPortuguese(parsed.valueStr);
-      newRows.push({
-        account_code: parsed.account_code,
-        classification_code: null,
-        description: parsed.description,
-        mapped_codigo: parsed.account_code,
-        mapped_descricao: parsed.description,
-        value,
-        raw: {},
-      });
+      const cols = parseLine(line, delimiter)
+      if (cols.length >= 2) {
+        let valStr = cols[cols.length - 1]
+        let isNeg = valStr.includes('(') || valStr.startsWith('-')
+        let parsed = parseFloat(valStr.replace(/[^\d,-]/g, '').replace(',', '.')) || 0
+        if (isNeg && parsed > 0) parsed = -parsed
+        const ac = cols.length >= 3 ? cols[0] : null
+        const desc = cols.length >= 3 ? cols.slice(1, -1).join(' ') : cols[0]
+        newRows.push({
+          account_code: ac,
+          classification_code: null,
+          description: desc,
+          mapped_codigo: ac,
+          mapped_descricao: desc,
+          value: parsed,
+          raw: {},
+        })
+      }
     }
     if (newRows.length > 0) {
-      e.preventDefault();
-      setPreviewRows([...previewRows, ...newRows]);
-      toast({ title: 'Dados Colados', description: `${newRows.length} linhas adicionadas.` });
+      e.preventDefault()
+      setPreviewRows([...previewRows, ...newRows])
+      toast({ title: 'Dados Colados', description: `${newRows.length} linhas adicionadas.` })
     }
-  };
-
+  }
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)
