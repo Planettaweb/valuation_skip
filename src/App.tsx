@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
@@ -31,8 +32,22 @@ import LandingPage from './pages/LandingPage'
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, userProfile, loading, signOut } = useAuth()
+  const location = useLocation()
+  const [isChecking, setIsChecking] = useState(true)
 
-  if (loading) {
+  // Isolamento da Rota de Sessão: guard mais resiliente para evitar logout acidental
+  useEffect(() => {
+    let timer: NodeJS.Timeout
+    if (!loading) {
+      // Adiciona um pequeno delay antes de considerar o estado final de autenticação vazio,
+      // prevenindo quedas abruptas (redirecionamentos indesejados) durante interações rápidas na UI
+      // ou recarregamentos de sessão em background.
+      timer = setTimeout(() => setIsChecking(false), 200)
+    }
+    return () => clearTimeout(timer)
+  }, [loading])
+
+  if (loading || isChecking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -41,7 +56,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/login" state={{ from: location }} replace />
   }
 
   if (!userProfile) {

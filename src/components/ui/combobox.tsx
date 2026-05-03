@@ -40,28 +40,55 @@ export function Combobox({
   disabled = false,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false)
+  const [localValue, setLocalValue] = React.useState(value)
+
+  // Sync local state with parent value to keep it updated if modified externally
+  React.useEffect(() => {
+    setLocalValue(value)
+  }, [value])
 
   // Memoize selected option to ensure accurate label rendering based on exact value match
   const selectedOption = React.useMemo(
-    () => options.find((option) => option.value === value),
-    [options, value],
+    () => options.find((option) => option.value === localValue),
+    [options, localValue],
+  )
+
+  const handleSelect = React.useCallback(
+    (selectedValue: string) => {
+      // Sincronização direta e instantânea com o estado local (Binding Síncrono)
+      setLocalValue(selectedValue)
+      setOpen(false)
+
+      // Dispara a atualização real para o pai (Supabase API, etc) em seguida.
+      // O setTimeout previne conflitos de ciclo de vida (Forced reflow / Blocking Render)
+      // ao permitir que a animação de fechamento do Popover inicie antes da chamada pesada.
+      setTimeout(() => {
+        onChange(selectedValue)
+      }, 0)
+    },
+    [onChange],
   )
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          type="button" // Essencial para não submeter forms acidentalmente e causar reload/logout
           variant="outline"
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
           className={cn('w-full justify-between font-normal', className)}
+          onClick={(e) => {
+            // Previne bubbling que poderia causar comportamentos inesperados
+            e.stopPropagation()
+          }}
         >
           <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start">
+      <PopoverContent className="w-full p-0" align="start" onClick={(e) => e.stopPropagation()}>
         <Command>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
@@ -70,19 +97,15 @@ export function Combobox({
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
-                  // We inject the label + value into the search value for better text matching
-                  // avoiding Shadcn/Radix bugs with special chars when matching IDs
+                  // Injetamos label + value no valor do CommandItem para permitir busca por ambos
                   value={`${option.label} ${option.value}`}
-                  onSelect={() => {
-                    // Directly pass the safe raw ID rather than depending on CommandItem's internal transformed value
-                    onChange(option.value)
-                    setOpen(false)
-                  }}
+                  onSelect={() => handleSelect(option.value)}
+                  className="cursor-pointer"
                 >
                   <Check
                     className={cn(
                       'mr-2 h-4 w-4 shrink-0',
-                      value === option.value ? 'opacity-100' : 'opacity-0',
+                      localValue === option.value ? 'opacity-100' : 'opacity-0',
                     )}
                   />
                   <span className="truncate">{option.label}</span>
