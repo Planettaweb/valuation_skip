@@ -89,9 +89,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         })
       }
     } catch (e) {
-      console.error(e)
+      console.error('Failed to fetch profile:', e)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const refreshProfile = async () => {
@@ -101,9 +102,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   useEffect(() => {
+    let mounted = true
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return
+
       if (event === 'SIGNED_OUT') {
         setSession(null)
         setUser(null)
@@ -115,7 +120,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (session) {
         setSession(session)
         setUser(session.user)
-        fetchProfile(session.user.id)
+        // Prevent clearing existing profile or causing refetch loops on token refresh
+        setUserProfile((prev) => {
+          if (!prev || prev.id !== session.user.id) {
+            fetchProfile(session.user.id)
+          }
+          return prev
+        })
       } else if (event === 'INITIAL_SESSION') {
         setSession(null)
         setUser(null)
@@ -125,6 +136,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     })
 
     supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (!mounted) return
       if (error || !session) {
         setSession(null)
         setUser(null)
@@ -137,7 +149,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       fetchProfile(session.user.id)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const signUp = async (email: string, password: string, meta: any) => {

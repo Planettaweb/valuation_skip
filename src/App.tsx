@@ -4,7 +4,7 @@ import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Layout } from './components/Layout'
 import { AuthProvider, useAuth } from './hooks/use-auth'
-import { Loader2 } from 'lucide-react'
+import { Loader2, AlertCircle } from 'lucide-react'
 import { AdminRoute } from './components/admin/AdminRoute'
 import { ThemeProvider } from './components/theme-provider'
 
@@ -30,7 +30,7 @@ import LandingPage from './pages/LandingPage'
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { userProfile, loading, signOut } = useAuth()
+  const { user, userProfile, loading, signOut } = useAuth()
 
   if (loading) {
     return (
@@ -40,8 +40,29 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     )
   }
 
-  if (!userProfile) {
+  if (!user) {
     return <Navigate to="/login" replace />
+  }
+
+  if (!userProfile) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground p-4">
+        <AlertCircle className="w-12 h-12 text-destructive mb-4" />
+        <h2 className="text-xl font-bold mb-2">Erro ao carregar perfil</h2>
+        <p className="text-muted-foreground mb-6 text-center max-w-md">
+          Sua sessão está ativa, mas não conseguimos carregar os dados da organização.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 mb-4"
+        >
+          Tentar Novamente
+        </button>
+        <button onClick={() => signOut()} className="text-sm text-muted-foreground hover:underline">
+          Sair
+        </button>
+      </div>
+    )
   }
 
   if (!userProfile.is_active) {
