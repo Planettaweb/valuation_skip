@@ -99,9 +99,14 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
 
   useEffect(() => {
     if (selectedClient && userProfile) {
-      clientService.getPlanoContas(selectedClient).then((res) => {
-        if (res.data) setClientPlanoContas(res.data)
-      })
+      contabilidadeService
+        .getAllPlanoContas(userProfile.org_id)
+        .then((res) => {
+          if (res) {
+            setClientPlanoContas(res.filter((c: any) => c.client_id === selectedClient))
+          }
+        })
+        .catch((err) => console.error(err))
     }
   }, [selectedClient, userProfile])
 
@@ -291,21 +296,19 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
             bestMatch = pc
             break
           }
-          if (
-            pc.descricao &&
-            r.description &&
-            pc.descricao.toLowerCase() === r.description.toLowerCase()
-          ) {
+          const pcName = pc.nome_conta || pc.descricao || ''
+          if (pcName && r.description && pcName.toLowerCase() === r.description.toLowerCase()) {
             bestMatch = pc
             break
           }
         }
         if (!bestMatch) {
           for (const pc of clientPlanoContas) {
+            const pcName = pc.nome_conta || pc.descricao || ''
             if (
-              pc.descricao &&
+              pcName &&
               r.description &&
-              r.description.toLowerCase().includes(pc.descricao.toLowerCase().split(' ')[0])
+              r.description.toLowerCase().includes(pcName.toLowerCase().split(' ')[0])
             ) {
               bestMatch = pc
               break
@@ -317,7 +320,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
             ...r,
             mapped_plano_id: bestMatch.id,
             mapped_codigo: bestMatch.codigo,
-            mapped_descricao: bestMatch.descricao,
+            mapped_descricao: bestMatch.nome_conta || bestMatch.descricao,
           }
         }
         return r
@@ -552,7 +555,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
               if (pc) {
                 handleUpdateRow(i, 'mapped_plano_id', pc.id)
                 handleUpdateRow(i, 'mapped_codigo', pc.codigo)
-                handleUpdateRow(i, 'mapped_descricao', pc.descricao)
+                handleUpdateRow(i, 'mapped_descricao', pc.nome_conta || pc.descricao)
               }
             }}
           >
@@ -566,7 +569,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
               {clientPlanoContas.map((pc) => (
                 <SelectItem key={pc.id} value={pc.id} className="text-xs truncate">
                   {pc.codigo ? `${pc.codigo} - ` : ''}
-                  {pc.descricao}
+                  {pc.nome_conta || pc.descricao}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -1358,8 +1361,9 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                     })
                     toast({ title: 'Sucesso', description: 'Plano de contas criado com sucesso.' })
                     setIsCreatingPlano(false)
-                    const res = await clientService.getPlanoContas(selectedClient)
-                    if (res.data) setClientPlanoContas(res.data)
+                    const res = await contabilidadeService.getAllPlanoContas(userProfile.org_id)
+                    if (res)
+                      setClientPlanoContas(res.filter((c: any) => c.client_id === selectedClient))
                   } catch (e: any) {
                     toast({ title: 'Erro', description: e.message, variant: 'destructive' })
                   }
