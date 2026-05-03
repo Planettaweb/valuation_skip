@@ -406,80 +406,54 @@ export function parseMappedData(
 }
 
 export function parseCSV(text: string, documentType: string) {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim() !== '')
-  if (!lines.length) return { rowsData: [], noise: [] }
-
-  // Detecção automática de separador
-  let separator = ','
-  if (lines.length > 0) {
-    const firstLine = lines[0]
-    const countChar = (str: string, char: string) => {
-      let count = 0
-      let inQuotes = false
-      for (let i = 0; i < str.length; i++) {
-        if (str[i] === '"') inQuotes = !inQuotes
-        else if (str[i] === char && !inQuotes) count++
-      }
-      return count
+  let commaCount = 0
+  let semicolonCount = 0
+  let inQuotes = false
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i]
+    if (char === '"') {
+      inQuotes = !inQuotes
+    } else if (!inQuotes) {
+      if (char === ',') commaCount++
+      else if (char === ';') semicolonCount++
     }
-
-    const commaCount = countChar(firstLine, ',')
-    const semiCount = countChar(firstLine, ';')
-    const tabCount = countChar(firstLine, '\t')
-
-    if (tabCount > 0 && tabCount >= commaCount && tabCount >= semiCount) separator = '\t'
-    else if (semiCount > 0) separator = ';'
-    else if (commaCount > 0) separator = ','
-    else if (firstLine.includes(';')) separator = ';'
   }
-
-  const data = lines.map((line) => {
-    const row = []
+  const separator = commaCount > semicolonCount ? ',' : ';'
+  const lines = text.split('\n')
+  const rowsData: string[][] = []
+  for (const line of lines) {
+    const row: string[] = []
     let cell = ''
     let inQuotes = false
-
     for (let i = 0; i < line.length; i++) {
       const char = line[i]
-      if (char === '"') {
-        if (inQuotes && line[i + 1] === '"') {
-          cell += '"'
-          i++
+      if (inQuotes) {
+        if (char === '"') {
+          if (i + 1 < line.length && line[i + 1] === '"') {
+            cell += '"'
+            i++
+          } else {
+            inQuotes = false
+          }
         } else {
-          inQuotes = !inQuotes
+          cell += char
         }
-      } else if (char === separator && !inQuotes) {
-        row.push(cell.trim())
-        cell = ''
       } else {
-        cell += char
+        if (char === '"') {
+          inQuotes = true
+        } else if (char === separator) {
+          row.push(cell.trim())
+          cell = ''
+        } else {
+          cell += char
+        }
       }
     }
     row.push(cell.trim())
-
-    // reconstrução de decimais quebrados por vírgula
-    if (separator === ',') {
-      const mergedRow = []
-      for (let i = 0; i < row.length; i++) {
-        const current = row[i].replace(/['"]/g, '').trim()
-        const previous =
-          mergedRow.length > 0 ? mergedRow[mergedRow.length - 1].replace(/['"]/g, '').trim() : ''
-
-        const isCents = /^\d{1,2}\)?$/.test(current)
-        const isMainNumber = /^-?\(?[\d.]+\)?$/.test(previous) && !/^0\d+$/.test(previous)
-
-        if (i > 0 && isCents && isMainNumber) {
-          mergedRow[mergedRow.length - 1] = previous + ',' + current
-        } else {
-          mergedRow.push(row[i])
-        }
-      }
-      return mergedRow
-    }
-
-    return row
-  })
-
-  return parseStructuredData(data, documentType)
+    rowsData.push(row)
+  }
+  return parseStructuredData(rowsData, documentType)
+>>>>>>> bdc24453620e372a44cf2b77c757bb05add639d1
 }
 
 export function extractArrayFromMetadata(metadata: any): any[] {
