@@ -1,8 +1,8 @@
 {
   "_versions": {
-    "notify-admin": 20,
-    "sharepoint-api": 15,
+    "notify-admin": 24,
+    "sharepoint-api": 19,
     "functions": 4,
-    "trigger-pdf-processor": 14
+    "trigger-pdf-processor": 18
   }
 }
