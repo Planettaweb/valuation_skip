@@ -51,11 +51,33 @@ export function parseValueStr(str: string) {
   let rawNum = cleanStr.replace(/[DcC()]/gi, '').trim()
   if (!rawNum.match(/\d/)) return null
 
-  if (rawNum.includes(',') && rawNum.includes('.') && rawNum.indexOf(',') < rawNum.indexOf('.')) {
-    rawNum = rawNum.replace(/,/g, '')
-  } else {
+  // Conta a quantidade de pontos e vírgulas para identificar formato corretamente
+  const dotCount = (rawNum.match(/\./g) || []).length
+  const commaCount = (rawNum.match(/,/g) || []).length
+
+  // Se tem apenas vírgula e é a última, ou formato europeu: 1.250,50
+  if (
+    rawNum.indexOf(',') > rawNum.indexOf('.') ||
+    (commaCount === 1 && dotCount >= 0 && rawNum.indexOf(',') > rawNum.length - 4)
+  ) {
     rawNum = rawNum.replace(/\./g, '').replace(',', '.')
   }
+  // Formato americano: 1,250.50
+  else if (
+    rawNum.indexOf('.') > rawNum.indexOf(',') ||
+    (dotCount === 1 && commaCount >= 0 && rawNum.indexOf('.') > rawNum.length - 4)
+  ) {
+    rawNum = rawNum.replace(/,/g, '')
+  }
+  // Apenas vírgula usada como milhar erroneamente? Se tiver + de 2 casas, é milhar
+  else if (commaCount > 0 && dotCount === 0) {
+    if (rawNum.length - rawNum.lastIndexOf(',') > 3) {
+      rawNum = rawNum.replace(/,/g, '')
+    } else {
+      rawNum = rawNum.replace(',', '.')
+    }
+  }
+
   let value = parseFloat(rawNum)
   if (isNaN(value)) return null
   if (isNegative && value > 0) value = -Math.abs(value)
@@ -440,13 +462,15 @@ export function parseCSV(text: string, documentType: string) {
         const currentCell = row[i]
         const prevCell = mergedRow.length > 0 ? mergedRow[mergedRow.length - 1] : ''
 
-        // Se a célula atual for 1 ou 2 dígitos e a anterior parecer um número inteiro
-        if (
-          i > 0 &&
-          /^\d{1,2}$/.test(currentCell) &&
-          /^-?[\d.]+$/.test(prevCell) &&
-          !/^0\d+$/.test(prevCell)
-        ) {
+        let cleanPrev = prevCell.replace(/['"]/g, '').trim()
+        let cleanCurr = currentCell.replace(/['"]/g, '').trim()
+
+        // Se a célula atual for 1 ou 2 dígitos (opcionalmente fechando parênteses)
+        // e a anterior parecer um número inteiro (com pontos de milhar, negativo, parênteses)
+        const isCurrCents = /^\d{1,2}\)?$/.test(cleanCurr)
+        const isPrevNum = /^-?\(?[\d.]+\)?$/.test(cleanPrev) && !/^0\d+$/.test(cleanPrev)
+
+        if (i > 0 && isCurrCents && isPrevNum) {
           mergedRow[mergedRow.length - 1] = prevCell + ',' + currentCell
         } else {
           mergedRow.push(currentCell)

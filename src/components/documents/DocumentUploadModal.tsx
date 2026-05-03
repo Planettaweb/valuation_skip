@@ -35,6 +35,7 @@ import { documentService } from '@/services/documents'
 import { clientService } from '@/services/clients'
 import { UserProfile } from '@/hooks/use-auth'
 import { cn } from '@/lib/utils'
+import { parseValueStr } from '@/lib/extraction-utils'
 
 interface Props {
   userProfile: UserProfile
@@ -126,7 +127,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
         let text = new TextDecoder('utf-8').decode(buffer)
 
         // Se encontrou o caractere de substituição do UTF-8, o arquivo provavelmente é ISO-8859-1 (Latin1)
-        if (text.includes('')) {
+        if (text.includes('\uFFFD')) {
           text = new TextDecoder('iso-8859-1').decode(buffer)
         }
 
@@ -400,65 +401,6 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     setPreviewRows(newRows)
   }
 
-  const parseLine = (line: string, delimiter: string): string[] => {
-    const cols: string[] = []
-    let current = ''
-    let inQuotes = false
-    let i = 0
-
-    const parseNumberPortuguese = (valStr: string): number => {
-      let sign = 1
-      let numStr = valStr.trim()
-
-      if (numStr.startsWith('(') && numStr.endsWith(')')) {
-        numStr = numStr.slice(1, -1)
-        sign = -1
-      } else if (numStr.startsWith('-')) {
-        numStr = numStr.slice(1)
-        sign = -1
-      }
-      cols.push(current.trim())
-      return cols.filter(Boolean)
-    }
-
-    // Remove separador de milhares (ponto)
-    numStr = numStr.replace(/\\./g, '')
-    // Converte vírgula decimal para ponto
-    numStr = numStr.replace(',', '.')
-    // Remove qualquer outro caractere inválido
-    numStr = numStr.replace(/[^\\d.-]/g, '')
-
-    const parsed = parseFloat(numStr) || 0
-    return sign * parsed
-  }
-
-  type ParsedCSV = {
-    account_code: string | null
-    description: string
-    valueStr: string
-  }
-
-  const parseCSVPortuguese = (line: string): ParsedCSV | null => {
-    const cols = line
-      .split('\t')
-      .map((c: string) => c.trim())
-      .filter(Boolean)
-    if (cols.length < 2) return null
-
-    const valueStr = cols[cols.length - 1]
-    let account_code: string | null = null
-    let description: string
-
-    if (cols.length >= 3) {
-      account_code = cols[0]
-      description = cols.slice(1, -1).join(' ')
-    } else {
-      description = cols[0]
-    }
-
-    return { account_code, description, valueStr }
-  }
-
   const handlePaste = (
     e: React.ClipboardEvent<HTMLDivElement>,
     step: string,
@@ -472,19 +414,39 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     const lines = text.split('\n')
     const newRows: any[] = []
     for (const line of lines) {
-      const parsed = parseCSVPortuguese(line)
-      if (!parsed) continue
-      const value = parseNumberPortuguese(parsed.valueStr)
+      if (!line.trim()) continue
+
+      const cols = line
+        .split('\t')
+        .map((c: string) => c.trim())
+        .filter(Boolean)
+      if (cols.length < 2) continue
+
+      const valueStr = cols[cols.length - 1]
+      let account_code: string | null = null
+      let description: string
+
+      if (cols.length >= 3) {
+        account_code = cols[0]
+        description = cols.slice(1, -1).join(' ')
+      } else {
+        description = cols[0]
+      }
+
+      // Reutiliza a lógica de conversão e limpeza de extraction-utils
+      const value = parseValueStr(valueStr)
+
       newRows.push({
-        account_code: parsed.account_code,
+        account_code: account_code,
         classification_code: null,
-        description: parsed.description,
-        mapped_codigo: parsed.account_code,
-        mapped_descricao: parsed.description,
-        value,
+        description: description,
+        mapped_codigo: account_code,
+        mapped_descricao: description,
+        value: value || 0,
         raw: {},
       })
     }
+
     if (newRows.length > 0) {
       e.preventDefault()
       setPreviewRows([...previewRows, ...newRows])
