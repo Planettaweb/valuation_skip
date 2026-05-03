@@ -437,7 +437,7 @@ export function parseCSV(text: string, documentType: string) {
     const row = []
     let cell = ''
     let inQuotes = false
-    
+
     for (let i = 0; i < line.length; i++) {
       const char = line[i]
       if (char === '"') {
@@ -461,7 +461,8 @@ export function parseCSV(text: string, documentType: string) {
       const mergedRow = []
       for (let i = 0; i < row.length; i++) {
         const current = row[i].replace(/['"]/g, '').trim()
-        const previous = mergedRow.length > 0 ? mergedRow[mergedRow.length - 1].replace(/['"]/g, '').trim() : ''
+        const previous =
+          mergedRow.length > 0 ? mergedRow[mergedRow.length - 1].replace(/['"]/g, '').trim() : ''
 
         const isCents = /^\d{1,2}\)?$/.test(current)
         const isMainNumber = /^-?\(?[\d.]+\)?$/.test(previous) && !/^0\d+$/.test(previous)
