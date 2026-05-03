@@ -406,20 +406,20 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
     let inQuotes = false
     let i = 0
 
-  const parseNumberPortuguese = (valStr: string): number => {
-    let sign = 1
-    let numStr = valStr.trim()
+    const parseNumberPortuguese = (valStr: string): number => {
+      let sign = 1
+      let numStr = valStr.trim()
 
-    if (numStr.startsWith('(') && numStr.endsWith(')')) {
-      numStr = numStr.slice(1, -1)
-      sign = -1
-    } else if (numStr.startsWith('-')) {
-      numStr = numStr.slice(1)
-      sign = -1
+      if (numStr.startsWith('(') && numStr.endsWith(')')) {
+        numStr = numStr.slice(1, -1)
+        sign = -1
+      } else if (numStr.startsWith('-')) {
+        numStr = numStr.slice(1)
+        sign = -1
+      }
+      cols.push(current.trim())
+      return cols.filter(Boolean)
     }
-    cols.push(current.trim())
-    return cols.filter(Boolean)
-  }
 
     // Remove separador de milhares (ponto)
     numStr = numStr.replace(/\\./g, '')
