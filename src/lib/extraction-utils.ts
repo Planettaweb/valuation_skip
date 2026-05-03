@@ -594,9 +594,11 @@ export async function persistStructuredData(
         org_id: orgId,
         document_id: docId,
         row_number: i + index + 1,
+        ordem: d.ordem || i + index + 1,
         account_name: d.description,
         value: toNum(d.value),
         period: d.period?.toString() || null,
+        conta_id: d.conta_id || null,
       })),
     )
     if (dataError) console.error('Error inserting into financial_data:', dataError)
@@ -614,7 +616,7 @@ export async function persistStructuredData(
     try {
       if (documentType === 'Balanço' || documentType === 'Balanço Patrimonial') {
         const { error } = await supabase.from('financial_balanco_patrimonial' as any).insert(
-          batch.map((d) => ({
+          batch.map((d, index) => ({
             org_id: orgId,
             document_id: docId,
             account_code: d.account_code,
@@ -625,12 +627,14 @@ export async function persistStructuredData(
             nature_year_n: d.nature,
             nature_year_n_minus_1: d.raw?.natureza_exercicio_anterior || null,
             year_n: d.period ? parseInt(d.period) : null,
+            ordem: d.ordem || i + index + 1,
+            conta_id: d.conta_id || null,
           })),
         )
         if (error) throw error
       } else if (documentType === 'Balancete') {
         const { error } = await supabase.from('financial_balancete' as any).insert(
-          batch.map((d) => ({
+          batch.map((d, index) => ({
             org_id: orgId,
             document_id: docId,
             account_code: d.account_code,
@@ -640,24 +644,28 @@ export async function persistStructuredData(
             debit: toNum(d.raw?.debit),
             credit: toNum(d.raw?.credit),
             current_balance: toNum(d.value),
+            ordem: d.ordem || i + index + 1,
+            conta_id: d.conta_id || null,
           })),
         )
         if (error) throw error
       } else if (documentType === 'DRE') {
         const { error } = await supabase.from('financial_dre' as any).insert(
-          batch.map((d) => ({
+          batch.map((d, index) => ({
             org_id: orgId,
             document_id: docId,
             description: d.description,
             balance: toNum(d.value),
             sum: toNum(d.raw?.sum),
             total: toNum(d.raw?.total || d.value),
+            ordem: d.ordem || i + index + 1,
+            conta_id: d.conta_id || null,
           })),
         )
         if (error) throw error
       } else if (documentType === 'Fluxo de Caixa') {
         const { error } = await supabase.from('financial_fluxo_caixa' as any).insert(
-          batch.map((d) => ({
+          batch.map((d, index) => ({
             org_id: orgId,
             document_id: docId,
             description: d.description,
@@ -665,6 +673,8 @@ export async function persistStructuredData(
             planned_value: toNum(d.raw?.planned_value),
             realized_value: toNum(d.value),
             period: d.period?.toString() || null,
+            ordem: d.ordem || i + index + 1,
+            conta_id: d.conta_id || null,
           })),
         )
         if (error) throw error

@@ -43,10 +43,14 @@ export function ExtractedDataView({
 
   const totalPages = Math.ceil((data?.length || 0) / PAGE_SIZE)
 
-  const currentData = useMemo(() => {
+  const sortedData = useMemo(() => {
     if (!data) return []
-    return data.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-  }, [data, page])
+    return [...data].sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
+  }, [data])
+
+  const currentData = useMemo(() => {
+    return sortedData.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  }, [sortedData, page])
 
   if (rawMetadata?.balanco_patrimonial && (type === 'Balanço' || type === 'Balanço Patrimonial')) {
     return <BalancoPatrimonialView bp={rawMetadata.balanco_patrimonial} data={data} />
