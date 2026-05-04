@@ -1,8 +1,7 @@
 import * as React from 'react'
-import { Check, ChevronsUpDown, Search } from 'lucide-react'
+import { Check, Search } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -47,7 +46,7 @@ export function Combobox({
   const [deferredSearch, setDeferredSearch] = React.useState('')
   const [isPending, startTransition] = React.useTransition()
 
-  // Sync local state with parent value to keep it updated if modified externally
+  // Sync local state with parent value
   React.useEffect(() => {
     setLocalValue(value)
   }, [value])
@@ -103,38 +102,49 @@ export function Combobox({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          disabled={disabled || isPending}
-          className={cn('w-full justify-between font-normal bg-background', className)}
+        <div
+          className={cn(
+            'relative w-full',
+            disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
+            className,
+          )}
+          onClick={(e) => {
+            if (disabled || isPending) {
+              e.preventDefault()
+            }
+          }}
         >
-          <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
+          <Input
+            type="text"
+            readOnly
+            value={selectedOption ? selectedOption.label : ''}
+            placeholder={placeholder}
+            className="w-full pr-10 cursor-pointer text-left focus-visible:ring-1 bg-background overflow-hidden text-ellipsis whitespace-nowrap"
+            disabled={disabled || isPending}
+          />
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground opacity-50 pointer-events-none" />
+        </div>
       </DialogTrigger>
-      <DialogContent className="max-w-lg p-0 overflow-hidden flex flex-col gap-0 max-h-[85vh] sm:max-h-[600px] outline-none">
-        <DialogHeader className="px-4 py-3 border-b text-left">
+      <DialogContent className="max-w-xl p-0 overflow-hidden flex flex-col gap-0 max-h-[85vh] sm:max-h-[600px] outline-none border-white/10">
+        <DialogHeader className="px-4 py-4 border-b border-white/10 bg-muted/30 text-left">
           <DialogTitle className="text-base font-semibold">{title || placeholder}</DialogTitle>
         </DialogHeader>
 
-        <div className="p-2 border-b flex items-center relative bg-muted/10">
-          <Search className="absolute left-4 w-4 h-4 text-muted-foreground" />
+        <div className="p-3 border-b border-white/10 flex items-center relative bg-background/50">
+          <Search className="absolute left-6 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder={searchPlaceholder}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent shadow-none h-10"
+            className="pl-10 border-input bg-background h-11"
             autoFocus
           />
         </div>
 
-        <ScrollArea className="flex-1 overflow-y-auto min-h-[300px] h-[400px]">
+        <ScrollArea className="flex-1 overflow-y-auto min-h-[300px] h-[400px] bg-background/30">
           <div className="p-2 flex flex-col gap-1">
             {filteredOptions.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground flex flex-col items-center">
+              <div className="py-12 text-center text-sm text-muted-foreground flex flex-col items-center">
                 <p>{emptyText}</p>
               </div>
             ) : (
@@ -144,17 +154,16 @@ export function Combobox({
                   type="button"
                   onClick={() => handleSelect(option.value)}
                   className={cn(
-                    'relative flex w-full cursor-default select-none items-center rounded-sm px-3 py-2.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground transition-colors',
-                    localValue === option.value && 'bg-accent font-medium text-accent-foreground',
+                    'relative flex w-full cursor-pointer select-none items-center rounded-md px-3 py-3 text-sm outline-none transition-colors border border-transparent',
+                    localValue === option.value
+                      ? 'bg-primary/10 border-primary/20 text-primary font-medium'
+                      : 'hover:bg-accent hover:text-accent-foreground',
                   )}
                 >
                   <span className="truncate flex-1 text-left">{option.label}</span>
-                  <Check
-                    className={cn(
-                      'ml-2 h-4 w-4 text-primary shrink-0',
-                      localValue === option.value ? 'opacity-100' : 'opacity-0',
-                    )}
-                  />
+                  {localValue === option.value && (
+                    <Check className="ml-2 h-4 w-4 text-primary shrink-0" />
+                  )}
                 </button>
               ))
             )}
