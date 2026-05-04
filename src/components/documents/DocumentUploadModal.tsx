@@ -562,10 +562,15 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
   const MappingCells = ({ row, i }: { row: any; i: number }) => {
     const [open, setOpen] = useState(false)
 
-    const displayValue = row.mapped_plano_id && row.mapped_plano_id !== 'none' ? (() => {
-      const pc = clientPlanoContas.find((p: any) => p.id === row.mapped_plano_id)
-      return pc ? `${pc.codigo ? pc.codigo + ' - ' : ''}${pc.nome_conta || pc.descricao}` : 'Selecione a conta...'
-    })() : ''
+    const displayValue =
+      row.mapped_plano_id && row.mapped_plano_id !== 'none'
+        ? (() => {
+            const pc = clientPlanoContas.find((p: any) => p.id === row.mapped_plano_id)
+            return pc
+              ? `${pc.codigo ? pc.codigo + ' - ' : ''}${pc.nome_conta || pc.descricao}`
+              : 'Selecione a conta...'
+          })()
+        : ''
 
     return (
       <>
@@ -583,7 +588,9 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Selecionar Conta</DialogTitle>
-                  <DialogDescription>Escolha uma conta do plano de contas do cliente.</DialogDescription>
+                  <DialogDescription>
+                    Escolha uma conta do plano de contas do cliente.
+                  </DialogDescription>
                 </DialogHeader>
                 <Command>
                   <CommandInput placeholder="Buscar conta..." className="text-xs h-8" />
@@ -595,11 +602,16 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                           handleUpdateRow(i, 'mapped_plano_id', '')
                           handleUpdateRow(i, 'mapped_codigo', '')
                           handleUpdateRow(i, 'mapped_descricao', '')
-                          setOpen(false);
+                          setOpen(false)
                         }}
                         className="text-xs text-muted-foreground italic cursor-pointer"
                       >
-                        <Check className={cn('mr-2 h-3 w-3 shrink-0', !row.mapped_plano_id ? 'opacity-100 text-primary' : 'opacity-0')} />
+                        <Check
+                          className={cn(
+                            'mr-2 h-3 w-3 shrink-0',
+                            !row.mapped_plano_id ? 'opacity-100 text-primary' : 'opacity-0',
+                          )}
+                        />
                         <span>Nenhuma / Limpar</span>
                       </CommandItem>
                       {clientPlanoContas.map((pc: any) => (
@@ -614,9 +626,17 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                           }}
                           className="text-xs cursor-pointer"
                         >
-                          <Check className={cn('mr-2 h-3 w-3 shrink-0', row.mapped_plano_id === pc.id ? 'opacity-100 text-primary' : 'opacity-0')} />
+                          <Check
+                            className={cn(
+                              'mr-2 h-3 w-3 shrink-0',
+                              row.mapped_plano_id === pc.id
+                                ? 'opacity-100 text-primary'
+                                : 'opacity-0',
+                            )}
+                          />
                           <span className="truncate">
-                            {pc.codigo ? `${pc.codigo} - ` : ''}{pc.nome_conta || pc.descricao}
+                            {pc.codigo ? `${pc.codigo} - ` : ''}
+                            {pc.nome_conta || pc.descricao}
                           </span>
                         </CommandItem>
                       ))}
