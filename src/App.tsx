@@ -39,9 +39,9 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let timer: NodeJS.Timeout
     if (!loading) {
-      // Grace period estendido para 1000ms. Durante processamento pesado (reflows)
+      // Grace period substancialmente estendido para 5000ms. Durante processamento pesado (reflows longos)
       // a thread principal trava e delays artificiais previnem ejetar o usuário acidentalmente.
-      timer = setTimeout(() => setIsChecking(false), 1000)
+      timer = setTimeout(() => setIsChecking(false), 5000)
     }
     return () => clearTimeout(timer)
   }, [loading])

@@ -14,8 +14,12 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { useAuth } from '@/hooks/use-auth'
+import { AccountSelectModal } from '@/components/shared/AccountSelectModal'
 import { BalancoPatrimonialView } from './BalancoPatrimonialView'
 
 const PAGE_SIZE = 10
@@ -31,7 +35,14 @@ export function ExtractedDataView({
   isDynamic?: boolean
   rawMetadata?: any
 }) {
+  const { userProfile } = useAuth()
   const [page, setPage] = useState(1)
+  const [similarityActive, setSimilarityActive] = useState(false)
+  const [mappings, setMappings] = useState<Record<string, string>>({})
+
+  const handleMapAccount = (rowId: string, accountId: string) => {
+    setMappings((prev) => ({ ...prev, [rowId]: accountId }))
+  }
 
   const formatCurrency = (val: any) => {
     if (val === null || val === undefined) return '-'
@@ -52,10 +63,6 @@ export function ExtractedDataView({
     return sortedData.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   }, [sortedData, page])
 
-  if (rawMetadata?.balanco_patrimonial && (type === 'Balanço' || type === 'Balanço Patrimonial')) {
-    return <BalancoPatrimonialView bp={rawMetadata.balanco_patrimonial} data={data} />
-  }
-
   if (!data || data.length === 0) {
     return (
       <p className="text-center text-muted-foreground py-8">
@@ -65,6 +72,13 @@ export function ExtractedDataView({
   }
 
   const renderTable = () => {
+    if (
+      rawMetadata?.balanco_patrimonial &&
+      (type === 'Balanço' || type === 'Balanço Patrimonial')
+    ) {
+      return <BalancoPatrimonialView bp={rawMetadata.balanco_patrimonial} data={data} />
+    }
+
     if (isDynamic) {
       const allKeys = Array.from(new Set(data.flatMap((row) => Object.keys(row))))
       return (
@@ -110,45 +124,56 @@ export function ExtractedDataView({
               <TableHead>Descrição</TableHead>
               <TableHead className="text-right">Ano atual</TableHead>
               <TableHead className="text-right">Ano anterior</TableHead>
+              <TableHead className="w-[300px]">Mapear com Conta do Cliente</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {currentData.map((r) => (
-              <TableRow
-                key={r.id || r.classification_code || Math.random()}
-                className="border-white/5 hover:bg-white/5"
-              >
-                <TableCell className="text-muted-foreground">{r.account_code}</TableCell>
-                <TableCell className="text-muted-foreground">{r.classification_code}</TableCell>
-                <TableCell className="font-medium">{r.description}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <span>{formatCurrency(r.value_year_n)}</span>
-                    {r.nature_year_n && (
-                      <Badge
-                        variant="outline"
-                        className="px-1.5 min-w-6 justify-center text-muted-foreground border-white/20"
-                      >
-                        {r.nature_year_n}
-                      </Badge>
+            {currentData.map((r, idx) => {
+              const rowId = r.id || String(idx)
+              return (
+                <TableRow key={rowId} className="border-white/5 hover:bg-white/5">
+                  <TableCell className="text-muted-foreground">{r.account_code}</TableCell>
+                  <TableCell className="text-muted-foreground">{r.classification_code}</TableCell>
+                  <TableCell className="font-medium">{r.description}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <span>{formatCurrency(r.value_year_n)}</span>
+                      {r.nature_year_n && (
+                        <Badge
+                          variant="outline"
+                          className="px-1.5 min-w-6 justify-center text-muted-foreground border-white/20"
+                        >
+                          {r.nature_year_n}
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <span>{formatCurrency(r.value_year_n_minus_1)}</span>
+                      {r.nature_year_n_minus_1 && (
+                        <Badge
+                          variant="outline"
+                          className="px-1.5 min-w-6 justify-center text-muted-foreground border-white/20"
+                        >
+                          {r.nature_year_n_minus_1}
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="p-2">
+                    {userProfile?.org_id && (
+                      <AccountSelectModal
+                        orgId={userProfile.org_id}
+                        value={mappings[rowId] || null}
+                        onChange={(val) => handleMapAccount(rowId, val)}
+                        placeholder="Mapear..."
+                      />
                     )}
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <span>{formatCurrency(r.value_year_n_minus_1)}</span>
-                    {r.nature_year_n_minus_1 && (
-                      <Badge
-                        variant="outline"
-                        className="px-1.5 min-w-6 justify-center text-muted-foreground border-white/20"
-                      >
-                        {r.nature_year_n_minus_1}
-                      </Badge>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
       )
@@ -163,20 +188,31 @@ export function ExtractedDataView({
               <TableHead className="text-right">Saldo</TableHead>
               <TableHead className="text-right">Soma</TableHead>
               <TableHead className="text-right">Total</TableHead>
+              <TableHead className="w-[300px]">Mapear com Conta do Cliente</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {currentData.map((r) => (
-              <TableRow
-                key={r.id || r.description || Math.random()}
-                className="border-white/5 hover:bg-white/5"
-              >
-                <TableCell className="font-medium">{r.description}</TableCell>
-                <TableCell className="text-right">{formatCurrency(r.balance)}</TableCell>
-                <TableCell className="text-right">{formatCurrency(r.sum)}</TableCell>
-                <TableCell className="text-right">{formatCurrency(r.total)}</TableCell>
-              </TableRow>
-            ))}
+            {currentData.map((r, idx) => {
+              const rowId = r.id || String(idx)
+              return (
+                <TableRow key={rowId} className="border-white/5 hover:bg-white/5">
+                  <TableCell className="font-medium">{r.description}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(r.balance)}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(r.sum)}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(r.total)}</TableCell>
+                  <TableCell className="p-2">
+                    {userProfile?.org_id && (
+                      <AccountSelectModal
+                        orgId={userProfile.org_id}
+                        value={mappings[rowId] || null}
+                        onChange={(val) => handleMapAccount(rowId, val)}
+                        placeholder="Mapear..."
+                      />
+                    )}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
       )
@@ -194,25 +230,36 @@ export function ExtractedDataView({
               <TableHead className="text-right">Débito</TableHead>
               <TableHead className="text-right">Crédito</TableHead>
               <TableHead className="text-right">Saldo Atual</TableHead>
+              <TableHead className="w-[300px]">Mapear com Conta do Cliente</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {currentData.map((r) => (
-              <TableRow
-                key={r.id || r.classification_code || Math.random()}
-                className="border-white/5 hover:bg-white/5"
-              >
-                <TableCell className="text-muted-foreground">{r.account_code}</TableCell>
-                <TableCell className="text-muted-foreground">{r.classification_code}</TableCell>
-                <TableCell className="font-medium">{r.account_description}</TableCell>
-                <TableCell className="text-right">{formatCurrency(r.previous_balance)}</TableCell>
-                <TableCell className="text-right">{formatCurrency(r.debit)}</TableCell>
-                <TableCell className="text-right">{formatCurrency(r.credit)}</TableCell>
-                <TableCell className="text-right font-medium text-emerald-400">
-                  {formatCurrency(r.current_balance)}
-                </TableCell>
-              </TableRow>
-            ))}
+            {currentData.map((r, idx) => {
+              const rowId = r.id || String(idx)
+              return (
+                <TableRow key={rowId} className="border-white/5 hover:bg-white/5">
+                  <TableCell className="text-muted-foreground">{r.account_code}</TableCell>
+                  <TableCell className="text-muted-foreground">{r.classification_code}</TableCell>
+                  <TableCell className="font-medium">{r.account_description}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(r.previous_balance)}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(r.debit)}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(r.credit)}</TableCell>
+                  <TableCell className="text-right font-medium text-emerald-400">
+                    {formatCurrency(r.current_balance)}
+                  </TableCell>
+                  <TableCell className="p-2">
+                    {userProfile?.org_id && (
+                      <AccountSelectModal
+                        orgId={userProfile.org_id}
+                        value={mappings[rowId] || null}
+                        onChange={(val) => handleMapAccount(rowId, val)}
+                        placeholder="Mapear..."
+                      />
+                    )}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
       )
@@ -261,8 +308,33 @@ export function ExtractedDataView({
   }
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="overflow-x-auto rounded-md border border-white/5">{renderTable()}</div>
+    <div className="space-y-4 animate-fade-in flex flex-col h-full">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-card/30 rounded-xl border border-white/10 shrink-0">
+        <div>
+          <h3 className="text-lg font-semibold text-emerald-400">Processar Documento Financeiro</h3>
+          <p className="text-sm text-muted-foreground">
+            Revise os dados extraídos e realize o mapeamento com o plano de contas.
+          </p>
+        </div>
+        <div className="flex items-center gap-3 bg-black/40 px-4 py-2.5 rounded-lg border border-white/10">
+          <Switch
+            id="similarity-global"
+            checked={similarityActive}
+            onCheckedChange={setSimilarityActive}
+            className="data-[state=checked]:bg-emerald-500"
+          />
+          <Label
+            htmlFor="similarity-global"
+            className="cursor-pointer font-medium select-none text-sm"
+          >
+            Ativar Similaridade
+          </Label>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-md border border-white/5 flex-1 min-h-0">
+        {renderTable()}
+      </div>
 
       {totalPages > 1 && (
         <Pagination className="justify-end">

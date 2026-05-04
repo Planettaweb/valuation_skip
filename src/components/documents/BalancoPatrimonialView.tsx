@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   Table,
   TableBody,
@@ -6,21 +7,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrevious,
-} from '@/components/ui/pagination'
 import { Badge } from '@/components/ui/badge'
-import { useState, useMemo } from 'react'
+import { useAuth } from '@/hooks/use-auth'
+import { AccountSelectModal } from '@/components/shared/AccountSelectModal'
 import { cn } from '@/lib/utils'
 
-const PAGE_SIZE = 10
-
 export function BalancoPatrimonialView({ bp, data }: { bp: any; data: any[] }) {
-  const [page, setPage] = useState(1)
+  const { userProfile } = useAuth()
+  const [mappings, setMappings] = useState<Record<string, string>>({})
 
   const formatCurrency = (val: any) => {
     if (val === null || val === undefined) return '-'
@@ -30,180 +24,78 @@ export function BalancoPatrimonialView({ bp, data }: { bp: any; data: any[] }) {
     return val
   }
 
-  const totalPages = Math.ceil((data?.length || 0) / PAGE_SIZE)
-  const currentData = useMemo(() => {
-    if (!data) return []
-    return data.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-  }, [data, page])
-
-  const yearN = currentData[0]?.year_n || bp?.cabecalho?.year_n || 'Atual'
-  const yearN1 = currentData[0]?.year_n_minus_1 || bp?.cabecalho?.year_n_minus_1 || 'Anterior'
+  const handleMapAccount = (rowId: string, accountId: string) => {
+    setMappings((prev) => ({ ...prev, [rowId]: accountId }))
+  }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border border-white/10 rounded-lg bg-card/30">
-        <div>
-          <h4 className="text-sm font-semibold text-muted-foreground mb-3">
-            Informações da Empresa
-          </h4>
-          <div className="space-y-1 text-sm">
-            <p>
-              <span className="text-muted-foreground">Empresa:</span> {bp.cabecalho.empresa}
-            </p>
-            <p>
-              <span className="text-muted-foreground">CNPJ:</span> {bp.cabecalho.cnpj}
-            </p>
-            <p>
-              <span className="text-muted-foreground">Insc. Junta Comercial:</span>{' '}
-              {bp.cabecalho.inscricao_junta_comercial}
-            </p>
-          </div>
-        </div>
-        <div>
-          <h4 className="text-sm font-semibold text-muted-foreground mb-3">
-            Detalhes do Documento
-          </h4>
-          <div className="space-y-1 text-sm">
-            <p>
-              <span className="text-muted-foreground">Período:</span> {bp.cabecalho.data_abertura} a{' '}
-              {bp.cabecalho.data_encerramento_balanco}
-            </p>
-            <p>
-              <span className="text-muted-foreground">Emissão:</span> {bp.cabecalho.data_emissao} às{' '}
-              {bp.cabecalho.hora_emissao}
-            </p>
-            <p>
-              <span className="text-muted-foreground">Livro / Folha:</span>{' '}
-              {bp.cabecalho.numero_livro} / {bp.cabecalho.folha}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="overflow-x-auto rounded-md border border-white/5">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-white/10 hover:bg-transparent">
-              <TableHead>Código</TableHead>
-              <TableHead>Classificação</TableHead>
-              <TableHead>Descrição</TableHead>
-              <TableHead className="text-right">Ano atual</TableHead>
-              <TableHead className="text-right">Ano anterior</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {currentData.map((r: any, idx: number) => (
-              <TableRow key={idx} className="border-white/5 hover:bg-white/5">
-                <TableCell className="text-muted-foreground">
-                  {r.account_code || r.codigo || '-'}
+    <div className="rounded-xl border border-white/10 overflow-hidden bg-card/20 animate-fade-in flex-1">
+      <Table>
+        <TableHeader>
+          <TableRow className="border-white/10 hover:bg-transparent bg-black/40">
+            <TableHead className="w-[100px]">Código</TableHead>
+            <TableHead>Descrição</TableHead>
+            <TableHead className="text-right">Ano atual</TableHead>
+            <TableHead className="text-right">Ano anterior</TableHead>
+            <TableHead className="w-[300px]">Mapear com Conta do Cliente</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {data.map((r, idx) => {
+            const rowId = r.id || String(idx)
+            return (
+              <TableRow key={rowId} className="border-white/5 hover:bg-white/5 transition-colors">
+                <TableCell className="text-muted-foreground font-mono text-xs">
+                  {r.account_code || '-'}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {r.classification_code || r.classificacao || '-'}
-                </TableCell>
-                <TableCell className="font-medium">{r.description || r.descricao}</TableCell>
+                <TableCell className="font-medium">{r.description}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
-                    <span>{formatCurrency(r.value_year_n ?? r.valor_exercicio_atual)}</span>
-                    {(r.nature_year_n || r.natureza_exercicio_atual) && (
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          'px-1.5 min-w-6 justify-center',
-                          (r.nature_year_n ?? r.natureza_exercicio_atual) === 'D'
-                            ? 'text-rose-400 border-rose-400/30 bg-rose-400/10'
-                            : (r.nature_year_n ?? r.natureza_exercicio_atual) === 'C'
-                              ? 'text-emerald-400 border-emerald-400/30 bg-emerald-400/10'
-                              : 'text-muted-foreground',
-                        )}
-                      >
-                        {r.nature_year_n ?? r.natureza_exercicio_atual}
-                      </Badge>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <span>
-                      {formatCurrency(r.value_year_n_minus_1 ?? r.valor_exercicio_anterior)}
+                    <span className={cn((r.value_year_n || 0) < 0 && 'text-red-400')}>
+                      {formatCurrency(r.value_year_n)}
                     </span>
-                    {(r.nature_year_n_minus_1 || r.natureza_exercicio_anterior) && (
+                    {r.nature_year_n && (
                       <Badge
                         variant="outline"
-                        className={cn(
-                          'px-1.5 min-w-6 justify-center',
-                          (r.nature_year_n_minus_1 ?? r.natureza_exercicio_anterior) === 'D'
-                            ? 'text-rose-400 border-rose-400/30 bg-rose-400/10'
-                            : (r.nature_year_n_minus_1 ?? r.natureza_exercicio_anterior) === 'C'
-                              ? 'text-emerald-400 border-emerald-400/30 bg-emerald-400/10'
-                              : 'text-muted-foreground',
-                        )}
+                        className="px-1.5 min-w-[24px] justify-center text-muted-foreground border-white/20 text-[10px]"
                       >
-                        {r.nature_year_n_minus_1 ?? r.natureza_exercicio_anterior}
+                        {r.nature_year_n}
                       </Badge>
                     )}
                   </div>
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <span className={cn((r.value_year_n_minus_1 || 0) < 0 && 'text-red-400')}>
+                      {formatCurrency(r.value_year_n_minus_1)}
+                    </span>
+                    {r.nature_year_n_minus_1 && (
+                      <Badge
+                        variant="outline"
+                        className="px-1.5 min-w-[24px] justify-center text-muted-foreground border-white/20 text-[10px]"
+                      >
+                        {r.nature_year_n_minus_1}
+                      </Badge>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell className="p-2">
+                  {userProfile?.org_id ? (
+                    <AccountSelectModal
+                      orgId={userProfile.org_id}
+                      value={mappings[rowId] || null}
+                      onChange={(val) => handleMapAccount(rowId, val)}
+                      placeholder="Mapear com Conta..."
+                    />
+                  ) : (
+                    <div className="text-xs text-muted-foreground">Indisponível</div>
+                  )}
                 </TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      {totalPages > 1 && (
-        <Pagination className="justify-end">
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className={page === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-              />
-            </PaginationItem>
-            <PaginationItem>
-              <span className="text-sm text-muted-foreground px-4">
-                Página {page} de {totalPages}
-              </span>
-            </PaginationItem>
-            <PaginationItem>
-              <PaginationNext
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className={
-                  page === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'
-                }
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      )}
-
-      {bp.declaracao_final && (
-        <div className="p-4 border border-white/10 rounded-lg bg-card/30 space-y-4">
-          <h4 className="text-sm font-semibold text-muted-foreground">Declaração Final</h4>
-          <p className="text-sm italic text-muted-foreground">
-            "{bp.declaracao_final.texto_reconhecimento}"
-          </p>
-          <div className="flex justify-between items-center text-sm">
-            <p>
-              <span className="text-muted-foreground">Total Ativo/Passivo:</span>{' '}
-              <span className="font-semibold text-emerald-400">
-                {formatCurrency(bp.declaracao_final.valor_total_ativo_passivo)}
-              </span>
-            </p>
-            <p className="text-muted-foreground">{bp.declaracao_final.local_data}</p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-white/5">
-            {bp.declaracao_final.assinaturas?.map((ass: any, i: number) => (
-              <div key={i} className="text-sm">
-                <p className="font-medium">{ass.nome}</p>
-                <p className="text-muted-foreground">{ass.cargo}</p>
-                <p className="text-xs text-muted-foreground">
-                  CPF: {ass.cpf} {ass.registro_conselho ? `| Reg: ${ass.registro_conselho}` : ''}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+            )
+          })}
+        </TableBody>
+      </Table>
     </div>
   )
 }
