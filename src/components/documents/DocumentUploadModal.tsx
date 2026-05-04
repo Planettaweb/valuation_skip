@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Upload,
   Loader2,
@@ -53,12 +53,11 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { documentService } from '@/services/documents'
 import { clientService } from '@/services/clients'
-import { contabilidadeService } from '@/services/contabilidade'
+import { contabilidadeService, PlanoConta } from '@/services/contabilidade'
 import { UserProfile } from '@/hooks/use-auth'
 import { cn } from '@/lib/utils'
 import { parseValueStr } from '@/lib/extraction-utils'
 import { PlanoContaForm } from '@/components/contabilidade/PlanoContaForm'
-// import  MappingCells from '@/components/documents/MappingCells'
 
 interface Props {
   userProfile: UserProfile
@@ -107,7 +106,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
       clientService.getClients(userProfile.org_id).then((res) => {
         if (res.data) {
           setClients(res.data)
-          if (defaultClientId && res.data.some((c) => c.id === defaultClientId)) {
+          if (defaultClientId && res.data.some((c: any) => c.id === defaultClientId)) {
             setSelectedClient(defaultClientId)
           }
         }
@@ -562,10 +561,17 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
   const MappingCells = ({ row, i }: { row: any; i: number }) => {
     const [open, setOpen] = useState(false)
 
-    const displayValue = row.mapped_plano_id && row.mapped_plano_id !== 'none' ? (() => {
-      const pc = clientPlanoContas.find((p: any) => p.id === row.mapped_plano_id)
-      return pc ? `${pc.codigo ? pc.codigo + ' - ' : ''}${pc.nome_conta || pc.descricao}` : 'Selecione a conta...'
-    })() : ''
+    const displayValue = useMemo(() => {
+      if (!row.mapped_plano_id) return ''
+      
+      const pc = (clientPlanoContas as PlanoConta[]).find(
+        (p) => String(p.id) === String(row.mapped_plano_id)
+      )
+      
+      return pc 
+        ? `${pc.codigo ? pc.codigo + ' - ' : ''}${pc.nome_conta || pc.descricao}` 
+        : 'Selecione a conta...'
+    }, [row.mapped_plano_id, clientPlanoContas])
 
     return (
       <>
@@ -595,7 +601,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
                           handleUpdateRow(i, 'mapped_plano_id', '')
                           handleUpdateRow(i, 'mapped_codigo', '')
                           handleUpdateRow(i, 'mapped_descricao', '')
-                          setOpen(false);
+                          setOpen(false)
                         }}
                         className="text-xs text-muted-foreground italic cursor-pointer"
                       >
