@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Upload,
   Loader2,
@@ -53,12 +53,11 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { documentService } from '@/services/documents'
 import { clientService } from '@/services/clients'
-import { contabilidadeService } from '@/services/contabilidade'
+import { contabilidadeService, PlanoConta } from '@/services/contabilidade'
 import { UserProfile } from '@/hooks/use-auth'
 import { cn } from '@/lib/utils'
 import { parseValueStr } from '@/lib/extraction-utils'
 import { PlanoContaForm } from '@/components/contabilidade/PlanoContaForm'
-// import  MappingCells from '@/components/documents/MappingCells'
 
 interface Props {
   userProfile: UserProfile
@@ -107,7 +106,7 @@ export function DocumentUploadModal({ userProfile, defaultClientId, onSuccess }:
       clientService.getClients(userProfile.org_id).then((res) => {
         if (res.data) {
           setClients(res.data)
-          if (defaultClientId && res.data.some((c) => c.id === defaultClientId)) {
+          if (defaultClientId && res.data.some((c: any) => c.id === defaultClientId)) {
             setSelectedClient(defaultClientId)
           }
         }
