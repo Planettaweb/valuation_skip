@@ -1,1 +1,9 @@
-{}
+{
+  "_versions": {
+    "notify-admin": 37,
+    "sharepoint-api": 32,
+    "functions": 4,
+    "trigger-pdf-processor": 31,
+    "metabase-token": 3
+  }
+}
