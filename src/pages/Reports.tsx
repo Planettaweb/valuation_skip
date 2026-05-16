@@ -388,12 +388,13 @@ export default function Reports() {
               >
                 <SelectTrigger>
                   <SelectValue />
-                </SelectTrigger>+
+                </SelectTrigger>
+                +
                 <SelectContent>
                   <SelectItem value="dashboard">Dashboard</SelectItem>
                   <SelectItem value="question">Question (Relatório)</SelectItem>
                 </SelectContent>
-              </Select>              
+              </Select>
               {/* <Select
                 value={formData.client_id || ''}
                 onValueChange={(v) => setFormData((s) => ({ ...s, client_id: v }))}
