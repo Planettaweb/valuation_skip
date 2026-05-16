@@ -73,7 +73,7 @@ export default function Reports() {
         clientService.getClients(userProfile.org_id),
       ])
       setReports(reportsData)
-      setClients(clientsData.data || [])
+      setClients(Array.isArray(clientsData.data) ? clientsData.data : [])
     } catch (err: any) {
       toast.error('Erro ao carregar dados', { description: err.message })
     } finally {
@@ -387,8 +387,8 @@ export default function Reports() {
                   <SelectValue placeholder="Selecione um cliente" />
                 </SelectTrigger>
                 <SelectContent>
-                  {clients.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
+                  {(clients ?? []).map((c) => (
+                    <SelectItem key={String(c.id)} value={String(c.id)}>
                       {c.client_name}
                     </SelectItem>
                   ))}
