@@ -5,7 +5,8 @@ import jwt from 'npm:jsonwebtoken@9'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, x-supabase-client-platform, apikey, content-type',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, x-supabase-client-platform, apikey, content-type',
 }
 
 Deno.serve(async (req: Request) => {
@@ -22,10 +23,13 @@ Deno.serve(async (req: Request) => {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
+      { global: { headers: { Authorization: authHeader } } },
     )
 
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseClient.auth.getUser()
     if (authError || !user) {
       throw new Error('Unauthorized')
     }
@@ -57,7 +61,7 @@ Deno.serve(async (req: Request) => {
     const payload = {
       resource: { [report.report_type]: report.resource_id },
       params: { ...payloadParams, ...(report.params || {}) },
-      exp: Math.round(Date.now() / 1000) + (10 * 60)
+      exp: Math.round(Date.now() / 1000) + 10 * 60,
     }
 
     const token = jwt.sign(payload, METABASE_SECRET_KEY, { algorithm: 'HS256' })
@@ -67,7 +71,6 @@ Deno.serve(async (req: Request) => {
     return new Response(JSON.stringify({ url: iframeUrl }), {
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     })
-
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,

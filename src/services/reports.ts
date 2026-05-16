@@ -12,11 +12,17 @@ export interface EmbeddedReport {
   clients?: { client_name: string } | null
 }
 
-export async function fetchReports() {
-  const { data, error } = await (supabase as any)
+export async function fetchReports(orgId?: string) {
+  let query = (supabase as any)
     .from('embedded_reports')
     .select('*, clients(client_name)')
     .order('title')
+
+  if (orgId) {
+    query = query.eq('org_id', orgId)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
   return data as EmbeddedReport[]
@@ -33,17 +39,10 @@ export async function fetchMetabaseUrl(reportId: string) {
   return data?.url as string
 }
 
-export async function createReport(payload: Partial<EmbeddedReport>) {
-  const user = (await supabase.auth.getUser()).data.user
-  const { data: userData } = await supabase
-    .from('users')
-    .select('org_id')
-    .eq('id', user?.id)
-    .single()
-
+export async function createReport(payload: Partial<EmbeddedReport>, orgId: string) {
   const { data, error } = await (supabase as any)
     .from('embedded_reports')
-    .insert([{ ...payload, org_id: userData?.org_id }])
+    .insert([{ ...payload, org_id: orgId }])
     .select()
     .single()
 

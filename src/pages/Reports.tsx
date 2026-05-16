@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAuth } from '@/hooks/use-auth'
+import { clientService } from '@/services/clients'
 import {
   fetchReports,
   fetchMetabaseUrl,
@@ -63,25 +64,28 @@ export default function Reports() {
     client_id: '',
   })
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
   const loadData = async () => {
+    if (!userProfile?.org_id) return
     try {
       setLoading(true)
       const [reportsData, clientsData] = await Promise.all([
-        fetchReports(),
-        (supabase as any).from('clients').select('id, client_name').order('client_name'),
+        fetchReports(userProfile.org_id),
+        clientService.getClients(userProfile.org_id),
       ])
       setReports(reportsData)
       setClients(clientsData.data || [])
     } catch (err: any) {
-      toast.error('Erro ao carregar relatórios', { description: err.message })
+      toast.error('Erro ao carregar dados', { description: err.message })
     } finally {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (userProfile?.org_id) {
+      loadData()
+    }
+  }, [userProfile?.org_id])
 
   const handleSelectReport = async (report: EmbeddedReport) => {
     setSelectedReport(report)
@@ -116,7 +120,7 @@ export default function Reports() {
         await updateReport(formData.id, payload)
         toast.success('Relatório atualizado')
       } else {
-        await createReport(payload)
+        await createReport(payload, userProfile!.org_id)
         toast.success('Relatório criado')
       }
       setIsModalOpen(false)
