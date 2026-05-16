@@ -73,6 +73,10 @@ export default function Reports() {
         clientService.getClients(userProfile.org_id),
       ])
       setReports(reportsData)
+      if (clientsData.error) {
+        console.error('Erro ao carregar clientes:', clientsData.error)
+        toast.error('Erro ao carregar clientes', { description: clientsData.error.message })
+      }
       setClients(Array.isArray(clientsData.data) ? clientsData.data : [])
     } catch (err: any) {
       toast.error('Erro ao carregar dados', { description: err.message })

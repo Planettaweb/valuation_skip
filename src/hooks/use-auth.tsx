@@ -62,7 +62,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .single()
 
       if (data) {
-        const roleName = data.users_roles?.[0]?.roles?.name || 'Viewer'
+        const isAdmin = data.users_roles?.some((ur: any) => ur.roles?.name === 'Admin')
+        const roleName = isAdmin ? 'Admin' : data.users_roles?.[0]?.roles?.name || 'Viewer'
         const orgName = Array.isArray(data.organizations)
           ? data.organizations[0]?.name
           : data.organizations?.name || 'Unknown'

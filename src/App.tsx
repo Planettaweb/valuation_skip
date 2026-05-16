@@ -110,7 +110,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 // Public Route Wrapper
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
-  const { userProfile, loading } = useAuth()
+  const { user, loading } = useAuth()
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
@@ -118,7 +118,7 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
       </div>
     )
   }
-  if (userProfile) return <Navigate to="/app" replace />
+  if (user) return <Navigate to="/app" replace />
   return <>{children}</>
 }
 
