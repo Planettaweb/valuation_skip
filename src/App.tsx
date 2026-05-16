@@ -26,6 +26,7 @@ import Settings from './pages/Settings'
 import PlanoContas from './pages/PlanoContas'
 import TiposDocumentos from './pages/TiposDocumentos'
 import MatrizRelacionamento from './pages/MatrizRelacionamento'
+import Reports from './pages/Reports'
 import NotFound from './pages/NotFound'
 import LandingPage from './pages/LandingPage'
 
@@ -171,6 +172,7 @@ const AppRoutes = () => (
       <Route path="plano-contas" element={<PlanoContas />} />
       <Route path="tipos-documentos" element={<TiposDocumentos />} />
       <Route path="matriz-relacionamento" element={<MatrizRelacionamento />} />
+      <Route path="reports" element={<Reports />} />
       <Route path="profile" element={<Profile />} />
       <Route path="settings" element={<Settings />} />
 
@@ -189,6 +191,7 @@ const AppRoutes = () => (
     <Route path="/plano-contas/*" element={<LegacyRedirect />} />
     <Route path="/tipos-documentos/*" element={<LegacyRedirect />} />
     <Route path="/matriz-relacionamento/*" element={<LegacyRedirect />} />
+    <Route path="/reports/*" element={<LegacyRedirect />} />
     <Route path="/profile/*" element={<LegacyRedirect />} />
     <Route path="/settings/*" element={<LegacyRedirect />} />
     <Route path="/users/*" element={<LegacyRedirect />} />

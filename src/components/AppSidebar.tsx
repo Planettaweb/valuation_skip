@@ -12,6 +12,7 @@ import {
   BookOpen,
   FileText,
   Network,
+  BarChart3,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import {
@@ -86,6 +87,17 @@ export function AppSidebar() {
                     className="hover:bg-primary/10 hover:text-primary transition-colors"
                   >
                     <Folder className="w-4 h-4" /> <span>Repositório de Arquivos</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location.pathname === '/app/reports'}>
+                  <Link
+                    to="/app/reports"
+                    className="hover:bg-primary/10 hover:text-primary transition-colors"
+                  >
+                    <BarChart3 className="w-4 h-4" /> <span>Relatórios / BI</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
