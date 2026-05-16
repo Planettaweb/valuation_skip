@@ -383,6 +383,18 @@ export default function Reports() {
             <div className="space-y-2">
               <Label>Vincular Cliente *</Label>
               <Select
+                value={formData.report_type}
+                onValueChange={(v: any) => setFormData((s) => ({ ...s, report_type: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>+
+                <SelectContent>
+                  <SelectItem value="dashboard">Dashboard</SelectItem>
+                  <SelectItem value="question">Question (Relatório)</SelectItem>
+                </SelectContent>
+              </Select>              
+              {/* <Select
                 value={formData.client_id || ''}
                 onValueChange={(v) => setFormData((s) => ({ ...s, client_id: v }))}
                 required
@@ -398,7 +410,7 @@ export default function Reports() {
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </Select>
+              </Select> */}
               <p className="text-xs text-muted-foreground">
                 O ID do cliente será passado como{' '}
                 <code className="bg-muted px-1 rounded">idEntidadeAplicacao</code>.
