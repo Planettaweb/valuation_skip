@@ -385,7 +385,7 @@ export default function Reports() {
               <Select
                 value={formData.client_id || ''}
                 onValueChange={(v: any) => setFormData((s) => ({ ...s, client_id: v }))}
-                required                
+                required
               >
                 <SelectTrigger>
                   <SelectValue />
