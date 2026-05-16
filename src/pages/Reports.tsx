@@ -386,7 +386,8 @@ export default function Reports() {
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione um cliente" />
                 </SelectTrigger>
-                <SelectContent>
+
+                <SelectContent position="popper" sideOffset={4}>
                   {(clients ?? []).map((c) => (
                     <SelectItem key={String(c.id)} value={String(c.id)}>
                       {c.client_name}
