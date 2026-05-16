@@ -60,7 +60,7 @@ export default function Reports() {
     description: '',
     report_type: 'dashboard',
     resource_id: 0,
-    client_id: 'none',
+    client_id: '',
   })
 
   useEffect(() => {
@@ -99,8 +99,8 @@ export default function Reports() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.title || !formData.resource_id) {
-      toast.error('Preencha os campos obrigatórios')
+    if (!formData.title || !formData.resource_id || !formData.client_id) {
+      toast.error('Preencha todos os campos obrigatórios, incluindo o Cliente.')
       return
     }
 
@@ -108,7 +108,7 @@ export default function Reports() {
       setIsSubmitting(true)
       const payload = {
         ...formData,
-        client_id: formData.client_id === 'none' ? null : formData.client_id,
+        client_id: formData.client_id,
         resource_id: Number(formData.resource_id),
       }
 
@@ -167,7 +167,7 @@ export default function Reports() {
                   description: '',
                   report_type: 'dashboard',
                   resource_id: 0,
-                  client_id: 'none',
+                  client_id: '',
                 })
                 setIsModalOpen(true)
               }}
@@ -246,7 +246,7 @@ export default function Reports() {
                           e.stopPropagation()
                           setFormData({
                             ...report,
-                            client_id: report.client_id || 'none',
+                            client_id: report.client_id || '',
                           })
                           setIsModalOpen(true)
                         }}
@@ -373,16 +373,16 @@ export default function Reports() {
             </div>
 
             <div className="space-y-2">
-              <Label>Vincular Cliente (Opcional)</Label>
+              <Label>Vincular Cliente *</Label>
               <Select
-                value={formData.client_id || 'none'}
+                value={formData.client_id || ''}
                 onValueChange={(v) => setFormData((s) => ({ ...s, client_id: v }))}
+                required
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione um cliente" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Nenhum / Global</SelectItem>
                   {clients.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.client_name}
@@ -391,7 +391,7 @@ export default function Reports() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Se selecionado, o ID do cliente será passado como{' '}
+                O ID do cliente será passado como{' '}
                 <code className="bg-muted px-1 rounded">idEntidadeAplicacao</code>.
               </p>
             </div>

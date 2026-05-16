@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase/client'
 export interface EmbeddedReport {
   id: string
   org_id: string
-  client_id?: string | null
+  client_id: string
   title: string
   description?: string | null
   report_type: 'dashboard' | 'question'
