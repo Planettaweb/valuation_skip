@@ -99,7 +99,6 @@ export default function Reports() {
   useEffect(() => {
     if (userProfile?.org_id) {
       loadReports()
-      loadClients()
     }
   }, [userProfile?.org_id, session?.user])
 
