@@ -397,7 +397,7 @@ export default function Reports() {
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </Select>          
+              </Select>
               {/* <Select
                 value={formData.client_id || ''}
                 onValueChange={(v) => setFormData((s) => ({ ...s, client_id: v }))}
