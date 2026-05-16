@@ -383,16 +383,20 @@ export default function Reports() {
             <div className="space-y-2">
               <Label>Vincular Cliente *</Label>
               <Select
-                value={formData.report_type}
-                onValueChange={(v: any) => setFormData((s) => ({ ...s, report_type: v }))}
+                value={formData.client_id || ''}
+                onValueChange={(v: any) => setFormData((s) => ({ ...s, client_id: v }))}
+                required                
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 +
                 <SelectContent>
-                  <SelectItem value="dashboard">Dashboard</SelectItem>
-                  <SelectItem value="question">Question (Relatório)</SelectItem>
+                  {(clients ?? []).map((c) => (
+                    <SelectItem key={String(c.id)} value={String(c.id)}>
+                      {c.client_name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               {/* <Select
