@@ -42,12 +42,13 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 export default function Reports() {
-  const { userProfile } = useAuth()
+  const { session, userProfile } = useAuth()
   const isAdmin = userProfile?.role === 'Admin'
 
   const [reports, setReports] = useState<EmbeddedReport[]>([])
   const [loading, setLoading] = useState(true)
   const [clients, setClients] = useState<any[]>([])
+  const [loadingClients, setLoadingClients] = useState(false)
 
   const [selectedReport, setSelectedReport] = useState<EmbeddedReport | null>(null)
   const [iframeUrl, setIframeUrl] = useState<string | null>(null)
@@ -64,32 +65,49 @@ export default function Reports() {
     client_id: '',
   })
 
-  const loadData = async () => {
+  const loadReports = async () => {
     if (!userProfile?.org_id) return
     try {
       setLoading(true)
-      const [reportsData, clientsData] = await Promise.all([
-        fetchReports(userProfile.org_id),
-        clientService.getClients(userProfile.org_id),
-      ])
+      const reportsData = await fetchReports(userProfile.org_id)
       setReports(reportsData)
-      if (clientsData.error) {
-        console.error('Erro ao carregar clientes:', clientsData.error)
-        toast.error('Erro ao carregar clientes', { description: clientsData.error.message })
-      }
-      setClients(Array.isArray(clientsData.data) ? clientsData.data : [])
     } catch (err: any) {
-      toast.error('Erro ao carregar dados', { description: err.message })
+      toast.error('Erro ao carregar relatórios', { description: err.message })
     } finally {
       setLoading(false)
     }
   }
 
+  const loadClients = async () => {
+    if (!session?.user || !userProfile?.org_id) return
+    try {
+      setLoadingClients(true)
+      const clientsData = await clientService.getClients(userProfile.org_id)
+      if (clientsData.error) {
+        console.error('Erro ao carregar clientes:', clientsData.error)
+        toast.error('Erro ao carregar clientes', { description: clientsData.error.message })
+      } else {
+        setClients(Array.isArray(clientsData.data) ? clientsData.data : [])
+      }
+    } catch (err: any) {
+      toast.error('Erro ao carregar clientes', { description: err.message })
+    } finally {
+      setLoadingClients(false)
+    }
+  }
+
   useEffect(() => {
     if (userProfile?.org_id) {
-      loadData()
+      loadReports()
+      loadClients()
     }
-  }, [userProfile?.org_id])
+  }, [userProfile?.org_id, session?.user])
+
+  useEffect(() => {
+    if (isModalOpen && userProfile?.org_id) {
+      loadClients()
+    }
+  }, [isModalOpen, userProfile?.org_id, session?.user])
 
   const handleSelectReport = async (report: EmbeddedReport) => {
     setSelectedReport(report)
@@ -386,9 +404,12 @@ export default function Reports() {
                 value={formData.client_id || ''}
                 onValueChange={(v) => setFormData((s) => ({ ...s, client_id: v }))}
                 required
+                disabled={loadingClients}
               >
                 <SelectTrigger className="bg-card/50 border-white/10">
-                  <SelectValue placeholder="Selecione..." />
+                  <SelectValue
+                    placeholder={loadingClients ? 'Carregando clientes...' : 'Selecione...'}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {clients.map((c) => (
@@ -398,23 +419,6 @@ export default function Reports() {
                   ))}
                 </SelectContent>
               </Select>
-              {/* <Select
-                value={formData.client_id || ''}
-                onValueChange={(v) => setFormData((s) => ({ ...s, client_id: v }))}
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um cliente" />
-                </SelectTrigger>
-
-                <SelectContent position="popper" sideOffset={4}>
-                  {(clients ?? []).map((c) => (
-                    <SelectItem key={String(c.id)} value={String(c.id)}>
-                      {c.client_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select> */}
               <p className="text-xs text-muted-foreground">
                 O ID do cliente será passado como{' '}
                 <code className="bg-muted px-1 rounded">idEntidadeAplicacao</code>.
