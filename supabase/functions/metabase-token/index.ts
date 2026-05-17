@@ -53,7 +53,10 @@ Deno.serve(async (req: Request) => {
     const METABASE_SECRET_KEY = Deno.env.get('METABASE_SECRET_KEY')
 
     if (!METABASE_SITE_URL || !METABASE_SECRET_KEY) {
-      throw new Error('Metabase is not configured on the server')
+      return new Response(JSON.stringify({ error: 'Metabase is not configured on the server' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      })
     }
 
     const payloadParams = { idEntidadeAplicacao: report.client_id }
@@ -73,7 +76,7 @@ Deno.serve(async (req: Request) => {
     })
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
+      status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     })
   }
