@@ -40,9 +40,10 @@ export async function fetchMetabaseUrl(reportId: string) {
 }
 
 export async function createReport(payload: Partial<EmbeddedReport>, orgId: string) {
+  const { clients, ...safePayload } = payload
   const { data, error } = await (supabase as any)
     .from('embedded_reports')
-    .insert([{ ...payload, org_id: orgId }])
+    .insert([{ ...safePayload, org_id: orgId }])
     .select()
     .single()
 
@@ -51,9 +52,10 @@ export async function createReport(payload: Partial<EmbeddedReport>, orgId: stri
 }
 
 export async function updateReport(id: string, payload: Partial<EmbeddedReport>) {
+  const { clients, ...safePayload } = payload
   const { data, error } = await (supabase as any)
     .from('embedded_reports')
-    .update(payload)
+    .update(safePayload)
     .eq('id', id)
     .select()
     .single()
