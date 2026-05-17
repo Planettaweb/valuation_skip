@@ -131,14 +131,18 @@ export default function Reports() {
 
     try {
       setIsSubmitting(true)
+
+      // Remove campos aninhados como 'clients' para evitar o erro PGRST204 (Bad Request)
+      const { clients, ...cleanFormData } = formData as any
+
       const payload = {
-        ...formData,
-        client_id: formData.client_id,
-        resource_id: Number(formData.resource_id),
+        ...cleanFormData,
+        client_id: cleanFormData.client_id,
+        resource_id: Number(cleanFormData.resource_id),
       }
 
-      if (formData.id) {
-        await updateReport(formData.id, payload)
+      if (payload.id) {
+        await updateReport(payload.id, payload)
         toast.success('Relatório atualizado')
       } else {
         await createReport(payload, userProfile!.org_id)
@@ -269,9 +273,10 @@ export default function Reports() {
                         className="h-7 w-7"
                         onClick={(e) => {
                           e.stopPropagation()
+                          const { clients, ...cleanReport } = report as any
                           setFormData({
-                            ...report,
-                            client_id: report.client_id || '',
+                            ...cleanReport,
+                            client_id: cleanReport.client_id || '',
                           })
                           setIsModalOpen(true)
                         }}
