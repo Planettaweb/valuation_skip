@@ -65,7 +65,7 @@ Deno.serve(async (req: Request) => {
 
     // Forçamos o envio do client_id exatamente como string para prevenir truncamento de hex/UUID
     // e garantimos que ele não seja sobrescrito por valores em report.params
-    finalParams['idEntidadeAplicacao'] = String(report.client_id)
+    finalParams['identidadeaplicacao'] = String(report.client_id)
 
     const payload = {
       resource: { [report.report_type]: report.resource_id },
