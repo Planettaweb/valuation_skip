@@ -75,7 +75,7 @@ Deno.serve(async (req: Request) => {
 
     const token = jwt.sign(payload, METABASE_SECRET_KEY, { algorithm: 'HS256' })
 
-    const iframeUrl = `${METABASE_SITE_URL}/embed/${report.report_type}/${token}#bordered=true&titled=true`
+    const iframeUrl = `${METABASE_SITE_URL}/embed/${report.report_type}/${token}#theme=night&bordered=true&titled=true`
 
     return new Response(JSON.stringify({ url: iframeUrl }), {
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
