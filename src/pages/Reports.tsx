@@ -310,13 +310,13 @@ export default function Reports() {
                   <p className="text-xs text-muted-foreground">{selectedReport.description}</p>
                 )}
               </div>
-              {iframeUrl && (
+              {/* {iframeUrl && (
                 <Button variant="outline" size="sm" asChild>
                   <a href={iframeUrl} target="_blank" rel="noopener noreferrer" className="gap-2">
                     Abrir Externo <ExternalLink className="w-3 h-3" />
                   </a>
                 </Button>
-              )}
+              )} */}
             </div>
 
             <div className="flex-1 w-full bg-muted/30 relative">
