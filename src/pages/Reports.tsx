@@ -425,7 +425,7 @@ export default function Reports() {
               </Select>
               <p className="text-xs text-muted-foreground">
                 O ID do cliente será passado como{' '}
-                <code className="bg-muted px-1 rounded">idEntidadeAplicacao</code>.
+                <code className="bg-muted px-1 rounded">identidadeaplicacao</code>.
               </p>
             </div>
 
