@@ -1,9 +1,9 @@
 {
   "_versions": {
-    "notify-admin": 50,
-    "sharepoint-api": 45,
+    "notify-admin": 53,
+    "sharepoint-api": 48,
     "functions": 9,
-    "trigger-pdf-processor": 44,
-    "metabase-token": 18
+    "trigger-pdf-processor": 47,
+    "metabase-token": 21
   }
 }
