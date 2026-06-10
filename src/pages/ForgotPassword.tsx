@@ -22,9 +22,20 @@ export default function ForgotPassword() {
       const { error } = await resetPassword(email)
       if (error) {
         let msg = error.message
-        if (msg.toLowerCase().includes('user not found')) {
+        const lowerMsg = msg?.toLowerCase() || ''
+
+        if (lowerMsg.includes('user not found')) {
           msg = 'Não encontramos nenhuma conta vinculada a este e-mail.'
+        } else if (
+          (error as any).status === 500 ||
+          lowerMsg.includes('unexpected_failure') ||
+          lowerMsg.includes('error sending recovery email') ||
+          lowerMsg.includes('rate limit')
+        ) {
+          msg =
+            'Não foi possível enviar o e-mail de recuperação. Por favor, verifique se as configurações de e-mail (SMTP) estão ativas no servidor ou tente novamente mais tarde.'
         }
+
         toast({ title: 'Erro ao enviar link', description: msg, variant: 'destructive' })
       } else {
         toast({
