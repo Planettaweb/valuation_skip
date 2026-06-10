@@ -18,9 +18,7 @@ export default function ForgotPassword() {
     setLoading(true)
 
     try {
-      const origin = window.location.origin.includes('preview.goskip.app')
-        ? 'https://valuation.planettaweb.com.br'
-        : window.location.origin
+      const origin = 'https://valuation.planettaweb.com.br'
       const redirectUrl = `${origin}/reset-password`
       const { error, data } = await supabase.functions.invoke('send-reset-password-email', {
         body: {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -7,41 +7,50 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, KeyRound } from 'lucide-react'
+import { supabase } from '@/lib/supabase/client'
 
 export default function ResetPassword() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const { updatePassword, signOut, session, loading: authLoading } = useAuth()
+  const [verifying, setVerifying] = useState(true)
+  const { updatePassword, signOut } = useAuth()
   const { toast } = useToast()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
 
   useEffect(() => {
-    // Handle error from URL hash (e.g., token expired or invalid)
-    const hash = location.hash || window.location.hash
-    if (hash) {
-      const params = new URLSearchParams(hash.substring(1))
-      const errorDesc = params.get('error_description')
-      if (errorDesc) {
-        toast({
-          title: 'Link Inválido',
-          description:
-            'O link de recuperação de senha é inválido ou expirou. Por favor, solicite um novo.',
-          variant: 'destructive',
-        })
-        navigate('/forgot-password')
-      }
-    }
-  }, [location, navigate, toast])
+    let mounted = true
 
-  useEffect(() => {
-    if (authLoading) return
+    const verifyToken = async () => {
+      const token = searchParams.get('token')
+      const email = searchParams.get('email')
 
-    // Se não há hash na URL e não há sessão ativa, usuário acessou a rota de forma inválida.
-    if (!session && !window.location.hash && !location.hash) {
-      const timer = setTimeout(() => {
-        if (!session) {
+      const hash = location.hash || window.location.hash
+
+      if (!token || !email) {
+        if (hash && hash.includes('access_token')) {
+          if (mounted) setVerifying(false)
+          return
+        }
+
+        if (hash && hash.includes('error_description')) {
+          const params = new URLSearchParams(hash.substring(1))
+          const errorDesc = params.get('error_description')
+          if (mounted) {
+            toast({
+              title: 'Link Inválido',
+              description:
+                'O link de recuperação de senha é inválido ou expirou. Por favor, solicite um novo.',
+              variant: 'destructive',
+            })
+            navigate('/forgot-password', { replace: true })
+          }
+          return
+        }
+
+        if (mounted) {
           toast({
             title: 'Acesso Inválido',
             description:
@@ -50,10 +59,38 @@ export default function ResetPassword() {
           })
           navigate('/forgot-password', { replace: true })
         }
-      }, 1500)
-      return () => clearTimeout(timer)
+        return
+      }
+
+      try {
+        const { error } = await supabase.auth.verifyOtp({
+          email,
+          token,
+          type: 'recovery',
+        })
+
+        if (error && mounted) {
+          toast({
+            title: 'Link Inválido ou Expirado',
+            description:
+              'O link de recuperação de senha é inválido ou expirou. Por favor, solicite um novo.',
+            variant: 'destructive',
+          })
+          navigate('/forgot-password', { replace: true })
+        }
+      } catch (err) {
+        console.error(err)
+      } finally {
+        if (mounted) setVerifying(false)
+      }
     }
-  }, [session, authLoading, location.hash, navigate, toast])
+
+    verifyToken()
+
+    return () => {
+      mounted = false
+    }
+  }, [location.hash, navigate, searchParams, toast])
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -104,6 +141,14 @@ export default function ResetPassword() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (verifying) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   return (

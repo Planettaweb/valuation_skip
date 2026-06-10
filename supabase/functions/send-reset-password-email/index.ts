@@ -41,7 +41,9 @@ serve(async (req) => {
       if (error) {
         console.error('Generate link error:', error.message)
       } else if (data?.properties?.action_link) {
-        finalLink = data.properties.action_link
+        const actionUrl = new URL(data.properties.action_link)
+        const token = actionUrl.searchParams.get('token')
+        finalLink = `${resetLink}?token=${token}&email=${encodeURIComponent(email)}`
       }
     }
 

@@ -111,15 +111,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!mounted) return
 
       if (event === 'SIGNED_OUT') {
-        // Double check session to prevent accidental drops on network latency or reflows
-        supabase.auth.getSession().then(({ data }) => {
-          if (!data.session) {
-            setSession(null)
-            setUser(null)
-            setUserProfile(null)
-            setLoading(false)
-          }
-        })
+        setSession(null)
+        setUser(null)
+        setUserProfile(null)
+        setLoading(false)
         return
       }
 
@@ -192,9 +187,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const resetPassword = async (email: string) => {
     try {
-      const origin = window.location.origin.includes('preview.goskip.app')
-        ? 'https://valuation.planettaweb.com.br'
-        : window.location.origin
+      const origin = 'https://valuation.planettaweb.com.br'
       return await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${origin}/reset-password`,
       })
