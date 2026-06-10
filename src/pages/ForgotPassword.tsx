@@ -18,20 +18,22 @@ export default function ForgotPassword() {
     setLoading(true)
 
     try {
-      const redirectUrl = `${window.location.origin}/reset-password`
-      const { error } = await supabase.functions.invoke('send-reset-password-email', {
+      const origin = window.location.origin.includes('preview.goskip.app')
+        ? 'https://valuation.planettaweb.com.br'
+        : window.location.origin
+      const redirectUrl = `${origin}/reset-password`
+      const { error, data } = await supabase.functions.invoke('send-reset-password-email', {
         body: {
-          type: 'recovery',
           email,
-          redirect_to: redirectUrl,
+          resetLink: redirectUrl,
         },
       })
 
-      if (error) {
+      if (error || data?.error) {
         toast({
           title: 'Erro ao enviar link',
           description:
-            'Não foi possível enviar o e-mail de recuperação. Por favor, entre em contato com o suporte.',
+            'Não foi possível processar a solicitação de envio. Por favor, verifique o e-mail e tente novamente, ou contate o suporte.',
           variant: 'destructive',
         })
       } else {

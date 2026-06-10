@@ -192,8 +192,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const resetPassword = async (email: string) => {
     try {
+      const origin = window.location.origin.includes('preview.goskip.app')
+        ? 'https://valuation.planettaweb.com.br'
+        : window.location.origin
       return await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${origin}/reset-password`,
       })
     } catch (error: any) {
       return { error }

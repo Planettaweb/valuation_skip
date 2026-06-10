@@ -22,25 +22,49 @@ export default function Register() {
     setLoading(true)
 
     try {
-      const redirectUrl = `${window.location.origin}/app`
-      const { error } = await supabase.functions.invoke('send-reset-password-email', {
-        body: {
-          type: 'signup',
-          email,
-          password,
-          fullName,
-          orgName,
-          redirect_to: redirectUrl,
+      const { error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            org_name: orgName,
+          },
         },
       })
 
-      if (error) {
+      if (signUpError) {
         toast({
           title: 'Erro ao Registrar',
           description:
-            'Falha ao enviar e-mail de validação. Por favor, entre em contato com o suporte.',
+            signUpError.message === 'User already registered'
+              ? 'Este e-mail já está em uso.'
+              : 'Não foi possível criar sua conta no momento. Verifique os dados.',
           variant: 'destructive',
         })
+        setLoading(false)
+        return
+      }
+
+      const origin = window.location.origin.includes('preview.goskip.app')
+        ? 'https://valuation.planettaweb.com.br'
+        : window.location.origin
+      const redirectUrl = `${origin}/app`
+      const { error, data } = await supabase.functions.invoke('send-reset-password-email', {
+        body: {
+          email,
+          resetLink: redirectUrl,
+        },
+      })
+
+      if (error || data?.error) {
+        toast({
+          title: 'Aviso',
+          description:
+            'Sua conta foi criada, mas houve um erro ao enviar o e-mail de confirmação. Contate o suporte.',
+          variant: 'destructive',
+        })
+        navigate('/login')
       } else {
         // Trigger Edge Function to notify admin
         supabase.functions

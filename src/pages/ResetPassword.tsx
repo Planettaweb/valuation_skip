@@ -12,7 +12,7 @@ export default function ResetPassword() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const { updatePassword, signOut } = useAuth()
+  const { updatePassword, signOut, session, loading: authLoading } = useAuth()
   const { toast } = useToast()
   const navigate = useNavigate()
   const location = useLocation()
@@ -34,6 +34,26 @@ export default function ResetPassword() {
       }
     }
   }, [location, navigate, toast])
+
+  useEffect(() => {
+    if (authLoading) return
+
+    // Se não há hash na URL e não há sessão ativa, usuário acessou a rota de forma inválida.
+    if (!session && !window.location.hash && !location.hash) {
+      const timer = setTimeout(() => {
+        if (!session) {
+          toast({
+            title: 'Acesso Inválido',
+            description:
+              'Você precisa acessar esta página através do link enviado para o seu e-mail.',
+            variant: 'destructive',
+          })
+          navigate('/forgot-password', { replace: true })
+        }
+      }, 1500)
+      return () => clearTimeout(timer)
+    }
+  }, [session, authLoading, location.hash, navigate, toast])
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -63,6 +83,8 @@ export default function ResetPassword() {
         let msg = error.message
         if (msg.includes('New password should be different')) {
           msg = 'A nova senha deve ser diferente da atual.'
+        } else if (msg.includes('Auth session missing')) {
+          msg = 'Sessão inválida ou expirada. Por favor, solicite um novo link de recuperação.'
         }
         toast({ title: 'Erro ao redefinir', description: msg, variant: 'destructive' })
       } else {
@@ -71,9 +93,7 @@ export default function ResetPassword() {
           description: 'Senha alterada com sucesso! Você já pode realizar o login.',
         })
         await signOut()
-        setTimeout(() => {
-          navigate('/login')
-        }, 2000)
+        navigate('/login', { replace: true })
       }
     } catch (err) {
       toast({
@@ -143,10 +163,10 @@ export default function ResetPassword() {
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Atualizando...
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Salvando...
                 </>
               ) : (
-                'Redefinir Senha'
+                'Salvar nova senha'
               )}
             </Button>
           </form>
