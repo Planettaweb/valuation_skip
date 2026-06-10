@@ -4,14 +4,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, ArrowLeft, Mail } from 'lucide-react'
+import { supabase } from '@/lib/supabase/client'
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
-  const { resetPassword } = useAuth()
   const { toast } = useToast()
 
   const handleReset = async (e: React.FormEvent) => {
@@ -19,29 +18,27 @@ export default function ForgotPassword() {
     setLoading(true)
 
     try {
-      const { error } = await resetPassword(email)
+      const redirectUrl = `${window.location.origin}/reset-password`
+      const { error } = await supabase.functions.invoke('send-reset-password-email', {
+        body: {
+          type: 'recovery',
+          email,
+          redirect_to: redirectUrl,
+        },
+      })
+
       if (error) {
-        let msg = error.message
-        const lowerMsg = msg?.toLowerCase() || ''
-
-        if (lowerMsg.includes('user not found')) {
-          msg = 'Não encontramos nenhuma conta vinculada a este e-mail.'
-        } else if (
-          (error as any).status === 500 ||
-          lowerMsg.includes('unexpected_failure') ||
-          lowerMsg.includes('error sending recovery email') ||
-          lowerMsg.includes('rate limit')
-        ) {
-          msg =
-            'Não foi possível enviar o e-mail de recuperação. Por favor, verifique se as configurações de e-mail (SMTP) estão ativas no servidor ou tente novamente mais tarde.'
-        }
-
-        toast({ title: 'Erro ao enviar link', description: msg, variant: 'destructive' })
+        toast({
+          title: 'Erro ao enviar link',
+          description:
+            'Não foi possível enviar o e-mail de recuperação. Por favor, entre em contato com o suporte.',
+          variant: 'destructive',
+        })
       } else {
         toast({
           title: 'Email enviado',
           description:
-            'Se este e-mail estiver cadastrado, você receberá um link para redefinir sua senha em instantes.',
+            'Se o e-mail existir em nossa base, você receberá um link de recuperação em instantes.',
         })
         setEmail('')
       }

@@ -12,7 +12,7 @@ export default function ResetPassword() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const { updatePassword } = useAuth()
+  const { updatePassword, signOut } = useAuth()
   const { toast } = useToast()
   const navigate = useNavigate()
   const location = useLocation()
@@ -70,6 +70,7 @@ export default function ResetPassword() {
           title: 'Senha atualizada',
           description: 'Senha alterada com sucesso! Você já pode realizar o login.',
         })
+        await signOut()
         setTimeout(() => {
           navigate('/login')
         }, 2000)

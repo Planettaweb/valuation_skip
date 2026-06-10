@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase/client'
 import { Loader2 } from 'lucide-react'
@@ -15,7 +14,6 @@ export default function Register() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const { signUp } = useAuth()
   const { toast } = useToast()
   const navigate = useNavigate()
 
@@ -24,27 +22,35 @@ export default function Register() {
     setLoading(true)
 
     try {
-      const { error } = await signUp(email, password, {
-        full_name: fullName,
-        org_name: orgName,
+      const redirectUrl = `${window.location.origin}/app`
+      const { error } = await supabase.functions.invoke('send-reset-password-email', {
+        body: {
+          type: 'signup',
+          email,
+          password,
+          fullName,
+          orgName,
+          redirect_to: redirectUrl,
+        },
       })
 
       if (error) {
-        let msg = error.message
-        if (msg.toLowerCase().includes('timeout') || msg.includes('504')) {
-          msg =
-            'O servidor demorou muito para responder. A conta pode ter sido criada. Tente fazer login em instantes ou redefina sua senha.'
-        }
-        toast({ title: 'Erro ao Registrar', description: msg, variant: 'destructive' })
+        toast({
+          title: 'Erro ao Registrar',
+          description:
+            'Falha ao enviar e-mail de validação. Por favor, entre em contato com o suporte.',
+          variant: 'destructive',
+        })
       } else {
-        // Trigger Edge Function with full details
+        // Trigger Edge Function to notify admin
         supabase.functions
           .invoke('notify-admin', { body: { email, orgName, fullName } })
           .catch(console.error)
 
         toast({
           title: 'Conta Criada',
-          description: 'Você foi registrado com sucesso. Aguarde a aprovação do administrador.',
+          description:
+            'E-mail de validação enviado. Por favor, verifique sua caixa de entrada para ativar sua conta.',
         })
         navigate('/login')
       }
