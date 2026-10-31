@@ -13,6 +13,7 @@ import {
   FileText,
   Network,
   BarChart3,
+  Scale,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import {
@@ -116,6 +117,17 @@ export function AppSidebar() {
             <CollapsibleContent>
               <SidebarGroupContent>
                 <SidebarMenu className="gap-2 px-2 mt-2">
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={location.pathname === '/app/conciliacao'}>
+                      <Link
+                        to="/app/conciliacao"
+                        className="hover:bg-primary/10 hover:text-primary transition-colors"
+                      >
+                        <Scale className="w-4 h-4 text-emerald-400" />{' '}
+                        <span>Conciliação Financeira</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild isActive={location.pathname === '/app/plano-contas'}>
                       <Link

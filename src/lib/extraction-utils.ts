@@ -589,30 +589,6 @@ export async function persistStructuredData(
   for (let i = 0; i < total; i += BATCH_SIZE) {
     const batch = rowsData.slice(i, i + BATCH_SIZE)
 
-    const { error: dataError } = await supabase.from('financial_data' as any).insert(
-      batch.map((d, index) => ({
-        org_id: orgId,
-        document_id: docId,
-        row_number: i + index + 1,
-        ordem: d.ordem || i + index + 1,
-        account_name: d.description,
-        value: toNum(d.value),
-        period: d.period?.toString() || null,
-        conta_id: d.conta_id || null,
-      })),
-    )
-    if (dataError) console.error('Error inserting into financial_data:', dataError)
-
-    const { error: rowsError } = await supabase.from('document_rows').insert(
-      batch.map((d, index) => ({
-        org_id: orgId,
-        document_id: docId,
-        row_index: i + index + 1,
-        data: d,
-      })),
-    )
-    if (rowsError) console.error('Error inserting into document_rows:', rowsError)
-
     try {
       if (documentType === 'Balanço' || documentType === 'Balanço Patrimonial') {
         const { error } = await supabase.from('financial_balanco_patrimonial' as any).insert(

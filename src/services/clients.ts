@@ -67,21 +67,85 @@ export const clientService = {
   },
 
   async getFinancialData(clientId: string) {
-    const { data, error } = await supabase
-      .from('financial_data' as any)
-      .select(`
-        *,
-        financial_documents!inner (
-          document_type,
-          valuation_id,
-          valuations!inner (
-            client_id
-          )
-        )
-      `)
-      .eq('financial_documents.valuations.client_id', clientId)
-      .order('created_at', { ascending: false })
-    return { data, error }
+    // Busca dados analíticos agregados das tabelas financeiras existentes (BP, Balancete, DRE, Fluxo de Caixa)
+    try {
+      const [bpRes, balanceteRes, dreRes, fcRes] = await Promise.all([
+        supabase
+          .from('financial_balanco_patrimonial' as any)
+          .select('id, description, value_year_n, year_n, created_at, client_id, document_id')
+          .eq('client_id', clientId)
+          .order('created_at', { ascending: false })
+          .limit(100),
+        supabase
+          .from('financial_balancete' as any)
+          .select('id, account_description, current_balance, created_at, client_id, document_id')
+          .eq('client_id', clientId)
+          .order('created_at', { ascending: false })
+          .limit(100),
+        supabase
+          .from('financial_dre' as any)
+          .select('id, description, balance, total, created_at, client_id, document_id')
+          .eq('client_id', clientId)
+          .order('created_at', { ascending: false })
+          .limit(100),
+        supabase
+          .from('financial_fluxo_caixa' as any)
+          .select('id, description, value, period, created_at, client_id, document_id')
+          .eq('client_id', clientId)
+          .order('created_at', { ascending: false })
+          .limit(100),
+      ])
+
+      const list: any[] = []
+
+      bpRes.data?.forEach((r: any) => {
+        list.push({
+          id: r.id,
+          account_name: r.description,
+          value: r.value_year_n,
+          period: r.year_n ? String(r.year_n) : null,
+          document_type: 'Balanço Patrimonial',
+          created_at: r.created_at,
+        })
+      })
+
+      balanceteRes.data?.forEach((r: any) => {
+        list.push({
+          id: r.id,
+          account_name: r.account_description,
+          value: r.current_balance,
+          period: null,
+          document_type: 'Balancete',
+          created_at: r.created_at,
+        })
+      })
+
+      dreRes.data?.forEach((r: any) => {
+        list.push({
+          id: r.id,
+          account_name: r.description,
+          value: r.total ?? r.balance,
+          period: null,
+          document_type: 'DRE',
+          created_at: r.created_at,
+        })
+      })
+
+      fcRes.data?.forEach((r: any) => {
+        list.push({
+          id: r.id,
+          account_name: r.description,
+          value: r.value,
+          period: r.period,
+          document_type: 'Fluxo de Caixa',
+          created_at: r.created_at,
+        })
+      })
+
+      return { data: list, error: null }
+    } catch (err: any) {
+      return { data: [], error: err }
+    }
   },
 
   async getPlanoContas(clientId: string) {

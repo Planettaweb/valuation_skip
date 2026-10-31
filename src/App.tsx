@@ -24,6 +24,7 @@ import Permissions from './pages/Permissions'
 import Profile from './pages/Profile'
 import Settings from './pages/Settings'
 import PlanoContas from './pages/PlanoContas'
+import Conciliacao from './pages/Conciliacao'
 import TiposDocumentos from './pages/TiposDocumentos'
 import MatrizRelacionamento from './pages/MatrizRelacionamento'
 import Reports from './pages/Reports'
@@ -36,20 +37,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation()
   const [isChecking, setIsChecking] = useState(true)
 
-  // Isolamento da Rota de Sessão: guard mais resiliente para evitar logout acidental
-  useEffect(() => {
-    let timer: NodeJS.Timeout
-    if (!loading) {
-      // Grace period substancialmente estendido para 5000ms. Durante processamento pesado (reflows longos)
-      // a thread principal trava e delays artificiais previnem ejetar o usuário acidentalmente.
-      timer = setTimeout(() => setIsChecking(false), 5000)
-    }
-    return () => clearTimeout(timer)
-  }, [loading])
-
-  // Retemos a renderização dos filhos caso já tenhamos o usuário e ocorra uma checagem em background
-  // Isso previne que a UI pisque ou seja desmontada perdendo estado local de formulários e combos
-  if (loading || (isChecking && !user)) {
+  // Se ainda estiver carregando a autenticação inicial do Supabase, exibe spinner
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -57,7 +46,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     )
   }
 
-  if (!user && !loading && !isChecking) {
+  // Se não há usuário autenticado após carregar, redireciona para login
+  if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
@@ -111,6 +101,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 // Public Route Wrapper
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth()
+  const location = useLocation()
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
@@ -118,7 +110,13 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
       </div>
     )
   }
-  if (user) return <Navigate to="/app" replace />
+
+  // Se o usuário já está autenticado, redireciona para a rota pretendida ou para /app
+  if (user) {
+    const from = (location.state as any)?.from?.pathname || '/app'
+    return <Navigate to={from} replace />
+  }
+
   return <>{children}</>
 }
 
@@ -169,6 +167,7 @@ const AppRoutes = () => (
       <Route path="clients" element={<Clients />} />
       <Route path="clients/:clientId" element={<ClientDetails />} />
       <Route path="documents" element={<Documents />} />
+      <Route path="conciliacao" element={<Conciliacao />} />
       <Route path="plano-contas" element={<PlanoContas />} />
       <Route path="tipos-documentos" element={<TiposDocumentos />} />
       <Route path="matriz-relacionamento" element={<MatrizRelacionamento />} />
@@ -188,6 +187,7 @@ const AppRoutes = () => (
     {/* Legacy Route Redirects */}
     <Route path="/clients/*" element={<LegacyRedirect />} />
     <Route path="/documents/*" element={<LegacyRedirect />} />
+    <Route path="/conciliacao/*" element={<LegacyRedirect />} />
     <Route path="/plano-contas/*" element={<LegacyRedirect />} />
     <Route path="/tipos-documentos/*" element={<LegacyRedirect />} />
     <Route path="/matriz-relacionamento/*" element={<LegacyRedirect />} />

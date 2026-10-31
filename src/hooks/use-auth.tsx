@@ -125,6 +125,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUserProfile((prev) => {
           if (!prev || prev.id !== session.user.id) {
             fetchProfile(session.user.id)
+          } else {
+            setLoading(false)
           }
           return prev
         })

@@ -310,7 +310,6 @@ export const documentService = {
       const tables = [
         'financial_balancete',
         'financial_balanco_patrimonial',
-        'financial_data',
         'financial_dre',
         'financial_fluxo_caixa',
       ]
@@ -431,12 +430,6 @@ export const documentService = {
 
       onProgress?.('Limpando registros analíticos antigos...')
       await supabase
-        .from('financial_data' as any)
-        .delete()
-        .eq('document_id', docId)
-        .eq('org_id', orgId)
-      await supabase.from('document_rows').delete().eq('document_id', docId).eq('org_id', orgId)
-      await supabase
         .from('financial_balanco_patrimonial' as any)
         .delete()
         .eq('document_id', docId)
@@ -542,7 +535,6 @@ export const documentService = {
         const tables = [
           'financial_balancete',
           'financial_balanco_patrimonial',
-          'financial_data',
           'financial_dre',
           'financial_fluxo_caixa',
         ]
